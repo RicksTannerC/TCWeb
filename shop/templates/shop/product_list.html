@@ -1,0 +1,33 @@
+{% extends "shop/base.html" %}
+{% load static %}
+
+{% block title %}TCR — The Steady Ascent{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">The Steady Ascent — Pilot Build</p>
+  <h1>Shirts, screen-printed to order.</h1>
+  <p>A small pilot run against the TCR identity system.</p>
+</section>
+
+<section class="grid">
+  {% for product in products %}
+    <a class="card" href="{{ product.get_absolute_url }}">
+      <div class="thumb">
+        {% if product.image %}
+          <img src="{{ product.image.url }}" alt="{{ product.name }}" />
+        {% else %}
+          <span class="thumb-fallback">{{ product.name }}</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <h2>{{ product.name }}</h2>
+        <p class="color">{{ product.color }}</p>
+        <p class="price">${{ product.price }}</p>
+      </div>
+    </a>
+  {% empty %}
+    <p class="empty">No products yet — run <code>manage.py seed_products</code>, or add some in the admin.</p>
+  {% endfor %}
+</section>
+{% endblock %}

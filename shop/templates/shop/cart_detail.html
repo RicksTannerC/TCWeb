@@ -1,0 +1,38 @@
+{% extends "shop/base.html" %}
+
+{% block title %}Your cart — TCR{% endblock %}
+
+{% block content %}
+<section class="cart">
+  <h1>Your cart</h1>
+
+  {% if cart|length == 0 %}
+    <p class="empty">Nothing here yet. <a href="{% url 'shop:product_list' %}">Go pick a shirt.</a></p>
+  {% else %}
+    <ul class="cart-list">
+      {% for item in cart %}
+        <li>
+          <div class="thumb small">
+            {% if item.product.image %}
+              <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" />
+            {% else %}
+              <span class="thumb-fallback">{{ item.product.name }}</span>
+            {% endif %}
+          </div>
+          <div>
+            <h2>{{ item.product.name }}</h2>
+            <p>{{ item.quantity }} × ${{ item.product.price }}</p>
+          </div>
+          <p class="subtotal">${{ item.subtotal }}</p>
+          <form action="{% url 'shop:cart_remove' item.product.id %}" method="POST">
+            {% csrf_token %}
+            <button type="submit" class="remove">Remove</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="total">Total: ${{ cart.get_total }}</p>
+    <button class="checkout" disabled>Checkout (not wired up yet)</button>
+  {% endif %}
+</section>
+{% endblock %}

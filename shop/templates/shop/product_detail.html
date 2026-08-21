@@ -1,0 +1,26 @@
+{% extends "shop/base.html" %}
+
+{% block title %}{{ product.name }} — TCR{% endblock %}
+
+{% block content %}
+<section class="product-detail">
+  <div class="thumb large">
+    {% if product.image %}
+      <img src="{{ product.image.url }}" alt="{{ product.name }}" />
+    {% else %}
+      <span class="thumb-fallback">{{ product.name }}</span>
+    {% endif %}
+  </div>
+  <div class="product-info">
+    <h1>{{ product.name }}</h1>
+    <p class="color">{{ product.color }}</p>
+    <p class="price">${{ product.price }}</p>
+    <p class="description">{{ product.description }}</p>
+
+    <form action="{% url 'shop:cart_add' product.id %}" method="POST">
+      {% csrf_token %}
+      <button type="submit">Add to cart</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
