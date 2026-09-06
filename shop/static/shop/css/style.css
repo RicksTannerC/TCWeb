@@ -795,6 +795,114 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--steel); out
   padding: var(--sp-2); border-radius: var(--radius); color: var(--ink-soft);
 }
 
+/* ============================================================
+   Milestone 4 — the curator's console
+   Same glass family as the shop, lighter, mostly un-animated.
+   ============================================================ */
+
+body.console { background: var(--ground, var(--paper)); }
+.console-main { padding-block: var(--sp-4); }
+.console-main h1 { font-size: var(--step-3); margin-bottom: var(--sp-3); }
+.console-main h2 { font-size: var(--step-1); margin: var(--sp-4) 0 var(--sp-2); }
+
+.console-bar { background: var(--black); color: var(--white); }
+.console-bar .wrap {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding-block: var(--sp-2); flex-wrap: wrap;
+}
+.console-brand {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  color: var(--white); text-decoration: none;
+  font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.9rem;
+}
+.console-brand .brand__mark { width: 26px; height: 26px; font-size: 0.7rem; }
+.console-nav { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; flex: 1; }
+.console-nav a {
+  color: rgba(255,255,255,0.72); text-decoration: none;
+  font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.08em;
+  font-size: 0.76rem; padding: 0.2rem 0; border-bottom: 2px solid transparent;
+}
+.console-nav a:hover { color: var(--white); }
+.console-nav a[aria-current="page"] { color: var(--white); border-color: var(--olive); }
+.console-bar__end { display: flex; align-items: center; gap: 1rem; font-size: var(--step--1); }
+.console-bar__end a { color: rgba(255,255,255,0.72); text-decoration: none; }
+.console-bar__end a:hover { color: var(--white); }
+.console-bar__end .linkish { color: rgba(255,255,255,0.72); }
+
+/* ---- stat tiles ---- */
+.tile-stats {
+  display: grid; gap: var(--sp-2);
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+.stat { display: grid; gap: 0.2rem; }
+.stat--flag { border-left: 3px solid var(--warn); }
+.stat__label {
+  font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.09em;
+  font-size: 0.68rem; color: var(--ink-faint);
+}
+.stat__big { font-family: var(--font-display); font-size: 1.7rem; line-height: 1.1; }
+.stat a { font-size: var(--step--1); }
+
+.bar-list { list-style: none; padding: 0; display: grid; gap: 0.4rem; }
+.bar-list li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.3rem 0; border-bottom: 1px solid var(--line-soft); }
+
+/* ---- dropzone ---- */
+.dropzone {
+  display: grid; gap: var(--sp-2); border: 1.5px dashed var(--line-strong);
+  text-align: center; padding: var(--sp-3);
+}
+.dropzone.is-over { border-color: var(--olive); background: var(--surface-2); }
+.dropzone input[type="file"] { justify-self: center; }
+.dropzone button { justify-self: center; }
+
+/* ---- listing / generic rows ---- */
+.listing-rows { list-style: none; padding: 0; display: grid; gap: var(--sp-2); }
+.listing-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3);
+}
+.listing-row__thumb {
+  width: 48px; height: 48px; flex-shrink: 0; background: var(--black);
+  display: grid; place-items: center; overflow: hidden; font-size: 0.4rem; color: var(--olive); text-align: center;
+}
+.listing-row__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.listing-row__meta { display: grid; gap: 0.1rem; flex: 1; min-width: 12rem; }
+.listing-row__meta .faint { font-size: var(--step--1); }
+.ok-text { color: var(--olive-deep); }
+
+/* ---- edit grid ---- */
+.edit-grid { display: grid; gap: var(--sp-3); }
+@media (min-width: 820px) { .edit-grid { grid-template-columns: 1fr 1fr; } }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); align-items: center; }
+.field { display: grid; gap: 0.25rem; }
+.field textarea, .field input, .field select { width: 100%; }
+
+.image-strip { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.image-cell { width: 110px; display: grid; gap: 0.2rem; text-align: center; }
+.image-cell img { width: 110px; height: 130px; object-fit: cover; background: var(--black); border: 1px solid var(--line); }
+.image-cell figcaption { font-size: 0.68rem; }
+
+.member-list { list-style: none; padding: 0; display: grid; gap: 0.3rem; max-height: 22rem; overflow-y: auto; }
+.member-list label { display: flex; gap: 0.5rem; align-items: baseline; font-size: var(--step-0); color: var(--ink); }
+
+/* ---- pricing table ---- */
+.pricing-table { width: 100%; border-collapse: collapse; font-size: var(--step--1); min-width: 720px; }
+.pricing-table th {
+  text-align: left; font-family: var(--font-display); text-transform: uppercase;
+  letter-spacing: 0.06em; font-size: 0.66rem; color: var(--ink-faint);
+  padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line);
+}
+.pricing-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line-soft); }
+.pricing-table tr.is-flag { background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.cell-input { width: 6rem; padding: 0.3rem 0.4rem; }
+
+/* ---- messages ---- */
+.console-tabs a { font-size: var(--step--1); color: var(--ink-faint); text-decoration: none; padding: 0 0.4rem; }
+.console-tabs a.is-active { color: var(--ink); border-bottom: 2px solid var(--olive); }
+.msg-list { list-style: none; padding: 0; display: grid; gap: var(--sp-2); }
+.msg.is-handled { opacity: 0.55; }
+.msg__head { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; align-items: baseline; margin-bottom: 0.4rem; }
+.msg__body { white-space: pre-wrap; }
+
 /* ---- utilities -------------------------------------- */
 .stack > * + * { margin-top: var(--sp-3); }
 .cluster { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }

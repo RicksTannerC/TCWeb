@@ -1,0 +1,36 @@
+{% extends "shop/manage/base.html" %}
+{% block title %}Messages{% endblock %}
+
+{% block console %}
+<div class="cluster" style="justify-content:space-between;">
+  <h1>Messages</h1>
+  <span class="console-tabs">
+    <a href="?show=open" {% if show == 'open' %}class="is-active"{% endif %}>Open</a>
+    <a href="?show=all" {% if show == 'all' %}class="is-active"{% endif %}>All</a>
+  </span>
+</div>
+
+<ul class="msg-list" role="list">
+  {% for m in messages_list %}
+    <li class="panel msg {% if m.handled %}is-handled{% endif %}">
+      <div class="msg__head">
+        <strong>{{ m.name|default:m.email }}</strong>
+        <span class="faint">{{ m.email }}{% if m.order %} &middot; <a href="{% url 'shop:manage_order' m.order.pk %}">{{ m.order.reference }}</a>{% endif %}</span>
+        <span class="faint">{{ m.created|date:"j M Y, H:i" }}</span>
+      </div>
+      {% if m.subject %}<p><strong>{{ m.subject }}</strong></p>{% endif %}
+      <p class="msg__body">{{ m.body|linebreaksbr }}</p>
+      <div class="cluster">
+        <a class="btn btn--sm btn--ghost" href="mailto:{{ m.email }}?subject=Re: {{ m.subject|default:'your message' }}">Reply by email</a>
+        <form method="post" action="{% url 'shop:manage_message_toggle' m.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+          <button type="submit" class="btn btn--sm">{% if m.handled %}Reopen{% else %}Mark handled{% endif %}</button>
+        </form>
+      </div>
+    </li>
+  {% empty %}
+    <li class="muted">{% if show == 'open' %}Nothing open — inbox zero.{% else %}No messages.{% endif %}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

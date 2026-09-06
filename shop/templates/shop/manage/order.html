@@ -1,11 +1,10 @@
-{% extends "shop/base.html" %}
+{% extends "shop/manage/base.html" %}
 
-{% block title %}{{ order.reference }} — Order desk{% endblock %}
-{% block head_extra %}<meta name="robots" content="noindex" />{% endblock %}
+{% block title %}{{ order.reference }}{% endblock %}
 
-{% block content %}
+{% block console %}
 <section class="stack manage-order">
-  <p class="eyebrow"><a href="{% url 'shop:manage_queue' %}">&larr; Order desk</a></p>
+  <p class="eyebrow"><a href="{% url 'shop:manage_queue' %}">&larr; Orders</a></p>
   <div class="cluster" style="justify-content:space-between;">
     <h1>{{ order.reference }}</h1>
     <span class="tag">{{ order.get_status_display }}</span>

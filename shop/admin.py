@@ -10,6 +10,7 @@ from .models import (
     ProductTemplate,
     Tag,
 )
+from .console import ContactMessage, OverheadEntry
 from .orders import Fulfillment, Order, OrderItem, Subscriber
 
 # The bespoke curator's console is Milestone 4. Until then, the Django admin
@@ -148,3 +149,18 @@ class SubscriberAdmin(admin.ModelAdmin):
     list_filter = ("is_active", "source")
     search_fields = ("email", "name")
     readonly_fields = ("unsubscribe_token", "created")
+
+
+@admin.register(OverheadEntry)
+class OverheadEntryAdmin(admin.ModelAdmin):
+    list_display = ("incurred_on", "label", "category", "amount")
+    list_filter = ("category",)
+    date_hierarchy = "incurred_on"
+
+
+@admin.register(ContactMessage)
+class ContactMessageAdmin(admin.ModelAdmin):
+    list_display = ("email", "subject", "order", "handled", "created")
+    list_filter = ("handled",)
+    search_fields = ("email", "name", "subject", "body")
+    autocomplete_fields = ("order",)

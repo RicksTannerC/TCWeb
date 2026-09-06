@@ -54,7 +54,7 @@
         <a href="{% url 'shop:index' %}"
            {% if request.resolver_match.url_name == 'index' %}aria-current="page"{% endif %}>Shop</a>
         <a href="#" aria-disabled="true">About</a>
-        {% if request.user.is_staff %}<a href="{% url 'shop:manage_queue' %}">Desk</a>{% endif %}
+        {% if request.user.is_staff %}<a href="{% url 'shop:manage_dashboard' %}">Console</a>{% endif %}
         <a class="cart-link" href="{% url 'shop:cart_detail' %}" @click.prevent="cartOpen = true"
            {% if request.resolver_match.url_name == 'cart_detail' %}aria-current="page"{% endif %}>
           Cart {% include "shop/_cart_indicator.html" %}
@@ -93,7 +93,7 @@
       <nav aria-label="Footer">
         <a href="#">About</a>
         <a href="#">Shipping &amp; Returns</a>
-        <a href="#">Contact</a>
+        <a href="{% url 'shop:contact' %}">Contact</a>
         <a href="#">Privacy</a>
         <a href="#">Terms</a>
         <a href="#">Social</a>

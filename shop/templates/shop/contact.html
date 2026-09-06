@@ -1,0 +1,24 @@
+{% extends "shop/base.html" %}
+{% block title %}Contact — The T-Shirt Shop{% endblock %}
+
+{% block content %}
+<section class="stack center-narrow">
+  <h1>Contact</h1>
+  <p class="muted">Question about an order, a size, or anything else? Send it here and we'll reply by email.
+    If it's about an order, add the reference (like <code>TTS-00007</code>).</p>
+
+  <form method="post" class="stack panel">
+    {% csrf_token %}
+    <div class="row-2">
+      <div class="field"><label for="name">Name</label><input id="name" name="name" /></div>
+      <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" required /></div>
+    </div>
+    <div class="row-2">
+      <div class="field"><label for="subject">Subject</label><input id="subject" name="subject" /></div>
+      <div class="field"><label for="order_ref">Order reference (optional)</label><input id="order_ref" name="order_ref" placeholder="TTS-…" /></div>
+    </div>
+    <div class="field"><label for="body">Message</label><textarea id="body" name="body" rows="5" required></textarea></div>
+    <button type="submit" class="btn">Send</button>
+  </form>
+</section>
+{% endblock %}

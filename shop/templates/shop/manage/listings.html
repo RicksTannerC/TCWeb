@@ -1,0 +1,51 @@
+{% extends "shop/manage/base.html" %}
+{% block title %}Listings{% endblock %}
+
+{% block console %}
+<div class="cluster" style="justify-content:space-between;">
+  <h1>Listings</h1>
+</div>
+
+<form class="dropzone panel" method="post" action="{% url 'shop:manage_listings_intake' %}"
+      enctype="multipart/form-data"
+      x-data="{ over:false }" @dragover.prevent="over=true" @dragleave.prevent="over=false"
+      @drop.prevent="over=false; $refs.input.files = $event.dataTransfer.files"
+      :class="{ 'is-over': over }">
+  {% csrf_token %}
+  <p><strong>Drop print-ready files here</strong> &mdash; one draft design per file (tee + sticker), not connected to Printful.</p>
+  <input type="file" name="artwork" x-ref="input" multiple accept="image/*" />
+  <button type="submit" class="btn btn--sm">Create drafts</button>
+</form>
+
+{% for label, items in groups %}
+  <h2>{{ label }} <span class="faint tnum">({{ items|length }})</span></h2>
+  {% if items %}
+    <ul class="listing-rows" role="list">
+      {% for l in items %}
+        <li class="panel listing-row">
+          <span class="listing-row__thumb">
+            {% with img=l.primary_image %}
+              {% if img %}<img src="{{ img.image.url }}" alt="" />{% elif l.design.artwork %}<img src="{{ l.design.artwork.url }}" alt="" />{% else %}<span>{{ l.design.title }}</span>{% endif %}
+            {% endwith %}
+          </span>
+          <span class="listing-row__meta">
+            <a href="{% url 'shop:manage_listing_edit' l.pk %}"><strong>{{ l.design.title }}</strong></a>
+            <span class="faint">{{ l.get_product_type_display }}{% if l.color %} &middot; {{ l.color }}{% endif %} &middot; ${{ l.price }}
+              {% if l.is_connected %}&middot; <span class="ok-text">Printful ✓</span>{% else %}&middot; <span class="faint">not on Printful</span>{% endif %}
+            </span>
+          </span>
+          <form method="post" action="{% url 'shop:manage_listing_status' l.pk %}" class="cluster">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+            <select name="status" onchange="this.form.submit()">
+              {% for val, lbl in status_choices %}<option value="{{ val }}" {% if l.status == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+            </select>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">None.</p>
+  {% endif %}
+{% endfor %}
+{% endblock %}

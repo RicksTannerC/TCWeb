@@ -1,6 +1,8 @@
 from django.urls import path
 
-from . import manage_views, views
+from . import console_views as cv
+from . import manage_views as mv
+from . import views
 
 app_name = "shop"
 
@@ -22,20 +24,47 @@ urlpatterns = [
     path("webhooks/stripe/", views.stripe_webhook, name="stripe_webhook"),
     path("webhooks/printful/", views.printful_webhook, name="printful_webhook"),
 
-    # subscribers
+    # subscribers + contact
     path("subscribe/", views.subscribe, name="subscribe"),
     path("unsubscribe/<str:token>/", views.unsubscribe, name="unsubscribe"),
+    path("contact/", views.contact, name="contact"),
 
-    # orders
+    # order tracking
     path("order/<str:token>/", views.order_track, name="order_track"),
 
-    # curator's order desk (staff)
-    path("manage/", manage_views.order_queue, name="manage_queue"),
-    path("manage/orders/<int:pk>/", manage_views.order_manage, name="manage_order"),
-    path("manage/orders/<int:pk>/approve/", manage_views.order_approve, name="manage_order_approve"),
-    path("manage/orders/<int:pk>/refund/", manage_views.order_refund, name="manage_order_refund"),
-    path("manage/orders/<int:pk>/simulate/", manage_views.order_simulate, name="manage_order_simulate"),
-    path("manage/fulfillments/<int:pk>/reprint/", manage_views.fulfillment_reprint, name="manage_fulfillment_reprint"),
+    # ---- the curator's console (staff) ----
+    path("manage/", cv.dashboard, name="manage_dashboard"),
+
+    path("manage/orders/", mv.order_queue, name="manage_queue"),
+    path("manage/orders/<int:pk>/", mv.order_manage, name="manage_order"),
+    path("manage/orders/<int:pk>/approve/", mv.order_approve, name="manage_order_approve"),
+    path("manage/orders/<int:pk>/refund/", mv.order_refund, name="manage_order_refund"),
+    path("manage/orders/<int:pk>/simulate/", mv.order_simulate, name="manage_order_simulate"),
+    path("manage/fulfillments/<int:pk>/reprint/", mv.fulfillment_reprint, name="manage_fulfillment_reprint"),
+
+    path("manage/listings/", cv.listings, name="manage_listings"),
+    path("manage/listings/intake/", cv.listings_intake, name="manage_listings_intake"),
+    path("manage/listings/<int:pk>/", cv.listing_edit, name="manage_listing_edit"),
+    path("manage/listings/<int:pk>/printful/", cv.listing_send_to_printful, name="manage_listing_printful"),
+    path("manage/listings/<int:pk>/status/", cv.listing_set_status, name="manage_listing_status"),
+    path("manage/listings/<int:pk>/image/", cv.listing_add_image, name="manage_listing_add_image"),
+    path("manage/listings/<int:pk>/mockups/", cv.listing_generate_mockups, name="manage_listing_mockups"),
+    path("manage/images/<int:pk>/delete/", cv.image_delete, name="manage_image_delete"),
+
+    path("manage/collections/", cv.collections, name="manage_collections"),
+    path("manage/collections/create/", cv.collection_create, name="manage_collection_create"),
+    path("manage/collections/<int:pk>/", cv.collection_edit, name="manage_collection_edit"),
+    path("manage/collections/<int:pk>/toggle/", cv.collection_toggle, name="manage_collection_toggle"),
+
+    path("manage/pricing/", cv.pricing, name="manage_pricing"),
+    path("manage/pricing/update/", cv.pricing_update, name="manage_pricing_update"),
+
+    path("manage/books/", cv.books, name="manage_books"),
+    path("manage/books/overhead/add/", cv.overhead_add, name="manage_overhead_add"),
+    path("manage/books/overhead/<int:pk>/delete/", cv.overhead_delete, name="manage_overhead_delete"),
+
+    path("manage/messages/", cv.inbox, name="manage_inbox"),
+    path("manage/messages/<int:pk>/toggle/", cv.message_toggle, name="manage_message_toggle"),
 
     # catalogue
     path("overlay/close/", views.overlay_close, name="overlay_close"),

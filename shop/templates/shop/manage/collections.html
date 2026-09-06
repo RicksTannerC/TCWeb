@@ -1,0 +1,30 @@
+{% extends "shop/manage/base.html" %}
+{% block title %}Collections{% endblock %}
+
+{% block console %}
+<h1>Collections</h1>
+
+<ul class="listing-rows" role="list">
+  {% for c in collections %}
+    <li class="panel listing-row">
+      <span class="listing-row__meta">
+        <a href="{% url 'shop:manage_collection_edit' c.pk %}"><strong>{{ c.name }}</strong></a>
+        <span class="faint">{{ c.n }} listing{{ c.n|pluralize }}{% if c.is_base %} &middot; base world{% endif %}{% if c.go_live_at %} &middot; live {{ c.go_live_at|date:"j M" }}{% endif %}</span>
+      </span>
+      <span class="tag {% if c.status != 'live' %}faint{% endif %}">{{ c.get_status_display }}</span>
+      {% if not c.is_base %}
+        <form method="post" action="{% url 'shop:manage_collection_toggle' c.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--sm btn--ghost">{% if c.status == 'live' %}Unpublish{% else %}Publish{% endif %}</button>
+        </form>
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>
+
+<form class="panel cluster" method="post" action="{% url 'shop:manage_collection_create' %}">
+  {% csrf_token %}
+  <input name="name" placeholder="New collection name" required />
+  <button type="submit" class="btn btn--sm">Create</button>
+</form>
+{% endblock %}

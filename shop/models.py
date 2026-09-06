@@ -170,6 +170,10 @@ class Listing(models.Model):
     price = models.DecimalField(max_digits=7, decimal_places=2, default=Decimal("0.00"))
     base_cost = models.DecimalField(max_digits=7, decimal_places=2, default=Decimal("0.00"))
     shipping_est = models.DecimalField(max_digits=7, decimal_places=2, default=Decimal("0.00"))
+    competitor_price = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True,
+        help_text="Hand-entered, for the pricing workspace.",
+    )
 
     # empty = not connected to Printful
     printful_product_id = models.CharField(max_length=40, blank=True)
@@ -290,7 +294,7 @@ class ListingImage(models.Model):
         return f"{self.listing} — image {self.pk}"
 
 
-# Order-side models live in orders.py; import them so migrations discover them.
+# Order-side + console models live in sibling modules; import so migrations see them.
 from .orders import (  # noqa: E402,F401
     Fulfillment,
     Order,
@@ -298,3 +302,4 @@ from .orders import (  # noqa: E402,F401
     OrderStatus,
     Subscriber,
 )
+from .console import ContactMessage, OverheadEntry  # noqa: E402,F401

@@ -1,0 +1,44 @@
+{% extends "shop/manage/base.html" %}
+{% block title %}{{ col.name }}{% endblock %}
+
+{% block console %}
+<p class="eyebrow"><a href="{% url 'shop:manage_collections' %}">&larr; Collections</a></p>
+<h1>{{ col.name }}</h1>
+
+<form method="post" class="stack">
+  {% csrf_token %}
+  <div class="panel stack">
+    <div class="field"><label for="name">Name</label>
+      <input id="name" name="name" value="{{ col.name }}" {% if col.is_base %}readonly{% endif %} /></div>
+    <div class="field"><label for="summary">Summary</label>
+      <textarea id="summary" name="summary" rows="2">{{ col.summary }}</textarea></div>
+    <div class="row-2">
+      <div class="field"><label for="status">Status</label>
+        <select id="status" name="status">
+          <option value="hidden" {% if col.status == 'hidden' %}selected{% endif %}>Hidden (staging)</option>
+          <option value="live" {% if col.status == 'live' %}selected{% endif %}>Live</option>
+        </select></div>
+      <div class="field"><label for="go_live_at">Go live at</label>
+        <input id="go_live_at" name="go_live_at" type="datetime-local"
+               value="{{ col.go_live_at|date:'Y-m-d\TH:i' }}" /></div>
+    </div>
+  </div>
+
+  <div class="panel stack">
+    <h2>Members</h2>
+    <p class="faint">Tick the listings in this collection. Drafts aren't shown.</p>
+    <ul class="member-list">
+      {% for l in all_listings %}
+        <li>
+          <label>
+            <input type="checkbox" name="listings" value="{{ l.id }}" {% if l.id in member_ids %}checked{% endif %} />
+            {{ l.design.title }} <span class="faint">— {{ l.get_product_type_display }}{% if l.color %} · {{ l.color }}{% endif %} · {{ l.get_status_display }}</span>
+          </label>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <button type="submit" class="btn">Save collection</button>
+</form>
+{% endblock %}

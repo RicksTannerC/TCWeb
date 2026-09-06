@@ -1,0 +1,38 @@
+{% extends "shop/manage/base.html" %}
+{% block title %}Pricing{% endblock %}
+
+{% block console %}
+<h1>Pricing workspace</h1>
+<p class="muted">Rule: <code>(base + ship) &times; 2.5</code>, round to <code>.00</code>, flag under 2.0&times;. Tee ceiling ${{ ceiling }}.
+  Competitor prices are hand-entered. Edit retail inline and save.</p>
+
+<form method="post" action="{% url 'shop:manage_pricing_update' %}">
+  {% csrf_token %}
+  <div class="table-wrap">
+    <table class="pricing-table">
+      <thead>
+        <tr>
+          <th>Listing</th><th>Base</th><th>Ship</th><th>Landed</th>
+          <th>Suggested</th><th>Retail</th><th>&times;</th><th>Margin $</th><th>Competitor</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in rows %}
+          <tr {% if l.below_guardrail %}class="is-flag"{% endif %}>
+            <td>{{ l.design.title }} <span class="faint">{{ l.get_product_type_display }}{% if l.color %} · {{ l.color }}{% endif %}</span></td>
+            <td class="tnum">${{ l.base_cost }}</td>
+            <td class="tnum">${{ l.shipping_est }}</td>
+            <td class="tnum">${{ l.landed_cost }}</td>
+            <td class="tnum">${{ l.suggested_price }}</td>
+            <td><input class="cell-input" name="price_{{ l.pk }}" type="number" step="0.01" value="{{ l.price }}" /></td>
+            <td class="tnum">{{ l.margin_multiple }}{% if l.below_guardrail %} ⚠{% endif %}</td>
+            <td class="tnum">${{ l.margin_dollars }}</td>
+            <td><input class="cell-input" name="comp_{{ l.pk }}" type="number" step="0.01" value="{{ l.competitor_price|default_if_none:'' }}" /></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <button type="submit" class="btn">Save prices</button>
+</form>
+{% endblock %}

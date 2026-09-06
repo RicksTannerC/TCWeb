@@ -1,0 +1,113 @@
+{% extends "shop/manage/base.html" %}
+{% block title %}{{ listing.design.title }}{% endblock %}
+
+{% block console %}
+<p class="eyebrow"><a href="{% url 'shop:manage_listings' %}">&larr; Listings</a></p>
+<div class="cluster" style="justify-content:space-between;">
+  <h1>{{ listing.design.title }}</h1>
+  <span class="tag">{{ listing.get_product_type_display }} &middot; {{ listing.get_status_display }}</span>
+</div>
+
+<form method="post" class="edit-grid">
+  {% csrf_token %}
+
+  <div class="panel stack">
+    <h2>Design</h2>
+    <div class="field"><label for="title">Title</label>
+      <input id="title" name="title" value="{{ listing.design.title }}" /></div>
+    <div class="field"><label for="story">Story</label>
+      <textarea id="story" name="story" rows="3">{{ listing.design.story }}</textarea></div>
+    <div class="field"><label for="tags">Tags (comma-separated)</label>
+      <input id="tags" name="tags" value="{% for t in listing.design.tags.all %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %}" />
+      <span class="faint">In use: {% for t in all_tags %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+    </div>
+  </div>
+
+  <div class="panel stack">
+    <h2>Listing</h2>
+    <div class="field"><label for="color">Color</label>
+      <input id="color" name="color" value="{{ listing.color }}" /></div>
+    <div class="row-2">
+      <div class="field"><label for="base_cost">Base cost</label>
+        <input id="base_cost" name="base_cost" type="number" step="0.01" value="{{ listing.base_cost }}" /></div>
+      <div class="field"><label for="shipping_est">Ship est.</label>
+        <input id="shipping_est" name="shipping_est" type="number" step="0.01" value="{{ listing.shipping_est }}" /></div>
+    </div>
+    <div class="row-2">
+      <div class="field"><label for="price">Retail price</label>
+        <input id="price" name="price" type="number" step="0.01" value="{{ listing.price }}" /></div>
+      <div class="field"><label for="competitor_price">Competitor price</label>
+        <input id="competitor_price" name="competitor_price" type="number" step="0.01" value="{{ listing.competitor_price|default_if_none:'' }}" /></div>
+    </div>
+    <p class="faint">Suggested ${{ listing.suggested_price }} &middot; margin ${{ listing.margin_dollars }} ({{ listing.margin_multiple }}&times;)
+      {% if listing.below_guardrail %}<span class="form-note error">below 2.0&times; guardrail</span>{% endif %}</p>
+    <div class="field"><label for="collection">Collection</label>
+      <select id="collection" name="collection">
+        <option value="">—</option>
+        {% for c in collections %}<option value="{{ c.id }}" {% if listing.collection_id == c.id %}selected{% endif %}>{{ c.name }}{% if c.is_base %} (base){% endif %}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="panel stack">
+    <h2>Sizes</h2>
+    {% for s in listing.sizes.all %}
+      <div class="row-2">
+        <span>{{ s.label }}{% if s.measurements %} &mdash; {{ s.measurements }}{% endif %}</span>
+        <input name="size_price_{{ s.id }}" type="number" step="0.01" placeholder="inherits ${{ listing.price }}"
+               value="{{ s.price_override|default_if_none:'' }}" />
+      </div>
+    {% empty %}<p class="muted">No sizes — this listing can't go live.</p>{% endfor %}
+  </div>
+
+  <div class="stack" style="grid-column:1/-1;">
+    <button type="submit" class="btn">Save</button>
+  </div>
+</form>
+
+<div class="panel stack">
+  <h2>Imagery</h2>
+  <div class="image-strip">
+    {% for img in listing.images.all %}
+      <figure class="image-cell">
+        <img src="{{ img.image.url }}" alt="{{ img.alt_text }}" />
+        <figcaption class="faint">{{ img.get_kind_display }}</figcaption>
+        <form method="post" action="{% url 'shop:manage_image_delete' img.pk %}">{% csrf_token %}<button class="linkish" type="submit">delete</button></form>
+      </figure>
+    {% empty %}<p class="muted">No images yet.</p>{% endfor %}
+  </div>
+  <div class="cluster">
+    <form method="post" action="{% url 'shop:manage_listing_add_image' listing.pk %}" enctype="multipart/form-data" class="cluster">
+      {% csrf_token %}
+      <input type="file" name="image" accept="image/*" multiple />
+      <select name="kind">
+        {% for v, l in image_kinds %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn btn--sm btn--ghost">Upload</button>
+    </form>
+    <form method="post" action="{% url 'shop:manage_listing_mockups' listing.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--sm btn--ghost">Generate mockups{% if is_mock %} (mock){% endif %}</button>
+    </form>
+  </div>
+</div>
+
+<div class="panel stack">
+  <h2>Printful &amp; publishing</h2>
+  {% if listing.is_connected %}
+    <p class="ok-text">Connected — product {{ listing.printful_product_id }}</p>
+  {% else %}
+    <form method="post" action="{% url 'shop:manage_listing_printful' listing.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn">Send to Printful</button>
+    </form>
+  {% endif %}
+  <form method="post" action="{% url 'shop:manage_listing_status' listing.pk %}" class="cluster">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.path }}" />
+    {% if listing.status != 'live' %}<button name="status" value="live" class="btn btn--ghost">Publish (go live)</button>{% endif %}
+    {% if listing.status == 'live' %}<button name="status" value="hidden" class="btn btn--ghost">Unpublish</button>{% endif %}
+    {% if listing.status == 'draft' %}<button name="status" value="hidden" class="btn btn--ghost btn--sm">Mark ready (hidden)</button>{% endif %}
+  </form>
+</div>
+{% endblock %}
