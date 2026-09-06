@@ -2,6 +2,7 @@
 <div class="overlay" role="dialog" aria-modal="true"
      aria-label="{{ listing.design.title }}"
      x-data="{ selected: 0, hover: null }"
+     x-init="document.documentElement.classList.add('overlay-open')"
      @keydown.escape.window="$refs.close.click()">
 
   <a href="{% url 'shop:index' %}" class="overlay__backdrop" tabindex="-1" aria-hidden="true"

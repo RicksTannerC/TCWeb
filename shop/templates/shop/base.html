@@ -90,9 +90,14 @@
 
   {% django_htmx_script %}
   <script>
-    // Alpine does not auto-initialise DOM that htmx swaps in.
     document.body.addEventListener("htmx:afterSwap", function (e) {
-      if (window.Alpine && e.detail.target) window.Alpine.initTree(e.detail.target);
+      var t = e.detail.target;
+      // Alpine does not auto-initialise DOM that htmx swaps in.
+      if (window.Alpine && t) window.Alpine.initTree(t);
+      // Lock/unlock the page behind the enlarged tile.
+      if (t && t.id === "overlay-root") {
+        document.documentElement.classList.toggle("overlay-open", t.childElementCount > 0);
+      }
     });
   </script>
   <script>

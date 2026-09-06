@@ -112,7 +112,11 @@
 /* ---- reset ----------------------------------------------- */
 *, *::before, *::after { box-sizing: border-box; }
 * { margin: 0; }
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  scrollbar-gutter: stable;             /* reserve the track so scroll-locking doesn't shift layout */
+}
+html.overlay-open { overflow: hidden; } /* freeze the page behind the enlarged tile */
 
 body {
   min-height: 100vh;
@@ -489,13 +493,17 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--steel); out
   position: fixed;
   inset: 0;
   z-index: 60;
-  display: grid;
-  place-items: center;
+  overflow-y: auto;              /* the whole layer scrolls when the card is tall */
+  overscroll-behavior: contain;
+  display: flex;                 /* card uses margin:auto to centre / top-align + scroll */
   padding: clamp(0.75rem, 3vw, 2.5rem);
 }
 .overlay__backdrop {
-  position: absolute;
-  inset: 0;
+  position: fixed;               /* stays put while the layer scrolls */
+  top: 0;
+  left: 0;
+  width: 100vw;                  /* cover the reserved scrollbar gutter too */
+  height: 100%;
   background: rgba(19, 19, 16, 0.5);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
@@ -504,8 +512,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--steel); out
   position: relative;
   z-index: 1;
   width: min(920px, 100%);
-  max-height: calc(100dvh - 2rem);
-  overflow-y: auto;
+  margin: auto;                  /* centres when it fits, top-aligns + scrolls when taller */
   display: grid;
   grid-template-columns: 1.1fr 1fr;
   gap: clamp(1rem, 3vw, 2rem);

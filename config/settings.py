@@ -116,6 +116,11 @@ STORAGES = {
     },
 }
 
+if DEBUG:
+    # Don't let the browser cache static assets during development.
+    WHITENOISE_AUTOREFRESH = True
+    WHITENOISE_MAX_AGE = 0
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --- Email ---------------------------------------------------------
