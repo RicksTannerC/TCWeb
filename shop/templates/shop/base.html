@@ -54,6 +54,7 @@
         <a href="{% url 'shop:index' %}"
            {% if request.resolver_match.url_name == 'index' %}aria-current="page"{% endif %}>Shop</a>
         <a href="#" aria-disabled="true">About</a>
+        {% if request.user.is_staff %}<a href="{% url 'shop:manage_queue' %}">Desk</a>{% endif %}
         <a class="cart-link" href="{% url 'shop:cart_detail' %}" @click.prevent="cartOpen = true"
            {% if request.resolver_match.url_name == 'cart_detail' %}aria-current="page"{% endif %}>
           Cart {% include "shop/_cart_indicator.html" %}

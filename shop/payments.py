@@ -149,3 +149,14 @@ def construct_event(payload, sig_header):
     return stripe.Webhook.construct_event(
         payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
     )
+
+
+def refund(order, amount=None, reason=""):
+    """Refund an order's payment. No-op (mock) when Stripe isn't configured."""
+    if not stripe_ready() or not order.stripe_payment_intent:
+        return {"mock": True, "amount": amount or order.grand_total}
+    _configure()
+    kwargs = {"payment_intent": order.stripe_payment_intent, "reason": "requested_by_customer"}
+    if amount is not None:
+        kwargs["amount"] = int(amount * 100)
+    return stripe.Refund.create(**kwargs)

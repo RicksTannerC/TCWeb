@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import manage_views, views
 
 app_name = "shop"
 
@@ -20,6 +20,7 @@ urlpatterns = [
     path("checkout/dev/", views.checkout_dev, name="checkout_dev"),
     path("checkout/dev/pay/", views.checkout_simulate, name="checkout_simulate"),
     path("webhooks/stripe/", views.stripe_webhook, name="stripe_webhook"),
+    path("webhooks/printful/", views.printful_webhook, name="printful_webhook"),
 
     # subscribers
     path("subscribe/", views.subscribe, name="subscribe"),
@@ -27,6 +28,14 @@ urlpatterns = [
 
     # orders
     path("order/<str:token>/", views.order_track, name="order_track"),
+
+    # curator's order desk (staff)
+    path("manage/", manage_views.order_queue, name="manage_queue"),
+    path("manage/orders/<int:pk>/", manage_views.order_manage, name="manage_order"),
+    path("manage/orders/<int:pk>/approve/", manage_views.order_approve, name="manage_order_approve"),
+    path("manage/orders/<int:pk>/refund/", manage_views.order_refund, name="manage_order_refund"),
+    path("manage/orders/<int:pk>/simulate/", manage_views.order_simulate, name="manage_order_simulate"),
+    path("manage/fulfillments/<int:pk>/reprint/", manage_views.fulfillment_reprint, name="manage_fulfillment_reprint"),
 
     # catalogue
     path("overlay/close/", views.overlay_close, name="overlay_close"),

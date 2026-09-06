@@ -1,0 +1,131 @@
+{% extends "shop/base.html" %}
+
+{% block title %}{{ order.reference }} — Order desk{% endblock %}
+{% block head_extra %}<meta name="robots" content="noindex" />{% endblock %}
+
+{% block content %}
+<section class="stack manage-order">
+  <p class="eyebrow"><a href="{% url 'shop:manage_queue' %}">&larr; Order desk</a></p>
+  <div class="cluster" style="justify-content:space-between;">
+    <h1>{{ order.reference }}</h1>
+    <span class="tag">{{ order.get_status_display }}</span>
+  </div>
+
+  <div class="approval-grid">
+    {# ---- the approval card ---- #}
+    <div class="panel">
+      <h2>Ship to</h2>
+      <p>
+        <strong>{{ order.name|default:"—" }}</strong><br />
+        {{ order.email }}
+      </p>
+      {% with a=order.shipping_address %}
+        <p class="muted">
+          {{ a.line1 }}{% if a.line2 %}, {{ a.line2 }}{% endif %}<br />
+          {{ a.city }}, {{ a.state }} {{ a.postal_code }}<br />
+          {{ a.country|default:"US" }}
+        </p>
+      {% endwith %}
+      {% if address_ok %}
+        <p class="form-note ok">Address looks complete.</p>
+      {% else %}
+        <p class="form-note error">Address may be incomplete — check before approving.</p>
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <h2>Items</h2>
+      <ul role="list" class="approval-items">
+        {% for item in order.items.all %}
+          <li>
+            <span class="approval-thumb">
+              {% with img=item.listing.primary_image %}
+                {% if img %}<img src="{{ img.image.url }}" alt="" />{% elif item.listing %}<span>{{ item.design_title }}</span>{% else %}<span>?</span>{% endif %}
+              {% endwith %}
+            </span>
+            <span class="approval-meta">
+              <strong>{{ item.quantity }} &times; {{ item.design_title }}</strong>
+              <span class="faint">{{ item.product_type|title }}{% if item.size_label %} &middot; {{ item.size_label }}{% endif %}{% if item.color %} &middot; {{ item.color }}{% endif %}</span>
+              {% if item.listing and not item.listing.is_connected %}
+                <span class="form-note error">Not connected to Printful</span>
+              {% endif %}
+            </span>
+            <span class="approval-nums tnum">
+              <span>sell ${{ item.unit_price }}</span>
+              <span class="faint">cost ${{ item.unit_supplier_cost }}</span>
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="approval-totals tnum">
+        <span>Items ${{ order.items_total }}</span>
+        <span>Supplier cost ${{ order.supplier_cost }}</span>
+        <span><strong>Margin ${{ order.margin }}</strong></span>
+      </p>
+    </div>
+  </div>
+
+  {# ---- actions ---- #}
+  {% if order.status == "pending_approval" %}
+    <div class="panel action-panel">
+      <h2>Approve &amp; submit</h2>
+      <form method="post" action="{% url 'shop:manage_order_approve' order.pk %}" class="stack">
+        {% csrf_token %}
+        <div class="field">
+          <label for="note">Note (optional)</label>
+          <input id="note" name="note" placeholder="e.g. checked address with customer" />
+        </div>
+        <button type="submit" class="btn">Approve &amp; send to Printful</button>
+      </form>
+    </div>
+  {% endif %}
+
+  {# ---- fulfillments ---- #}
+  {% if order.fulfillments.all %}
+    <h2>Fulfillments</h2>
+    {% for f in order.fulfillments.all %}
+      <div class="panel">
+        <div class="cluster" style="justify-content:space-between;">
+          <strong>#{{ f.id }} &middot; {{ f.supplier|title }}</strong>
+          <span class="tag {% if f.status == 'problem' %}tag--problem{% endif %}">{{ f.get_status_display }}</span>
+        </div>
+        {% if f.partner_order_id %}<p class="faint tnum">Partner order {{ f.partner_order_id }}</p>{% endif %}
+        {% if f.tracking_number %}
+          <p>Tracking:
+            {% if f.tracking_url %}<a href="{{ f.tracking_url }}">{{ f.tracking_number }}</a>{% else %}{{ f.tracking_number }}{% endif %}
+            {% if f.carrier %}({{ f.carrier }}){% endif %}
+          </p>
+        {% endif %}
+        {% if f.problem_note %}<p class="form-note error">{{ f.problem_note }}</p>{% endif %}
+        <form method="post" action="{% url 'shop:manage_fulfillment_reprint' f.pk %}" class="cluster"
+              onsubmit="return confirm('Create a reprint for fulfilment #{{ f.id }}?')">
+          {% csrf_token %}
+          <input name="reason" placeholder="reason (damage, print error…)" />
+          <button type="submit" class="btn btn--ghost btn--sm">Reprint</button>
+        </form>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="panel action-panel">
+    <h2>Other actions</h2>
+    <div class="cluster">
+      {% if order.status != "refunded" %}
+        <form method="post" action="{% url 'shop:manage_order_refund' order.pk %}"
+              onsubmit="return confirm('Refund {{ order.reference }} in full?')" class="cluster">
+          {% csrf_token %}
+          <input name="reason" placeholder="refund reason" />
+          <button type="submit" class="btn btn--ghost">Refund order</button>
+        </form>
+      {% endif %}
+      {% if is_mock and order.fulfillments.all %}
+        <form method="post" action="{% url 'shop:manage_order_simulate' order.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--ghost btn--sm">Simulate: advance (mock)</button>
+        </form>
+      {% endif %}
+    </div>
+    {% if order.curator_note %}<pre class="curator-note">{{ order.curator_note }}</pre>{% endif %}
+  </div>
+</section>
+{% endblock %}

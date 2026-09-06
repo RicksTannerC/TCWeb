@@ -7,7 +7,9 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from . import payments
+import json
+
+from . import fulfillment, payments
 from .cart import Cart
 from .emails import send_order_confirmation, send_subscribe_welcome
 from .models import Listing, ListingSize, ProductType, Status
@@ -192,6 +194,20 @@ def stripe_webhook(request):
             except Exception:  # noqa: BLE001
                 pass
 
+    return HttpResponse(status=200)
+
+
+@csrf_exempt
+@require_POST
+def printful_webhook(request):
+    try:
+        event = json.loads(request.body or b"{}")
+    except ValueError:
+        return HttpResponseBadRequest("invalid payload")
+    etype = event.get("type", "")
+    data = event.get("data", {})
+    if etype:
+        fulfillment.apply_partner_event(etype, data)
     return HttpResponse(status=200)
 
 

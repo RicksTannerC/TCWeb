@@ -1,0 +1,34 @@
+{% extends "shop/base.html" %}
+
+{% block title %}Order desk — The T-Shirt Shop{% endblock %}
+{% block head_extra %}<meta name="robots" content="noindex" />{% endblock %}
+
+{% block content %}
+<section class="stack">
+  <p class="eyebrow">Curator</p>
+  <h1>Order desk</h1>
+
+  <div class="desk-stats">
+    <div class="panel"><span class="desk-stat">{{ awaiting }}</span><span class="faint">awaiting approval</span></div>
+    <div class="panel"><span class="desk-stat {% if problems %}is-problem{% endif %}">{{ problems }}</span><span class="faint">fulfillments with a problem</span></div>
+  </div>
+
+  {% for label, orders in groups %}
+    <h2>{{ label }}</h2>
+    <ul class="desk-list" role="list">
+      {% for o in orders %}
+        <li class="panel desk-row">
+          <a href="{% url 'shop:manage_order' o.pk %}"><strong>{{ o.reference }}</strong></a>
+          <span class="faint">{{ o.email }}</span>
+          <span class="faint tnum">{{ o.items.count }} item{{ o.items.count|pluralize }}</span>
+          <span class="price">${{ o.grand_total }}</span>
+          <span class="faint tnum">margin ${{ o.margin }}</span>
+          <span class="faint">{{ o.created|date:"j M, H:i" }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% empty %}
+    <p class="muted">No orders yet.</p>
+  {% endfor %}
+</section>
+{% endblock %}

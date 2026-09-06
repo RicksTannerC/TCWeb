@@ -28,6 +28,23 @@ def send_order_confirmation(order):
     )
 
 
+def send_order_status_update(order):
+    ctx = {
+        "order": order,
+        "shop_name": settings.SHOP_NAME,
+        "postal_address": settings.SHOP_POSTAL_ADDRESS,
+        "track_url": _abs(reverse("shop:order_track", args=[order.track_token])),
+    }
+    body = render_to_string("shop/email/order_status.txt", ctx)
+    send_mail(
+        subject=f"{settings.SHOP_NAME} — order {order.reference}: {order.get_status_display().lower()}",
+        message=body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[order.email],
+        fail_silently=True,
+    )
+
+
 def send_subscribe_welcome(subscriber):
     ctx = {
         "shop_name": settings.SHOP_NAME,

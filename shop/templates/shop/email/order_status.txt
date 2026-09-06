@@ -1,0 +1,11 @@
+{{ shop_name }}
+Order {{ order.reference }} — {{ order.get_status_display|lower }}
+
+{% if order.status == "in_production" %}Your order is being printed now.{% elif order.status == "shipped" %}Your order has shipped.{% for f in order.fulfillments.all %}{% if f.tracking_number %}
+  {{ f.get_status_display }} — {{ f.tracking_number }}{% if f.carrier %} ({{ f.carrier }}){% endif %}
+  {{ f.tracking_url }}{% endif %}{% endfor %}{% elif order.status == "delivered" %}Your order has been delivered. We hope you love it.{% else %}Status update on your order.{% endif %}
+
+Full details and tracking:
+{{ track_url }}
+
+{{ postal_address }}

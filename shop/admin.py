@@ -1,5 +1,6 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 
+from . import printful
 from .models import (
     Collection,
     Design,
@@ -60,10 +61,24 @@ class ListingAdmin(admin.ModelAdmin):
     autocomplete_fields = ("design",)
     inlines = [ListingSizeInline, ListingImageInline]
     readonly_fields = ("landed_cost", "suggested_price", "margin_dollars", "margin_multiple")
+    actions = ["send_to_printful"]
 
     @admin.display(boolean=True, description="Printful")
     def connected(self, obj):
         return obj.is_connected
+
+    @admin.action(description="Send selected listings to Printful")
+    def send_to_printful(self, request, queryset):
+        done, failed = 0, 0
+        for listing in queryset:
+            try:
+                printful.sync_listing(listing)
+                done += 1
+            except printful.PrintfulError as exc:
+                failed += 1
+                self.message_user(request, f"{listing}: {exc}", level=messages.ERROR)
+        if done:
+            self.message_user(request, f"Sent {done} listing(s) to Printful.", level=messages.SUCCESS)
 
 
 @admin.register(Collection)
