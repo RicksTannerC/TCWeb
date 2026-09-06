@@ -903,6 +903,58 @@ body.console { background: var(--ground, var(--paper)); }
 .msg__head { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; align-items: baseline; margin-bottom: 0.4rem; }
 .msg__body { white-space: pre-wrap; }
 
+/* ============================================================
+   Milestone 5 — landing, content pages
+   ============================================================ */
+
+.btn--lg { padding: 1rem 2rem; font-size: 1rem; }
+
+.landing-hero {
+  display: grid;
+  gap: var(--sp-3);
+  padding-block: clamp(2rem, 8vw, 5rem);
+  max-width: 40ch;
+}
+.landing-title {
+  font-size: clamp(2.4rem, 7vw, 4rem);
+  line-height: 1.04;
+  margin: 0;
+}
+.landing-lede { color: var(--ink-soft); font-size: 1.05rem; max-width: 46ch; }
+
+.landing-featured { border-top: 1px solid var(--line); padding-top: var(--sp-4); }
+.landing-featured h2 { font-size: var(--step-1); margin-bottom: var(--sp-3); }
+.landing-featured .tile-grid { margin-bottom: var(--sp-3); }
+
+/* ---- prose (content pages) ---- */
+.prose {
+  max-width: 68ch;
+  margin-inline: auto;
+  padding-block: var(--sp-3);
+}
+.prose h1 { font-size: var(--step-3); margin-bottom: var(--sp-3); }
+.prose h2 {
+  font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.02em;
+  font-size: var(--step-1); margin: var(--sp-4) 0 var(--sp-2);
+}
+.prose h3 { font-size: var(--step-0); font-family: var(--font-display); text-transform: uppercase; margin: var(--sp-3) 0 var(--sp-1); }
+.prose p, .prose li { color: var(--ink); line-height: 1.7; }
+.prose p { margin: 0 0 1rem; }
+.prose ul, .prose ol { margin: 0 0 1rem; padding-left: 1.3rem; }
+.prose li { margin: 0 0 0.35rem; }
+.prose li::marker { color: var(--olive); }
+.prose a { color: var(--olive); }
+.prose strong { font-weight: 600; }
+.prose hr { border: 0; border-top: 1px solid var(--line); margin: var(--sp-3) 0; }
+.prose blockquote {
+  border-left: 3px solid var(--olive); padding-left: 1rem; margin: 1rem 0;
+  color: var(--ink-soft);
+}
+.prose code {
+  font-family: var(--font-mono); font-size: 0.9em;
+  background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 2px;
+}
+
 /* ---- utilities -------------------------------------- */
 .stack > * + * { margin-top: var(--sp-3); }
 .cluster { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }

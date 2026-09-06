@@ -6,6 +6,7 @@ django-htmx>=1.29
 Pillow>=12.0
 whitenoise>=6.12
 gunicorn>=26.0
+Markdown>=3.6            # content pages
 
 # Integrations (wired up in later milestones)
 stripe>=15.0          # Milestone 2 — checkout

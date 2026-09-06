@@ -7,7 +7,8 @@ from . import views
 app_name = "shop"
 
 urlpatterns = [
-    path("", views.shop_index, name="index"),
+    path("", views.landing, name="landing"),
+    path("shop/", views.shop_index, name="index"),
 
     # cart
     path("cart/", views.cart_detail, name="cart_detail"),
@@ -28,6 +29,9 @@ urlpatterns = [
     path("subscribe/", views.subscribe, name="subscribe"),
     path("unsubscribe/<str:token>/", views.unsubscribe, name="unsubscribe"),
     path("contact/", views.contact, name="contact"),
+
+    # content pages
+    path("pages/<slug:slug>/", views.page, name="page"),
 
     # order tracking
     path("order/<str:token>/", views.order_track, name="order_track"),
@@ -65,6 +69,10 @@ urlpatterns = [
 
     path("manage/messages/", cv.inbox, name="manage_inbox"),
     path("manage/messages/<int:pk>/toggle/", cv.message_toggle, name="manage_message_toggle"),
+
+    path("manage/pages/", cv.pages, name="manage_pages"),
+    path("manage/pages/new/", cv.page_edit, name="manage_page_new"),
+    path("manage/pages/<int:pk>/", cv.page_edit, name="manage_page_edit"),
 
     # catalogue
     path("overlay/close/", views.overlay_close, name="overlay_close"),

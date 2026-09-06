@@ -302,4 +302,4 @@ from .orders import (  # noqa: E402,F401
     OrderStatus,
     Subscriber,
 )
-from .console import ContactMessage, OverheadEntry  # noqa: E402,F401
+from .console import ContactMessage, OverheadEntry, Page, VisitLog  # noqa: E402,F401

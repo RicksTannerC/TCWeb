@@ -29,6 +29,10 @@
     <span class="stat__big tnum">{{ abandon_rate }}%</span>
   </div>
   <div class="panel stat">
+    <span class="stat__label">Visits · 30d</span>
+    <span class="stat__big tnum">{{ visits_30 }}</span>
+  </div>
+  <div class="panel stat">
     <span class="stat__label">Season-drop list</span>
     <span class="stat__big tnum">{{ subscribers }}</span>
   </div>
@@ -44,16 +48,22 @@
   </div>
 </div>
 
-<h2>Top designs · last 30 days</h2>
-{% if top_designs %}
-  <ul class="bar-list">
-    {% for d in top_designs %}
-      <li><span>{{ d.design_title }}</span><span class="tnum">{{ d.units }} sold</span></li>
-    {% endfor %}
-  </ul>
-{% else %}
-  <p class="muted">No sales in the window yet.</p>
-{% endif %}
-
-<p class="faint" style="margin-top:2rem;">Traffic &amp; referral source lands here once the analytics capture is in (Milestone&nbsp;5).</p>
+<div class="row-2" style="align-items:start;">
+  <div>
+    <h2>Top designs · last 30 days</h2>
+    {% if top_designs %}
+      <ul class="bar-list">
+        {% for d in top_designs %}<li><span>{{ d.design_title }}</span><span class="tnum">{{ d.units }} sold</span></li>{% endfor %}
+      </ul>
+    {% else %}<p class="muted">No sales in the window yet.</p>{% endif %}
+  </div>
+  <div>
+    <h2>Where visits came from · 30 days</h2>
+    {% if top_sources %}
+      <ul class="bar-list">
+        {% for s in top_sources %}<li><span>{{ s.label }}</span><span class="tnum">{{ s.n }}</span></li>{% endfor %}
+      </ul>
+    {% else %}<p class="muted">No visits recorded yet.</p>{% endif %}
+  </div>
+</div>
 {% endblock %}

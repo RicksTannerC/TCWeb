@@ -1,8 +1,8 @@
 {% load static %}
 <li class="tile-item">
   <a class="tile glass" href="{{ listing.get_absolute_url }}"
-     hx-get="{{ listing.get_absolute_url }}" hx-target="#overlay-root" hx-swap="innerHTML"
-     hx-push-url="true" aria-haspopup="dialog">
+     {% if not plain %}hx-get="{{ listing.get_absolute_url }}" hx-target="#overlay-root" hx-swap="innerHTML"
+     hx-push-url="true" aria-haspopup="dialog"{% endif %}>
     <span class="tile__image">
       {% with img=listing.primary_image %}
         {% if img %}

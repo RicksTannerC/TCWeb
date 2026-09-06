@@ -16,6 +16,40 @@ from .models import Listing, ListingSize, ProductType, Status
 from .orders import Order, OrderStatus, Subscriber
 
 
+# ---------------------------------------------------------------- front door
+
+def landing(request):
+    featured = _live_tees()[:4]
+    return render(request, "shop/landing.html", {"featured": featured})
+
+
+def page(request, slug):
+    from .console import Page as PageModel
+
+    qs = PageModel.objects.all()
+    if not request.user.is_staff:
+        qs = qs.filter(status=PageModel.Status.LIVE)
+    page_obj = get_object_or_404(qs, slug=slug)
+    return render(request, "shop/page.html", {"page": page_obj})
+
+
+def robots_txt(request):
+    host = request.build_absolute_uri("/").rstrip("/")
+    lines = [
+        "User-agent: *",
+        "Disallow: /manage/",
+        "Disallow: /admin/",
+        "Disallow: /cart/",
+        "Disallow: /checkout/",
+        "Disallow: /order/",
+        "Disallow: /unsubscribe/",
+        "Disallow: /webhooks/",
+        "",
+        f"Sitemap: {host}/sitemap.xml",
+    ]
+    return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
 # ---------------------------------------------------------------- catalogue
 
 def _live_tees(query=""):

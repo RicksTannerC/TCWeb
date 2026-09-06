@@ -1,0 +1,46 @@
+{% extends "shop/manage/base.html" %}
+{% load shop_extras %}
+{% block title %}{{ page.title|default:"New page" }}{% endblock %}
+
+{% block console %}
+<p class="eyebrow"><a href="{% url 'shop:manage_pages' %}">&larr; Pages</a></p>
+<h1>{{ page.title|default:"New page" }}</h1>
+
+<form method="post" class="edit-grid">
+  {% csrf_token %}
+  <div class="panel stack">
+    <div class="field"><label for="title">Title</label>
+      <input id="title" name="title" value="{{ page.title }}" required /></div>
+    <div class="field"><label for="slug">Slug</label>
+      <input id="slug" name="slug" value="{{ page.slug }}" placeholder="auto from title" /></div>
+    <div class="field"><label for="meta_description">Meta description</label>
+      <input id="meta_description" name="meta_description" maxlength="200" value="{{ page.meta_description }}" /></div>
+    <div class="row-2">
+      <div class="field"><label for="status">Status</label>
+        <select id="status" name="status">
+          {% for v, l in statuses %}<option value="{{ v }}" {% if page.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select></div>
+      <div class="field"><label for="footer_order">Footer order</label>
+        <input id="footer_order" name="footer_order" type="number" value="{{ page.footer_order|default:0 }}" /></div>
+    </div>
+    <label><input type="checkbox" name="show_in_footer" {% if page.show_in_footer or not page.pk %}checked{% endif %} /> Show in footer</label>
+  </div>
+
+  <div class="panel stack">
+    <div class="field"><label for="body">Body (Markdown)</label>
+      <textarea id="body" name="body" rows="18">{{ page.body }}</textarea></div>
+  </div>
+
+  <div style="grid-column:1/-1;" class="cluster">
+    <button type="submit" class="btn">Save</button>
+    {% if page.pk and page.status == 'live' %}<a class="btn btn--ghost" href="{{ page.get_absolute_url }}">View live</a>{% endif %}
+  </div>
+</form>
+
+{% if page.pk %}
+<div class="panel prose">
+  <p class="faint">Preview — updates on save.</p>
+  {{ page.body|markdownify }}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "shop/base.html" %}
+{% load shop_extras %}
+
+{% block title %}{{ page.title }} — The T-Shirt Shop{% endblock %}
+{% block meta_description %}{{ page.meta_description|default:page.title }}{% endblock %}
+{% block og_title %}{{ page.title }}{% endblock %}
+{% block og_description %}{{ page.meta_description|default:page.title }}{% endblock %}
+
+{% block content %}
+<article class="prose">
+  {% if page.status != 'live' %}<p class="form-note error">Draft — not visible to the public.</p>{% endif %}
+  <h1>{{ page.title }}</h1>
+  {{ page.body|markdownify }}
+</article>
+{% endblock %}

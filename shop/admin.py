@@ -10,7 +10,7 @@ from .models import (
     ProductTemplate,
     Tag,
 )
-from .console import ContactMessage, OverheadEntry
+from .console import ContactMessage, OverheadEntry, Page, VisitLog
 from .orders import Fulfillment, Order, OrderItem, Subscriber
 
 # The bespoke curator's console is Milestone 4. Until then, the Django admin
@@ -164,3 +164,17 @@ class ContactMessageAdmin(admin.ModelAdmin):
     list_filter = ("handled",)
     search_fields = ("email", "name", "subject", "body")
     autocomplete_fields = ("order",)
+
+
+@admin.register(Page)
+class PageAdmin(admin.ModelAdmin):
+    list_display = ("title", "slug", "status", "show_in_footer", "footer_order", "updated")
+    list_filter = ("status", "show_in_footer")
+    prepopulated_fields = {"slug": ("title",)}
+
+
+@admin.register(VisitLog)
+class VisitLogAdmin(admin.ModelAdmin):
+    list_display = ("source", "landing_path", "referrer_host", "utm_source", "created")
+    list_filter = ("utm_source", "created")
+    readonly_fields = [f.name for f in VisitLog._meta.fields]

@@ -2,8 +2,15 @@
 <div class="overlay" role="dialog" aria-modal="true"
      aria-label="{{ listing.design.title }}"
      x-data="{ selected: 0, hover: null }"
-     x-init="document.documentElement.classList.add('overlay-open')"
-     @keydown.escape.window="$refs.close.click()">
+     x-init="document.documentElement.classList.add('overlay-open'); $nextTick(() => $refs.close.focus())"
+     @keydown.escape.window="$refs.close.click()"
+     @keydown.tab="(() => {
+       const f = [...$el.querySelectorAll('a[href],button:not([disabled]),select,input,textarea')].filter(el => el.offsetParent);
+       if (!f.length) return;
+       const first = f[0], last = f[f.length - 1];
+       if ($event.shiftKey && document.activeElement === first) { $event.preventDefault(); last.focus(); }
+       else if (!$event.shiftKey && document.activeElement === last) { $event.preventDefault(); first.focus(); }
+     })()">
 
   <a href="{% url 'shop:index' %}" class="overlay__backdrop" tabindex="-1" aria-hidden="true"
      hx-get="{% url 'shop:overlay_close' %}" hx-target="#overlay-root" hx-swap="innerHTML"

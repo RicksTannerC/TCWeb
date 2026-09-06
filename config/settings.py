@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "django.contrib.sitemaps",
     "django.contrib.staticfiles",
     "django_htmx",
     "shop",
@@ -47,6 +48,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
+    "shop.middleware.VisitCaptureMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -63,6 +65,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 # {{ cart }} + {{ cart_count }} in every template.
                 "shop.context_processors.cart",
+                "shop.context_processors.footer_pages",
             ],
         },
     },

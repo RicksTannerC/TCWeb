@@ -8,12 +8,16 @@
 
   <title>{% block title %}The T-Shirt Shop{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}Screen-printed shirts, made to order. A small curated shop.{% endblock %}" />
+  <meta name="theme-color" content="#131310" />
+  <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}" />
 
-  {# --- Open Graph (per-page overridable) --- #}
+  {# --- Open Graph / Twitter (per-page overridable) --- #}
   <meta property="og:site_name" content="The T-Shirt Shop" />
   <meta property="og:type" content="{% block og_type %}website{% endblock %}" />
   <meta property="og:title" content="{% block og_title %}The T-Shirt Shop{% endblock %}" />
   <meta property="og:description" content="{% block og_description %}Screen-printed shirts, made to order.{% endblock %}" />
+  <meta property="og:url" content="{{ request.build_absolute_uri }}" />
+  <meta name="twitter:card" content="summary_large_image" />
   {% block og_image %}{% endblock %}
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -44,7 +48,7 @@
 
   <header class="site-header">
     <div class="wrap">
-      <a class="brand" href="{% url 'shop:index' %}" aria-label="The T-Shirt Shop — home">
+      <a class="brand" href="{% url 'shop:landing' %}" aria-label="The T-Shirt Shop — home">
         {# placeholder mark: swapped for the real crest in the identity pass #}
         <span class="brand__mark" aria-hidden="true">T</span>
         <span class="brand__word">The T&middot;Shirt Shop</span>
@@ -53,7 +57,6 @@
       <nav class="site-nav" aria-label="Primary">
         <a href="{% url 'shop:index' %}"
            {% if request.resolver_match.url_name == 'index' %}aria-current="page"{% endif %}>Shop</a>
-        <a href="#" aria-disabled="true">About</a>
         {% if request.user.is_staff %}<a href="{% url 'shop:manage_dashboard' %}">Console</a>{% endif %}
         <a class="cart-link" href="{% url 'shop:cart_detail' %}" @click.prevent="cartOpen = true"
            {% if request.resolver_match.url_name == 'cart_detail' %}aria-current="page"{% endif %}>
@@ -91,12 +94,8 @@
   <footer class="site-footer">
     <div class="wrap">
       <nav aria-label="Footer">
-        <a href="#">About</a>
-        <a href="#">Shipping &amp; Returns</a>
+        {% for p in footer_pages %}<a href="{{ p.get_absolute_url }}">{{ p.title }}</a>{% endfor %}
         <a href="{% url 'shop:contact' %}">Contact</a>
-        <a href="#">Privacy</a>
-        <a href="#">Terms</a>
-        <a href="#">Social</a>
       </nav>
 
       <form class="footer-subscribe" hx-post="{% url 'shop:subscribe' %}"

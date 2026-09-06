@@ -1,0 +1,26 @@
+{% extends "shop/base.html" %}
+{% load static %}
+
+{% block title %}The T-Shirt Shop{% endblock %}
+{% block meta_description %}A small, curated shop of screen-printed shirts, made to order. The selection rotates — come see what's in stock.{% endblock %}
+{% block og_description %}A small, curated shop of screen-printed shirts, made to order.{% endblock %}
+
+{% block content %}
+<section class="landing-hero">
+  <p class="eyebrow">Screen-printed to order</p>
+  <h1 class="landing-title">A small shop.<br />A short list.<br />Chosen with care.</h1>
+  <p class="landing-lede">Every shirt is one design on one garment in the one color that suits it —
+    printed when you order it. The selection rotates, so what's here now may not be here next.</p>
+  <p><a class="btn btn--lg" href="{% url 'shop:index' %}">Enter the shop</a></p>
+</section>
+
+{% if featured %}
+<section class="landing-featured">
+  <h2>In the shop now</h2>
+  <ul class="tile-grid" role="list">
+    {% for listing in featured %}{% include "shop/_tile.html" with plain=True %}{% endfor %}
+  </ul>
+  <p><a href="{% url 'shop:index' %}">See everything &rarr;</a></p>
+</section>
+{% endif %}
+{% endblock %}
