@@ -7,28 +7,38 @@
   <h1>Your cart</h1>
 
   {% if cart|length == 0 %}
-    <p class="muted">Nothing here yet. <a href="{% url 'shop:product_list' %}">Go pick a shirt.</a></p>
+    <p class="muted">Nothing here yet. <a href="{% url 'shop:index' %}">Go pick a shirt.</a></p>
   {% else %}
-    <ul class="stack" style="list-style:none;">
+    <ul class="cart-lines" role="list">
       {% for item in cart %}
-        <li class="panel cluster" style="justify-content:space-between;">
-          <div>
-            <strong>{{ item.product.name }}</strong>
-            <div class="faint tnum">{{ item.quantity }} &times; ${{ item.product.price }}</div>
+        <li class="panel cart-line">
+          <div class="cart-line__thumb">
+            {% with img=item.listing.primary_image %}
+              {% if img %}<img src="{{ img.image.url }}" alt="" />{% else %}<span>{{ item.listing.design.title }}</span>{% endif %}
+            {% endwith %}
           </div>
-          <div class="cluster">
-            <span class="price">${{ item.subtotal }}</span>
-            <form action="{% url 'shop:cart_remove' item.product.id %}" method="post">
-              {% csrf_token %}
-              <button type="submit" class="btn btn--ghost" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Remove</button>
-            </form>
+          <div class="cart-line__meta">
+            <strong>{{ item.listing.design.title }}</strong>
+            <span class="faint">
+              {{ item.listing.get_product_type_display }}
+              {% if item.size.label %}&middot; {{ item.size.label }}{% endif %}
+              {% if item.listing.color %}&middot; {{ item.listing.color }}{% endif %}
+            </span>
+            <span class="faint tnum">{{ item.quantity }} &times; ${{ item.unit_price }}</span>
           </div>
+          <span class="price cart-line__sub">${{ item.subtotal }}</span>
+          <form method="post" action="{% url 'shop:cart_remove' %}">
+            {% csrf_token %}
+            <input type="hidden" name="listing" value="{{ item.listing.id }}" />
+            <input type="hidden" name="size" value="{{ item.size.id }}" />
+            <button type="submit" class="btn btn--ghost btn--sm">Remove</button>
+          </form>
         </li>
       {% endfor %}
     </ul>
 
-    <p class="display" style="font-size:var(--step-2);">Total: <span class="price">${{ cart.get_total }}</span></p>
-    <button class="btn" disabled>Checkout (Milestone&nbsp;2)</button>
+    <p class="cart-total display">Total <span class="price">${{ cart.get_total }}</span></p>
+    <button class="btn" disabled>Checkout &mdash; Milestone&nbsp;2</button>
   {% endif %}
 </section>
 {% endblock %}

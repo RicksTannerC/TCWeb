@@ -1,0 +1,89 @@
+{% load static %}
+<div class="overlay" role="dialog" aria-modal="true"
+     aria-label="{{ listing.design.title }}"
+     x-data="{ selected: 0, hover: null }"
+     @keydown.escape.window="$refs.close.click()">
+
+  <a href="{% url 'shop:index' %}" class="overlay__backdrop" tabindex="-1" aria-hidden="true"
+     hx-get="{% url 'shop:overlay_close' %}" hx-target="#overlay-root" hx-swap="innerHTML"
+     hx-push-url="{% url 'shop:index' %}"></a>
+
+  <div class="overlay__card glass">
+    <a href="{% url 'shop:index' %}" class="overlay__close" x-ref="close" aria-label="Close"
+       hx-get="{% url 'shop:overlay_close' %}" hx-target="#overlay-root" hx-swap="innerHTML"
+       hx-push-url="{% url 'shop:index' %}">&times;</a>
+
+    <div class="overlay__media">
+      <div class="overlay__image">
+        {% for img in listing.images.all %}
+          <img src="{{ img.image.url }}" alt="{{ img.alt_text|default:listing.design.title }}"
+               x-show="selected === {{ forloop.counter0 }}"
+               {% if not forloop.first %}style="display:none"{% endif %} />
+        {% empty %}
+          <span class="tile__fallback">{{ listing.design.title }}</span>
+        {% endfor %}
+      </div>
+
+      {% if listing.images.count > 1 %}
+        <div class="overlay__strip" role="tablist" aria-label="Images">
+          {% for img in listing.images.all %}
+            <button type="button" class="overlay__thumb"
+                    :style="`--dist:${Math.min(Math.abs({{ forloop.counter0 }} - selected), 3)}`"
+                    :class="{ 'is-hover': hover === {{ forloop.counter0 }}, 'is-active': selected === {{ forloop.counter0 }} }"
+                    @click="selected = {{ forloop.counter0 }}"
+                    @mouseenter="hover = {{ forloop.counter0 }}" @mouseleave="hover = null"
+                    @focus="hover = {{ forloop.counter0 }}" @blur="hover = null"
+                    role="tab" :aria-selected="selected === {{ forloop.counter0 }}">
+              <img src="{{ img.image.url }}" alt="" />
+            </button>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="overlay__info">
+      {% if listing.collection and not listing.collection.is_base %}
+        <span class="tag">{{ listing.collection.name }}</span>
+      {% endif %}
+
+      <h2>{{ listing.design.title }}</h2>
+      {% if listing.color %}<p class="faint">{{ listing.color }}</p>{% endif %}
+      <p class="price price--lg">${{ listing.price }}</p>
+      {% if listing.design.story %}<p class="muted overlay__story">{{ listing.design.story }}</p>{% endif %}
+
+      <form class="overlay__buy" method="post" action="{% url 'shop:cart_add' listing.id %}"
+            hx-post="{% url 'shop:cart_add' listing.id %}" hx-target="#add-feedback" hx-swap="innerHTML">
+        {% csrf_token %}
+        <div class="field">
+          <label for="size-{{ listing.id }}">Size</label>
+          <select id="size-{{ listing.id }}" name="size" required>
+            {% for size in listing.sizes.all %}
+              <option value="{{ size.id }}">
+                {{ size.label }}{% if size.measurements %} &mdash; {{ size.measurements }}{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn">Add to cart</button>
+      </form>
+
+      {% if sticker %}
+        <form class="overlay__addon" method="post" action="{% url 'shop:cart_add' sticker.id %}"
+              hx-post="{% url 'shop:cart_add' sticker.id %}" hx-target="#add-feedback" hx-swap="innerHTML">
+          {% csrf_token %}
+          <input type="hidden" name="size" value="{{ sticker.sizes.first.id }}" />
+          <span>Also as a sticker &mdash; <span class="price">${{ sticker.price }}</span></span>
+          <button type="submit" class="btn btn--ghost">Add sticker</button>
+        </form>
+      {% endif %}
+
+      <p id="add-feedback" class="overlay__feedback" aria-live="polite"></p>
+
+      {% if listing.design.tags.all %}
+        <p class="overlay__tags">
+          {% for tag in listing.design.tags.all %}<span class="tag">{{ tag.name }}</span>{% endfor %}
+        </p>
+      {% endif %}
+    </div>
+  </div>
+</div>

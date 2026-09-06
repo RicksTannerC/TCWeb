@@ -1,0 +1,11 @@
+{% if tees %}
+  <ul class="tile-grid" role="list">
+    {% for listing in tees %}
+      {% include "shop/_tile.html" %}
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="muted grid-empty">
+    {% if query %}Nothing matches &ldquo;{{ query }}&rdquo;.{% else %}No shirts are live yet.{% endif %}
+  </p>
+{% endif %}

@@ -1,0 +1,32 @@
+{% extends "shop/base.html" %}
+
+{% block title %}{% if overlay %}{{ overlay.design.title }} — {% endif %}The T-Shirt Shop{% endblock %}
+{% block meta_description %}{% if overlay %}{{ overlay.design.story|default:overlay.design.title }}{% else %}Screen-printed shirts, made to order. A small, rotating selection.{% endif %}{% endblock %}
+{% block og_title %}{% if overlay %}{{ overlay.design.title }}{% else %}The T-Shirt Shop{% endif %}{% endblock %}
+{% block og_description %}{% if overlay %}{{ overlay.design.story|default:overlay.design.title }}{% else %}Screen-printed shirts, made to order.{% endif %}{% endblock %}
+{% if overlay %}{% block og_type %}product{% endblock %}{% endif %}
+
+{% block content %}
+<section class="section-intro">
+  <p class="eyebrow">Pilot build</p>
+  <h1>Shirts, screen-printed to order.</h1>
+  <p>A small, rotating selection. What&rsquo;s here this week may not be here next.</p>
+</section>
+
+<form class="shop-search" role="search" method="get" action="{% url 'shop:index' %}"
+      hx-get="{% url 'shop:index' %}" hx-target="#grid" hx-swap="innerHTML"
+      hx-trigger="input changed delay:250ms, submit" hx-vals='{"grid": "1"}'>
+  <label for="q" class="visually-hidden">Search designs</label>
+  <input type="search" id="q" name="q" value="{{ query }}"
+         placeholder="Search by motif, colour&hellip;" autocomplete="off" />
+  <button type="submit" class="btn btn--ghost">Search</button>
+</form>
+
+<div id="grid">
+  {% include "shop/_grid.html" %}
+</div>
+
+<div id="overlay-root">
+  {% if overlay %}{% include "shop/_overlay.html" with listing=overlay sticker=overlay.design.sticker_listing %}{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% load static %}
+<li class="tile-item">
+  <a class="tile glass" href="{{ listing.get_absolute_url }}"
+     hx-get="{{ listing.get_absolute_url }}" hx-target="#overlay-root" hx-swap="innerHTML"
+     hx-push-url="true" aria-haspopup="dialog">
+    <span class="tile__image">
+      {% with img=listing.primary_image %}
+        {% if img %}
+          <img src="{{ img.image.url }}" alt="{{ img.alt_text|default:listing.design.title }}" loading="lazy" />
+        {% else %}
+          <span class="tile__fallback">{{ listing.design.title }}</span>
+        {% endif %}
+      {% endwith %}
+    </span>
+    <span class="tile__meta">
+      <span class="tile__title">{{ listing.design.title }}</span>
+      {% if listing.color %}<span class="tile__sub faint">{{ listing.color }}</span>{% endif %}
+      <span class="price">${{ listing.price }}</span>
+    </span>
+  </a>
+</li>

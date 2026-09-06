@@ -40,19 +40,19 @@
 
   <header class="site-header">
     <div class="wrap">
-      <a class="brand" href="{% url 'shop:product_list' %}" aria-label="The T-Shirt Shop — home">
+      <a class="brand" href="{% url 'shop:index' %}" aria-label="The T-Shirt Shop — home">
         {# placeholder mark: swapped for the real crest in the identity pass #}
         <span class="brand__mark" aria-hidden="true">T</span>
         <span class="brand__word">The T&middot;Shirt Shop</span>
       </a>
 
       <nav class="site-nav" aria-label="Primary">
-        <a href="{% url 'shop:product_list' %}"
-           {% if request.resolver_match.url_name == 'product_list' %}aria-current="page"{% endif %}>Shop</a>
+        <a href="{% url 'shop:index' %}"
+           {% if request.resolver_match.url_name == 'index' %}aria-current="page"{% endif %}>Shop</a>
         <a href="#" aria-disabled="true">About</a>
         <a class="cart-link" href="{% url 'shop:cart_detail' %}"
            {% if request.resolver_match.url_name == 'cart_detail' %}aria-current="page"{% endif %}>
-          Cart{% if cart_count %}<span class="count tnum">{{ cart_count }}</span>{% endif %}
+          Cart {% include "shop/_cart_indicator.html" %}
         </a>
         <button type="button" class="theme-toggle" @click="cycle()" x-text="label">Theme</button>
       </nav>
@@ -90,14 +90,22 @@
 
   {% django_htmx_script %}
   <script>
+    // Alpine does not auto-initialise DOM that htmx swaps in.
+    document.body.addEventListener("htmx:afterSwap", function (e) {
+      if (window.Alpine && e.detail.target) window.Alpine.initTree(e.detail.target);
+    });
+  </script>
+  <script>
     function themeToggle() {
+      function read() {
+        try { return localStorage.getItem('tts-theme') || ''; } catch (e) { return ''; }
+      }
       return {
-        theme: (function () {
-          try { return localStorage.getItem('tts-theme') || ''; } catch (e) { return ''; }
-        })(),
-        get label() { return this.theme === '' ? 'Auto' : this.theme; },
+        theme: read(),
+        label: read() || 'Auto',
         cycle() {
           this.theme = this.theme === '' ? 'light' : this.theme === 'light' ? 'dark' : '';
+          this.label = this.theme || 'Auto';
           try {
             if (this.theme) localStorage.setItem('tts-theme', this.theme);
             else localStorage.removeItem('tts-theme');

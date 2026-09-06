@@ -1,18 +1,19 @@
+"""
+Session cart.
+
+Keyed by ``"<listing_id>:<size_id>"`` so a tee in M and the same tee in L are
+separate lines. A thin wrapper over ``request.session`` — no model yet, since
+nothing needs to outlive the session before accounts (Phase 2).
+"""
+
 from decimal import Decimal
-from .models import Product
+
+from .models import Listing, ListingSize
 
 CART_SESSION_KEY = "cart"
 
 
 class Cart:
-    """
-    Thin wrapper around request.session that knows how to add/remove
-    products and compute totals. Same role as a `cart.py` you'd find
-    in most Django e-commerce tutorials — no cart app is heavy enough
-    to need its own model yet, since nothing here needs to survive
-    past the session (no accounts, no persistent orders in this pilot).
-    """
-
     def __init__(self, request):
         self.session = request.session
         cart = self.session.get(CART_SESSION_KEY)
@@ -20,49 +21,61 @@ class Cart:
             cart = self.session[CART_SESSION_KEY] = {}
         self.cart = cart
 
-    def add(self, product, quantity=1):
-        product_id = str(product.id)
-        if product_id not in self.cart:
-            self.cart[product_id] = {"quantity": 0}
-        self.cart[product_id]["quantity"] += quantity
+    @staticmethod
+    def _key(listing_id, size_id):
+        return f"{listing_id}:{size_id}"
+
+    def add(self, listing, size, quantity=1):
+        key = self._key(listing.id, size.id)
+        line = self.cart.setdefault(key, {"quantity": 0})
+        line["quantity"] += quantity
         self.save()
 
-    def remove(self, product):
-        product_id = str(product.id)
-        if product_id in self.cart:
-            del self.cart[product_id]
-            self.save()
+    def set_quantity(self, listing_id, size_id, quantity):
+        key = self._key(listing_id, size_id)
+        if quantity <= 0:
+            self.cart.pop(key, None)
+        elif key in self.cart:
+            self.cart[key]["quantity"] = quantity
+        self.save()
+
+    def remove(self, listing_id, size_id):
+        self.cart.pop(self._key(listing_id, size_id), None)
+        self.save()
+
+    def clear(self):
+        self.session[CART_SESSION_KEY] = {}
+        self.save()
 
     def save(self):
-        # Session middleware only re-saves the session if it sees
-        # `session.modified = True`. Mutating a dict in place (as
-        # add()/remove() do above) doesn't trigger that automatically,
-        # so we set it explicitly — this is the equivalent of Node's
-        # express-session auto-detecting the mutation for you.
+        # In-place dict mutation doesn't flip session.modified on its own.
         self.session.modified = True
 
     def __iter__(self):
-        product_ids = self.cart.keys()
-        products = Product.objects.filter(id__in=product_ids)
-        products_map = {str(p.id): p for p in products}
+        keys = [k.split(":") for k in self.cart]
+        listing_ids = {int(k[0]) for k in keys}
+        size_ids = {int(k[1]) for k in keys}
 
-        for product_id, item in self.cart.items():
-            product = products_map.get(product_id)
-            if not product:
+        listings = {l.id: l for l in Listing.objects.filter(id__in=listing_ids).select_related("design")}
+        sizes = {s.id: s for s in ListingSize.objects.filter(id__in=size_ids)}
+
+        for key, item in self.cart.items():
+            lid, sid = (int(x) for x in key.split(":"))
+            listing, size = listings.get(lid), sizes.get(sid)
+            if not listing or not size:
                 continue
-            quantity = item["quantity"]
+            qty = item["quantity"]
             yield {
-                "product": product,
-                "quantity": quantity,
-                "subtotal": product.price * quantity,
+                "key": key,
+                "listing": listing,
+                "size": size,
+                "quantity": qty,
+                "unit_price": size.price,
+                "subtotal": size.price * qty,
             }
 
     def __len__(self):
         return sum(item["quantity"] for item in self.cart.values())
 
     def get_total(self):
-        return sum((item["subtotal"] for item in self), Decimal("0.00"))
-
-    def clear(self):
-        self.session[CART_SESSION_KEY] = {}
-        self.save()
+        return sum((row["subtotal"] for row in self), Decimal("0.00"))
