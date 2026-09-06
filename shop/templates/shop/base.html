@@ -35,7 +35,11 @@
   <script src="{% static 'shop/vendor/alpine.min.js' %}" defer></script>
   {% block head_extra %}{% endblock %}
 </head>
-<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+      x-data="{ cartOpen: false }"
+      x-effect="document.documentElement.classList.toggle('drawer-open', cartOpen)"
+      @keydown.escape.window="cartOpen = false"
+      @open-cart.window="cartOpen = true">
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header class="site-header">
@@ -50,7 +54,7 @@
         <a href="{% url 'shop:index' %}"
            {% if request.resolver_match.url_name == 'index' %}aria-current="page"{% endif %}>Shop</a>
         <a href="#" aria-disabled="true">About</a>
-        <a class="cart-link" href="{% url 'shop:cart_detail' %}"
+        <a class="cart-link" href="{% url 'shop:cart_detail' %}" @click.prevent="cartOpen = true"
            {% if request.resolver_match.url_name == 'cart_detail' %}aria-current="page"{% endif %}>
           Cart {% include "shop/_cart_indicator.html" %}
         </a>
@@ -71,6 +75,18 @@
     {% block content %}{% endblock %}
   </main>
 
+  {# --- cart drawer --- #}
+  <div class="drawer-scrim" x-show="cartOpen" x-transition.opacity
+       @click="cartOpen = false" style="display:none"></div>
+  <aside class="drawer glass" x-show="cartOpen" x-transition
+         role="dialog" aria-modal="true" aria-label="Your cart" style="display:none">
+    <div class="drawer__head">
+      <h2>Cart</h2>
+      <button type="button" class="drawer__close" @click="cartOpen = false" aria-label="Close cart">&times;</button>
+    </div>
+    {% include "shop/_cart_drawer_body.html" %}
+  </aside>
+
   <footer class="site-footer">
     <div class="wrap">
       <nav aria-label="Footer">
@@ -81,6 +97,20 @@
         <a href="#">Terms</a>
         <a href="#">Social</a>
       </nav>
+
+      <form class="footer-subscribe" hx-post="{% url 'shop:subscribe' %}"
+            hx-target="#footer-sub-note" hx-swap="innerHTML"
+            @htmx:after-request="if ($event.detail.successful) $el.reset()">
+        {% csrf_token %}
+        <input type="hidden" name="source" value="footer" />
+        <label for="footer-email">New-collection email</label>
+        <div class="footer-subscribe__row">
+          <input type="email" id="footer-email" name="email" placeholder="you@example.com" required />
+          <button type="submit">Join</button>
+        </div>
+        <div id="footer-sub-note" aria-live="polite"></div>
+      </form>
+
       <address>
         The T-Shirt Shop &mdash; Wyoming, USA<br />
         Placeholder identity &middot; pilot build

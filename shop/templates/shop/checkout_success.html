@@ -1,0 +1,57 @@
+{% extends "shop/base.html" %}
+
+{% block title %}Order confirmed — The T-Shirt Shop{% endblock %}
+{% block meta_description %}Your order is confirmed.{% endblock %}
+
+{% block content %}
+<section class="stack center-narrow confirm">
+  {% if order %}
+    <p class="eyebrow">Order {{ order.reference }}</p>
+    <h1>Thank you{% if order.name %}, {{ order.name }}{% endif %}.</h1>
+    <p class="muted">
+      Your order is in. We print to order, so give it a few days to be made and shipped &mdash;
+      we'll email you at each step. A confirmation is on its way to {{ order.email }}.
+    </p>
+
+    <div class="panel confirm__summary">
+      <ul role="list">
+        {% for item in order.items.all %}
+          <li><span>{{ item.quantity }} &times; {{ item.design_title }}{% if item.size_label %} ({{ item.size_label }}){% endif %}</span><span class="price">${{ item.line_total }}</span></li>
+        {% endfor %}
+      </ul>
+      <p class="confirm__row"><span>Items</span><span class="price">${{ order.items_total }}</span></p>
+      <p class="confirm__row"><span>Shipping</span><span>{% if order.shipping_total %}${{ order.shipping_total }}{% else %}Free{% endif %}</span></p>
+      <p class="confirm__row"><span>Tax</span><span class="price">${{ order.tax_total }}</span></p>
+      <p class="confirm__row confirm__total"><span>Total</span><span class="price">${{ order.grand_total }}</span></p>
+    </div>
+
+    <p><a class="btn btn--ghost" href="{% url 'shop:order_track' order.track_token %}">Track this order</a></p>
+  {% else %}
+    <h1>Thank you.</h1>
+    <p class="muted">Your payment went through. Your confirmation email has the order details and a tracking link.</p>
+  {% endif %}
+
+  <hr />
+
+  <div class="confirm__cta">
+    <p>The selection rotates &mdash; come back and see what's new.</p>
+    <p><a class="btn" href="{% url 'shop:index' %}">Back to the shop</a></p>
+  </div>
+
+  <div class="panel subscribe-block"
+       x-data="{ done: false }">
+    <h2>Next collection</h2>
+    <p class="muted">Want one email when the next seasonal collection drops? Nothing else.</p>
+    <form hx-post="{% url 'shop:subscribe' %}" hx-target="#sub-note" hx-swap="innerHTML"
+          @htmx:after-request="if ($event.detail.successful) $el.reset()">
+      {% csrf_token %}
+      <input type="hidden" name="source" value="confirmation" />
+      {% if order %}<input type="hidden" name="name" value="{{ order.name }}" />{% endif %}
+      <input type="email" name="email" placeholder="you@example.com"
+             {% if order %}value="{{ order.email }}"{% endif %} required aria-label="Email" />
+      <button type="submit" class="btn">Notify me</button>
+    </form>
+    <div id="sub-note" aria-live="polite"></div>
+  </div>
+</section>
+{% endblock %}

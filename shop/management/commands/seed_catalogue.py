@@ -30,7 +30,7 @@ TEE_SIZES = [
 ]
 
 DESIGNS = [
-    ("Sea of Fog", "Fog Grey", "A figure at the summit, the valley gone to cloud. After Friedrich.",
+    ("Sea of Fog", "Fog Gray", "A figure at the summit, the valley gone to cloud. After Friedrich.",
      ["romantic", "solitude", "mountains"]),
     ("Pillars", "Charcoal", "Columns of gas and dust, light-years tall, lit from within.",
      ["cosmic", "nebula"]),

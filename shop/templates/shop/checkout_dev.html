@@ -1,0 +1,37 @@
+{% extends "shop/base.html" %}
+
+{% block title %}Checkout (dev) — The T-Shirt Shop{% endblock %}
+
+{% block content %}
+<section class="stack center-narrow">
+  <p class="eyebrow">Development only</p>
+  <h1>Simulated checkout</h1>
+  <p class="muted">
+    Stripe keys aren't configured, so this stands in for the hosted Checkout redirect.
+    It creates the order exactly as the webhook would. Add <code>STRIPE_SECRET_KEY</code> to
+    <code>.env</code> to use real Stripe test mode instead.
+  </p>
+
+  <div class="panel">
+    <ul role="list" class="dev-order">
+      {% for item in order.items.all %}
+        <li><span>{{ item.quantity }} &times; {{ item.design_title }}{% if item.size_label %} ({{ item.size_label }}){% endif %}</span><span class="price">${{ item.line_total }}</span></li>
+      {% endfor %}
+    </ul>
+    <p class="cart-total"><span>Total</span> <span class="price">${{ order.grand_total }}</span></p>
+  </div>
+
+  <form method="post" action="{% url 'shop:checkout_simulate' %}" class="stack">
+    {% csrf_token %}
+    <div class="field">
+      <label for="name">Name</label>
+      <input id="name" name="name" value="Dev Tester" />
+    </div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" name="email" value="dev@example.com" required />
+    </div>
+    <button type="submit" class="btn">Simulate successful payment</button>
+  </form>
+</section>
+{% endblock %}

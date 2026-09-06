@@ -1,0 +1,28 @@
+{{ shop_name }}
+Order {{ order.reference }} — confirmed
+
+Thank you, {{ order.name|default:"friend" }}.
+
+Your order is in. We print to order, so give it a few days to be made
+and shipped — you'll get an email at each step.
+
+WHAT YOU ORDERED
+{% for item in order.items.all %}  {{ item.quantity }} x {{ item.design_title }}{% if item.size_label %} ({{ item.size_label }}){% endif %} — ${{ item.line_total }}
+{% endfor %}
+  Items        ${{ order.items_total }}
+  Shipping     {% if order.shipping_total %}${{ order.shipping_total }}{% else %}Free{% endif %}
+  Tax          ${{ order.tax_total }}
+  Total        ${{ order.grand_total }}
+
+TRACK YOUR ORDER
+{{ track_url }}
+
+---
+
+Come back and see what's new — the selection rotates:
+{{ shop_url }}
+
+Want a heads-up when the next seasonal collection drops?
+Sign up here: {{ subscribe_url }}
+
+{{ postal_address }}

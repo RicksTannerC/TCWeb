@@ -1,0 +1,43 @@
+{% load static %}
+<div id="cart-drawer-body"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% if cart|length == 0 %}
+    <p class="muted drawer__empty">Your cart is empty.</p>
+  {% else %}
+    <ul class="drawer__lines" role="list">
+      {% for item in cart %}
+        <li class="drawer__line">
+          <div class="drawer__thumb">
+            {% with img=item.listing.primary_image %}
+              {% if img %}<img src="{{ img.image.url }}" alt="" />{% else %}<span>{{ item.listing.design.title }}</span>{% endif %}
+            {% endwith %}
+          </div>
+          <div class="drawer__meta">
+            <strong>{{ item.listing.design.title }}</strong>
+            <span class="faint">{{ item.size.label }}{% if item.listing.color %} &middot; {{ item.listing.color }}{% endif %}</span>
+            <span class="faint tnum">{{ item.quantity }} &times; ${{ item.unit_price }}</span>
+          </div>
+          <div class="drawer__line-end">
+            <span class="price">${{ item.subtotal }}</span>
+            <form method="post" action="{% url 'shop:cart_remove' %}"
+                  hx-post="{% url 'shop:cart_remove' %}" hx-target="#cart-drawer-body" hx-swap="outerHTML">
+              {% csrf_token %}
+              <input type="hidden" name="listing" value="{{ item.listing.id }}" />
+              <input type="hidden" name="size" value="{{ item.size.id }}" />
+              <button type="submit" class="linkish" aria-label="Remove {{ item.listing.design.title }}">Remove</button>
+            </form>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <div class="drawer__foot">
+      <p class="drawer__total"><span>Subtotal</span> <span class="price">${{ cart.get_total }}</span></p>
+      <p class="faint drawer__ship">Free shipping. Tax at checkout.</p>
+      <a class="btn btn--ghost" href="{% url 'shop:cart_detail' %}">View full cart</a>
+      <form method="post" action="{% url 'shop:checkout' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn--block">Checkout</button>
+      </form>
+    </div>
+  {% endif %}
+</div>

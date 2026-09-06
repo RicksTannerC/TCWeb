@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.utils.html import format_html
 
 from .models import (
     Collection,
@@ -10,6 +9,7 @@ from .models import (
     ProductTemplate,
     Tag,
 )
+from .orders import Fulfillment, Order, OrderItem, Subscriber
 
 # The bespoke curator's console is Milestone 4. Until then, the Django admin
 # is the working surface for the catalogue.
@@ -89,3 +89,47 @@ class TagAdmin(admin.ModelAdmin):
     list_display = ("name",)
     search_fields = ("name",)
     prepopulated_fields = {"slug": ("name",)}
+
+
+# ---------------------------------------------------------------- orders
+
+
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 0
+    readonly_fields = ("design_title", "product_type", "color", "size_label",
+                       "quantity", "unit_price", "unit_supplier_cost", "line_total")
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class FulfillmentInline(admin.StackedInline):
+    model = Fulfillment
+    extra = 0
+    filter_horizontal = ("items",)
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ("reference", "email", "status", "grand_total", "margin", "created")
+    list_filter = ("status", "created")
+    search_fields = ("email", "name", "stripe_session_id", "id")
+    readonly_fields = (
+        "reference", "stripe_session_id", "stripe_payment_intent", "track_token",
+        "items_total", "shipping_total", "tax_total", "grand_total",
+        "supplier_cost", "margin", "shipping_address", "created", "updated",
+    )
+    inlines = [OrderItemInline, FulfillmentInline]
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(Subscriber)
+class SubscriberAdmin(admin.ModelAdmin):
+    list_display = ("email", "is_active", "source", "created")
+    list_filter = ("is_active", "source")
+    search_fields = ("email", "name")
+    readonly_fields = ("unsubscribe_token", "created")

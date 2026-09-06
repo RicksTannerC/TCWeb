@@ -1,0 +1,38 @@
+{% extends "shop/base.html" %}
+
+{% block title %}Order {{ order.reference }} — The T-Shirt Shop{% endblock %}
+{% block meta_description %}Order status.{% endblock %}
+{% block head_extra %}<meta name="robots" content="noindex" />{% endblock %}
+
+{% block content %}
+<section class="stack center-narrow">
+  <p class="eyebrow">Order {{ order.reference }}</p>
+  <h1>{{ order.get_status_display }}</h1>
+  <p class="muted">Placed {{ order.created|date:"j M Y" }} &middot; {{ order.email }}</p>
+
+  <div class="panel">
+    <ul role="list" class="track-items">
+      {% for item in order.items.all %}
+        <li><span>{{ item.quantity }} &times; {{ item.design_title }}{% if item.size_label %} ({{ item.size_label }}){% endif %}</span><span class="price">${{ item.line_total }}</span></li>
+      {% endfor %}
+    </ul>
+    <p class="cart-total"><span>Total</span> <span class="price">${{ order.grand_total }}</span></p>
+  </div>
+
+  {% if order.fulfillments.all %}
+    <h2>Shipments</h2>
+    {% for f in order.fulfillments.all %}
+      <div class="panel">
+        <p><strong>{{ f.get_status_display }}</strong> &middot; {{ f.supplier|title }}</p>
+        {% if f.tracking_number %}
+          <p>Tracking: {% if f.tracking_url %}<a href="{{ f.tracking_url }}">{{ f.tracking_number }}</a>{% else %}{{ f.tracking_number }}{% endif %}
+             {% if f.carrier %}({{ f.carrier }}){% endif %}</p>
+        {% endif %}
+        {% if f.problem_note %}<p class="form-note error">{{ f.problem_note }}</p>{% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="muted">Your order is being prepared. Tracking details will appear here once it ships.</p>
+  {% endif %}
+</section>
+{% endblock %}

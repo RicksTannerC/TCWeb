@@ -42,7 +42,7 @@ working SQLite site. See [.env.example](.env.example) for the full list.
 | `DATABASE_URL` | unset → local SQLite; a `postgres://` URL in production (Milestone 6) |
 | `EMAIL_URL` | unset → console backend; an SMTP URL for real mail (Milestone 2) |
 | `STRIPE_*` | checkout (Milestone 2) |
-| `PRINTFUL_API_KEY` | fulfilment (Milestone 3) |
+| `PRINTFUL_API_KEY` | fulfillment (Milestone 3) |
 
 ## Structure
 

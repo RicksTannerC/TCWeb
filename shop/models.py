@@ -2,7 +2,7 @@
 Catalogue model.
 
 A **Design** is the artwork (the parent). One design produces one or more
-**Listings** — a sellable card: this design, on this product, in this colour.
+**Listings** — a sellable card: this design, on this product, in this color.
 Size is the only choice made on a listing. Stickers are Listings too; for now
 the storefront shows a design's sticker option inside the tee's card rather
 than as its own tile.
@@ -153,7 +153,7 @@ class Design(models.Model):
 
 
 class Listing(models.Model):
-    """A sellable card: one design, one product, one colour."""
+    """A sellable card: one design, one product, one color."""
 
     design = models.ForeignKey(Design, on_delete=models.CASCADE, related_name="listings")
     template = models.ForeignKey(ProductTemplate, on_delete=models.PROTECT, related_name="listings")
@@ -288,3 +288,13 @@ class ListingImage(models.Model):
 
     def __str__(self):
         return f"{self.listing} — image {self.pk}"
+
+
+# Order-side models live in orders.py; import them so migrations discover them.
+from .orders import (  # noqa: E402,F401
+    Fulfillment,
+    Order,
+    OrderItem,
+    OrderStatus,
+    Subscriber,
+)

@@ -61,8 +61,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                # {{ cart_count }} in every template (header badge).
-                "shop.context_processors.cart_count",
+                # {{ cart }} + {{ cart_count }} in every template.
+                "shop.context_processors.cart",
             ],
         },
     },
@@ -140,7 +140,17 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="The T-Shirt Shop <shop@l
 STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
+# Stripe Tax: enable once a Wyoming registration is in place (see vision §09).
+STRIPE_TAX_ENABLED = env.bool("STRIPE_TAX_ENABLED", default=False)
 PRINTFUL_API_KEY = env("PRINTFUL_API_KEY", default="")
+
+# Shop identity used in emails / CAN-SPAM footer.
+SHOP_NAME = "The T-Shirt Shop"
+SHOP_POSTAL_ADDRESS = env(
+    "SHOP_POSTAL_ADDRESS", default="The T-Shirt Shop, Wyoming, USA"
+)
+# Absolute base for links in emails (no request context there).
+SITE_BASE_URL = env("SITE_BASE_URL", default="http://127.0.0.1:8000")
 
 # --- Security (production) ----------------------------------------
 

@@ -1,0 +1,12 @@
+{{ shop_name }}
+
+You're on the list.
+
+We'll email you once when a new seasonal collection drops — no more than
+a handful of times a year, nothing else.
+
+Browse what's in stock now: {{ shop_url }}
+
+---
+Don't want these? Unsubscribe any time: {{ unsubscribe_url }}
+{{ postal_address }}
