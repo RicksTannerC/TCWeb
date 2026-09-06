@@ -1,37 +1,113 @@
-{% load static %}
+{% load static django_htmx %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" x-data="themeToggle()" :data-theme="theme || null">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}TCR{% endblock %}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <meta name="color-scheme" content="light dark" />
+
+  <title>{% block title %}The T-Shirt Shop{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Screen-printed shirts, made to order. A small curated shop.{% endblock %}" />
+
+  {# --- Open Graph (per-page overridable) --- #}
+  <meta property="og:site_name" content="The T-Shirt Shop" />
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}" />
+  <meta property="og:title" content="{% block og_title %}The T-Shirt Shop{% endblock %}" />
+  <meta property="og:description" content="{% block og_description %}Screen-printed shirts, made to order.{% endblock %}" />
+  {% block og_image %}{% endblock %}
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="{% static 'shop/css/style.css' %}" />
+
+  {# theme applied before paint to avoid a flash #}
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('tts-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+
+  <script src="{% static 'shop/vendor/htmx.min.js' %}" defer></script>
+  <script src="{% static 'shop/vendor/alpine.min.js' %}" defer></script>
+  {% block head_extra %}{% endblock %}
 </head>
-<body>
-  <header>
-    <a href="{% url 'shop:product_list' %}" class="brand">
-      <svg class="micro" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
-        <path d="M50 5 L92 22 L92 55 C92 82 74 98 50 105 C26 98 8 82 8 55 L8 22 Z" fill="none" stroke="var(--stone)" stroke-width="4"/>
-        <line x1="50" y1="20" x2="50" y2="85" stroke="var(--steel)" stroke-width="6"/>
-        <circle cx="50" cy="14" r="5" fill="var(--stone)"/>
-        <path d="M35 30 L50 20 L65 30 L58 34 L50 28 L42 34 Z" fill="var(--olive)"/>
-      </svg>
-      <span class="wordmark">TCR</span>
-    </a>
-    <nav>
-      <a href="{% url 'shop:product_list' %}">Shop</a>
-      <a href="{% url 'shop:cart_detail' %}">Cart{% if cart_count %} ({{ cart_count }}){% endif %}</a>
-    </nav>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="{% url 'shop:product_list' %}" aria-label="The T-Shirt Shop — home">
+        {# placeholder mark: swapped for the real crest in the identity pass #}
+        <span class="brand__mark" aria-hidden="true">T</span>
+        <span class="brand__word">The T&middot;Shirt Shop</span>
+      </a>
+
+      <nav class="site-nav" aria-label="Primary">
+        <a href="{% url 'shop:product_list' %}"
+           {% if request.resolver_match.url_name == 'product_list' %}aria-current="page"{% endif %}>Shop</a>
+        <a href="#" aria-disabled="true">About</a>
+        <a class="cart-link" href="{% url 'shop:cart_detail' %}"
+           {% if request.resolver_match.url_name == 'cart_detail' %}aria-current="page"{% endif %}>
+          Cart{% if cart_count %}<span class="count tnum">{{ cart_count }}</span>{% endif %}
+        </a>
+        <button type="button" class="theme-toggle" @click="cycle()" x-text="label">Theme</button>
+      </nav>
+    </div>
   </header>
 
-  <main>
+  <main id="main" class="wrap">
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
     {% block content %}{% endblock %}
   </main>
 
-  <footer>
-    <p>TCR — placeholder identity, pilot build.</p>
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav aria-label="Footer">
+        <a href="#">About</a>
+        <a href="#">Shipping &amp; Returns</a>
+        <a href="#">Contact</a>
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Social</a>
+      </nav>
+      <address>
+        The T-Shirt Shop &mdash; Wyoming, USA<br />
+        Placeholder identity &middot; pilot build
+      </address>
+    </div>
   </footer>
+
+  {% django_htmx_script %}
+  <script>
+    function themeToggle() {
+      return {
+        theme: (function () {
+          try { return localStorage.getItem('tts-theme') || ''; } catch (e) { return ''; }
+        })(),
+        get label() { return this.theme === '' ? 'Auto' : this.theme; },
+        cycle() {
+          this.theme = this.theme === '' ? 'light' : this.theme === 'light' ? 'dark' : '';
+          try {
+            if (this.theme) localStorage.setItem('tts-theme', this.theme);
+            else localStorage.removeItem('tts-theme');
+          } catch (e) {}
+          if (this.theme) document.documentElement.setAttribute('data-theme', this.theme);
+          else document.documentElement.removeAttribute('data-theme');
+        },
+      };
+    }
+  </script>
+  {% block body_extra %}{% endblock %}
 </body>
 </html>

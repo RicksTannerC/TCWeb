@@ -1,38 +1,34 @@
 {% extends "shop/base.html" %}
 
-{% block title %}Your cart — TCR{% endblock %}
+{% block title %}Your cart — The T-Shirt Shop{% endblock %}
 
 {% block content %}
-<section class="cart">
+<section class="stack">
   <h1>Your cart</h1>
 
   {% if cart|length == 0 %}
-    <p class="empty">Nothing here yet. <a href="{% url 'shop:product_list' %}">Go pick a shirt.</a></p>
+    <p class="muted">Nothing here yet. <a href="{% url 'shop:product_list' %}">Go pick a shirt.</a></p>
   {% else %}
-    <ul class="cart-list">
+    <ul class="stack" style="list-style:none;">
       {% for item in cart %}
-        <li>
-          <div class="thumb small">
-            {% if item.product.image %}
-              <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" />
-            {% else %}
-              <span class="thumb-fallback">{{ item.product.name }}</span>
-            {% endif %}
-          </div>
+        <li class="panel cluster" style="justify-content:space-between;">
           <div>
-            <h2>{{ item.product.name }}</h2>
-            <p>{{ item.quantity }} × ${{ item.product.price }}</p>
+            <strong>{{ item.product.name }}</strong>
+            <div class="faint tnum">{{ item.quantity }} &times; ${{ item.product.price }}</div>
           </div>
-          <p class="subtotal">${{ item.subtotal }}</p>
-          <form action="{% url 'shop:cart_remove' item.product.id %}" method="POST">
-            {% csrf_token %}
-            <button type="submit" class="remove">Remove</button>
-          </form>
+          <div class="cluster">
+            <span class="price">${{ item.subtotal }}</span>
+            <form action="{% url 'shop:cart_remove' item.product.id %}" method="post">
+              {% csrf_token %}
+              <button type="submit" class="btn btn--ghost" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Remove</button>
+            </form>
+          </div>
         </li>
       {% endfor %}
     </ul>
-    <p class="total">Total: ${{ cart.get_total }}</p>
-    <button class="checkout" disabled>Checkout (not wired up yet)</button>
+
+    <p class="display" style="font-size:var(--step-2);">Total: <span class="price">${{ cart.get_total }}</span></p>
+    <button class="btn" disabled>Checkout (Milestone&nbsp;2)</button>
   {% endif %}
 </section>
 {% endblock %}

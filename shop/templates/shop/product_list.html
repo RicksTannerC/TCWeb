@@ -1,33 +1,32 @@
 {% extends "shop/base.html" %}
-{% load static %}
 
-{% block title %}TCR — The Steady Ascent{% endblock %}
+{% block title %}Shop — The T-Shirt Shop{% endblock %}
 
 {% block content %}
-<section class="hero">
-  <p class="eyebrow">The Steady Ascent — Pilot Build</p>
+<section class="section-intro">
+  <p class="eyebrow">Pilot build</p>
   <h1>Shirts, screen-printed to order.</h1>
-  <p>A small pilot run against the TCR identity system.</p>
+  <p>A small, rotating selection. What&rsquo;s here this week may not be here next.</p>
 </section>
 
-<section class="grid">
+<section class="product-grid">
   {% for product in products %}
-    <a class="card" href="{{ product.get_absolute_url }}">
+    <a class="product-card panel" href="{{ product.get_absolute_url }}">
       <div class="thumb">
         {% if product.image %}
           <img src="{{ product.image.url }}" alt="{{ product.name }}" />
         {% else %}
-          <span class="thumb-fallback">{{ product.name }}</span>
+          <span>{{ product.name }}</span>
         {% endif %}
       </div>
-      <div class="card-body">
+      <div class="body">
         <h2>{{ product.name }}</h2>
-        <p class="color">{{ product.color }}</p>
+        <p class="faint">{{ product.color }}</p>
         <p class="price">${{ product.price }}</p>
       </div>
     </a>
   {% empty %}
-    <p class="empty">No products yet — run <code>manage.py seed_products</code>, or add some in the admin.</p>
+    <p class="muted">No products yet — this is where the catalogue lands in Milestone&nbsp;1.</p>
   {% endfor %}
 </section>
 {% endblock %}

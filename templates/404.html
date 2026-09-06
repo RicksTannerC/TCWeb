@@ -1,0 +1,24 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Not found — The T-Shirt Shop</title>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'shop/css/style.css' %}" />
+</head>
+<body>
+  <header class="site-header"><div class="wrap">
+    <a class="brand" href="/"><span class="brand__mark" aria-hidden="true">T</span><span class="brand__word">The T&middot;Shirt Shop</span></a>
+  </div></header>
+  <main id="main" class="wrap">
+    <div class="stack center-narrow" style="padding-block: 3rem;">
+      <p class="eyebrow">404</p>
+      <h1>This page isn&rsquo;t on the rack.</h1>
+      <p class="muted">The link may be old, or the design has rotated out.</p>
+      <p><a class="btn" href="/">Back to the shop</a></p>
+    </div>
+  </main>
+</body>
+</html>

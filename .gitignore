@@ -1,8 +1,28 @@
 __pycache__/
 *.pyc
+*.log
+
+# Local database (Milestone 0 uses SQLite; production uses Postgres)
 db.sqlite3
+db.sqlite3-journal
+
+# Uploaded + collected files
 media/
 staticfiles/
+
+# Virtualenvs
 .venv/
 venv/
+.TcrShopVenv/
+
+# Secrets / local config
 .env
+
+# Claude Code working memory (not project code)
+memory/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
