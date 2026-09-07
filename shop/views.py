@@ -55,8 +55,9 @@ def robots_txt(request):
 def _live_tees(query=""):
     qs = (
         Listing.objects.filter(status=Status.LIVE, product_type=ProductType.TEE)
-        .select_related("design")
+        .select_related("design", "collection")
         .prefetch_related("images", "design__tags")
+        .order_by("collection__is_base", "collection__name", "sort_order", "design__title")
     )
     if query:
         qs = qs.filter(
@@ -68,12 +69,27 @@ def _live_tees(query=""):
     return qs
 
 
+def _grouped_tees(query=""):
+    """[(collection|None, [listings])] — named collections first, the base last."""
+    groups = {}
+    order = []
+    for tee in _live_tees(query):
+        col = tee.collection if (tee.collection and not tee.collection.is_base) else None
+        key = col.id if col else 0
+        if key not in groups:
+            groups[key] = {"collection": col, "listings": []}
+            order.append(key)
+        groups[key]["listings"].append(tee)
+    return [groups[k] for k in order]
+
+
 def shop_index(request):
     query = request.GET.get("q", "").strip()
-    tees = _live_tees(query)
+    groups = _grouped_tees(query)
+    ctx = {"groups": groups, "query": query}
     if request.htmx and request.GET.get("grid"):
-        return render(request, "shop/_grid.html", {"tees": tees, "query": query})
-    return render(request, "shop/shop.html", {"tees": tees, "query": query, "overlay": None})
+        return render(request, "shop/_grid.html", ctx)
+    return render(request, "shop/shop.html", {**ctx, "overlay": None})
 
 
 def listing_detail(request, slug):
@@ -86,7 +102,7 @@ def listing_detail(request, slug):
     ctx = {"listing": listing, "sticker": listing.design.sticker_listing}
     if request.htmx:
         return render(request, "shop/_overlay.html", ctx)
-    ctx.update({"tees": _live_tees(), "query": "", "overlay": listing})
+    ctx.update({"groups": _grouped_tees(), "query": "", "overlay": listing})
     return render(request, "shop/shop.html", ctx)
 
 

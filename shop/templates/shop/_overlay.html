@@ -1,7 +1,7 @@
 {% load static %}
 <div class="overlay" role="dialog" aria-modal="true"
      aria-label="{{ listing.design.title }}"
-     x-data="{ selected: 0, hover: null }"
+     x-data="{ selected: 0, hover: null, added: 0, stickerAdded: 0 }"
      x-init="document.documentElement.classList.add('overlay-open'); $nextTick(() => $refs.close.focus())"
      @keydown.escape.window="$refs.close.click()"
      @keydown.tab="(() => {
@@ -60,11 +60,12 @@
       {% if listing.design.story %}<p class="muted overlay__story">{{ listing.design.story }}</p>{% endif %}
 
       <form class="overlay__buy" method="post" action="{% url 'shop:cart_add' listing.id %}"
-            hx-post="{% url 'shop:cart_add' listing.id %}" hx-target="#add-feedback" hx-swap="innerHTML">
+            hx-post="{% url 'shop:cart_add' listing.id %}" hx-target="#add-feedback" hx-swap="innerHTML"
+            @htmx:after-request="if ($event.detail.successful) added++">
         {% csrf_token %}
         <div class="field">
           <label for="size-{{ listing.id }}">Size</label>
-          <select id="size-{{ listing.id }}" name="size" required>
+          <select id="size-{{ listing.id }}" name="size" required @change="added = 0">
             {% for size in listing.sizes.all %}
               <option value="{{ size.id }}">
                 {{ size.label }}{% if size.measurements %} &mdash; {{ size.measurements }}{% endif %}
@@ -72,20 +73,23 @@
             {% endfor %}
           </select>
         </div>
-        <button type="submit" class="btn">Add to cart</button>
+        <button type="submit" class="btn" :class="{ 'is-added': added }"
+                x-text="added === 0 ? 'Add to cart' : 'Added to cart' + (added > 1 ? ' (×' + added + ')' : '') + ' — add another'">Add to cart</button>
       </form>
 
       {% if sticker %}
         <form class="overlay__addon" method="post" action="{% url 'shop:cart_add' sticker.id %}"
-              hx-post="{% url 'shop:cart_add' sticker.id %}" hx-target="#add-feedback" hx-swap="innerHTML">
+              hx-post="{% url 'shop:cart_add' sticker.id %}" hx-target="#add-feedback" hx-swap="innerHTML"
+              @htmx:after-request="if ($event.detail.successful) stickerAdded++">
           {% csrf_token %}
           <input type="hidden" name="size" value="{{ sticker.sizes.first.id }}" />
           <span>Also as a sticker &mdash; <span class="price">${{ sticker.price }}</span></span>
-          <button type="submit" class="btn btn--ghost">Add sticker</button>
+          <button type="submit" class="btn btn--ghost" :class="{ 'is-added': stickerAdded }"
+                  x-text="stickerAdded === 0 ? 'Add sticker' : 'Sticker added' + (stickerAdded > 1 ? ' (×' + stickerAdded + ')' : '') + ' — add another'">Add sticker</button>
         </form>
       {% endif %}
 
-      <p id="add-feedback" class="overlay__feedback" aria-live="polite"></p>
+      <p id="add-feedback" class="overlay__feedback visually-hidden" aria-live="polite"></p>
 
       {% if listing.design.tags.all %}
         <p class="overlay__tags">

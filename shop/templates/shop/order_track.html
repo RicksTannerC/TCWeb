@@ -34,5 +34,7 @@
   {% else %}
     <p class="muted">Your order is being prepared. Tracking details will appear here once it ships.</p>
   {% endif %}
+
+  <p class="track-back"><a class="btn btn--ghost" href="{% url 'shop:index' %}">Back to the shop</a></p>
 </section>
 {% endblock %}

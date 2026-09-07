@@ -112,6 +112,7 @@
 /* ---- reset ----------------------------------------------- */
 *, *::before, *::after { box-sizing: border-box; }
 * { margin: 0; }
+[x-cloak] { display: none !important; }
 html {
   -webkit-text-size-adjust: 100%;
   scrollbar-gutter: stable;             /* reserve the track so scroll-locking doesn't shift layout */
@@ -468,8 +469,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--steel); out
   display: grid;
   place-items: center;
   overflow: hidden;
+  padding: 0.5rem;
 }
-.tile__image img { width: 100%; height: 100%; object-fit: cover; }
+.tile__image img { width: 100%; height: 100%; object-fit: contain; }
 .tile__fallback {
   font-family: var(--font-display);
   text-transform: uppercase;
@@ -541,7 +543,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--steel); out
   overflow: hidden;
   border-radius: var(--radius);
 }
-.overlay__image img { width: 100%; height: 100%; object-fit: cover; }
+.overlay__image img { width: 100%; height: 100%; object-fit: contain; }
 
 /* distance-scaled thumbnail strip; hover/active springs to full size */
 .overlay__strip {
@@ -566,7 +568,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--steel); out
   opacity: calc(1 - var(--dist, 0) * 0.12);
   transition: transform 0.16s ease, opacity 0.16s ease, border-color 0.16s ease;
 }
-.overlay__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.overlay__thumb img { width: 100%; height: 100%; object-fit: contain; }
 .overlay__thumb.is-hover,
 .overlay__thumb.is-active { transform: scale(1); opacity: 1; }
 .overlay__thumb.is-active { border-color: var(--olive); }
@@ -954,6 +956,60 @@ body.console { background: var(--ground, var(--paper)); }
   font-family: var(--font-mono); font-size: 0.9em;
   background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 2px;
 }
+
+/* ============================================================
+   Review pass — search toggle, collection sections, button state
+   ============================================================ */
+
+.section-intro__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.search-toggle {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-soft);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  margin-top: 0.4rem;
+}
+.search-toggle:hover { border-color: var(--ink); color: var(--ink); }
+.shop-search { margin-top: var(--sp-3); display: none; }
+.shop-search.is-open { display: flex; }
+
+.shop-collection { margin-bottom: var(--sp-5); }
+.shop-collection__head {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.shop-collection__head h2 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: var(--step-2);
+  margin: 0;
+}
+.shop-collection__head p { margin: 0.35rem 0 0; max-width: 55ch; }
+
+.btn.is-added {
+  background: var(--steel);
+  border-color: var(--steel);
+}
+.btn--ghost.is-added {
+  background: transparent;
+  border-color: var(--steel);
+  color: var(--steel);
+}
+
+.track-back { margin-top: var(--sp-4); }
 
 /* ---- utilities -------------------------------------- */
 .stack > * + * { margin-top: var(--sp-3); }

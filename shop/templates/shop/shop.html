@@ -7,20 +7,30 @@
 {% if overlay %}{% block og_type %}product{% endblock %}{% endif %}
 
 {% block content %}
-<section class="section-intro">
-  <p class="eyebrow">Pilot build</p>
-  <h1>Shirts, screen-printed to order.</h1>
-  <p>A small, rotating selection. What&rsquo;s here this week may not be here next.</p>
-</section>
+<section class="section-intro"
+         x-data="{ searchOpen: {% if query %}true{% else %}false{% endif %} }">
+  <div class="section-intro__head">
+    <div>
+      <p class="eyebrow">Pilot build</p>
+      <h1>Shirts, screen-printed to order.</h1>
+      <p>A small, rotating selection. What&rsquo;s here this week may not be here next.</p>
+    </div>
+    <button type="button" class="search-toggle" @click="searchOpen = !searchOpen"
+            :aria-expanded="searchOpen" aria-controls="shop-search"
+            x-text="searchOpen ? 'Close' : 'Search'">Search</button>
+  </div>
 
-<form class="shop-search" role="search" method="get" action="{% url 'shop:index' %}"
-      hx-get="{% url 'shop:index' %}" hx-target="#grid" hx-swap="innerHTML"
-      hx-trigger="input changed delay:250ms, submit" hx-vals='{"grid": "1"}'>
-  <label for="q" class="visually-hidden">Search designs</label>
-  <input type="search" id="q" name="q" value="{{ query }}"
-         placeholder="Search by motif, color&hellip;" autocomplete="off" />
-  <button type="submit" class="btn btn--ghost">Search</button>
-</form>
+  <form id="shop-search" class="shop-search" role="search" method="get" action="{% url 'shop:index' %}"
+        :class="{ 'is-open': searchOpen }"
+        x-effect="if (searchOpen) $nextTick(() => $refs.q.focus())"
+        hx-get="{% url 'shop:index' %}" hx-target="#grid" hx-swap="innerHTML"
+        hx-trigger="input changed delay:250ms, submit" hx-vals='{"grid": "1"}'>
+    <label for="q" class="visually-hidden">Search designs</label>
+    <input type="search" id="q" name="q" value="{{ query }}" x-ref="q"
+           placeholder="Search by motif, color&hellip;" autocomplete="off" />
+    <button type="submit" class="btn btn--ghost">Go</button>
+  </form>
+</section>
 
 <div id="grid">
   {% include "shop/_grid.html" %}

@@ -1,9 +1,22 @@
-{% if tees %}
-  <ul class="tile-grid" role="list">
-    {% for listing in tees %}
-      {% include "shop/_tile.html" %}
+{% if groups %}
+  {% if groups|length == 1 and not groups.0.collection %}
+    {# ungrouped — a single flat grid #}
+    <ul class="tile-grid" role="list">
+      {% for listing in groups.0.listings %}{% include "shop/_tile.html" %}{% endfor %}
+    </ul>
+  {% else %}
+    {% for group in groups %}
+      <section class="shop-collection">
+        <div class="shop-collection__head">
+          <h2>{% if group.collection %}{{ group.collection.name }}{% else %}The Shop{% endif %}</h2>
+          {% if group.collection.summary %}<p class="muted">{{ group.collection.summary }}</p>{% endif %}
+        </div>
+        <ul class="tile-grid" role="list">
+          {% for listing in group.listings %}{% include "shop/_tile.html" %}{% endfor %}
+        </ul>
+      </section>
     {% endfor %}
-  </ul>
+  {% endif %}
 {% else %}
   <p class="muted grid-empty">
     {% if query %}Nothing matches &ldquo;{{ query }}&rdquo;.{% else %}No shirts are live yet.{% endif %}

@@ -29,21 +29,22 @@ TEE_SIZES = [
     {"label": "2XL", "width_in": 26, "height_in": 32},
 ]
 
+# (title, color, story, tags, collection_slug or None for base)
 DESIGNS = [
     ("Sea of Fog", "Fog Gray", "A figure at the summit, the valley gone to cloud. After Friedrich.",
-     ["romantic", "solitude", "mountains"]),
-    ("Pillars", "Charcoal", "Columns of gas and dust, light-years tall, lit from within.",
-     ["cosmic", "nebula"]),
-    ("Carina", "Deep Olive", "The edge of a star-forming cliff, rendered in infrared.",
-     ["cosmic", "nebula"]),
+     ["romantic", "solitude", "mountains"], None),
     ("The Wanderer", "Bone", "Small against the vast — the Romantic figure, walking on.",
-     ["romantic", "solitude"]),
-    ("Deep Field", "Black", "Thousands of galaxies in a patch of sky the size of a grain of sand.",
-     ["cosmic", "deep-field"]),
+     ["romantic", "solitude"], None),
     ("Aurora Line", "Slate", "A ribbon of charged light along the night horizon.",
-     ["romantic", "sky"]),
+     ["romantic", "sky"], None),
     ("Cold Summit", "Iron", "Bare rock, thin air, and the long view down.",
-     ["mountains", "solitude"]),
+     ["mountains", "solitude"], None),
+    ("Pillars", "Charcoal", "Columns of gas and dust, light-years tall, lit from within.",
+     ["cosmic", "nebula"], "deep-field"),
+    ("Carina", "Deep Olive", "The edge of a star-forming cliff, rendered in infrared.",
+     ["cosmic", "nebula"], "deep-field"),
+    ("Deep Field", "Black", "Thousands of galaxies in a patch of sky the size of a grain of sand.",
+     ["cosmic", "deep-field"], "deep-field"),
 ]
 
 
@@ -55,6 +56,15 @@ class Command(BaseCommand):
             slug="the-t-shirt-shop",
             defaults={"name": "The T-Shirt Shop", "is_base": True, "status": Status.LIVE},
         )
+        deep_field, _ = Collection.objects.get_or_create(
+            slug="deep-field",
+            defaults={
+                "name": "Deep Field",
+                "summary": "Riffs on what the space telescopes sent back.",
+                "status": Status.LIVE,
+            },
+        )
+        collections = {None: base, "deep-field": deep_field}
 
         tee_tpl, _ = ProductTemplate.objects.get_or_create(
             slug="standard-tee",
@@ -79,17 +89,18 @@ class Command(BaseCommand):
         )
 
         made = 0
-        for order, (title, color, story, tags) in enumerate(DESIGNS):
+        for order, (title, color, story, tags, col_slug) in enumerate(DESIGNS):
             design, created = Design.objects.get_or_create(
                 slug=title.lower().replace(" ", "-"),
                 defaults={"title": title, "story": story},
             )
             design.tags.set(Tag.objects.get_or_create(name=t)[0] for t in tags)
+            collection = collections[col_slug]
 
-            tee = self._listing(design, tee_tpl, color, Decimal("35.00"), base, order)
+            tee = self._listing(design, tee_tpl, color, Decimal("35.00"), collection, order)
             self._sizes(tee, TEE_SIZES)
 
-            sticker = self._listing(design, sticker_tpl, "", Decimal("4.00"), base, order)
+            sticker = self._listing(design, sticker_tpl, "", Decimal("4.00"), collection, order)
             self._sizes(sticker, [{"label": '3"', "width_in": 3, "height_in": 3}])
 
             if created:
