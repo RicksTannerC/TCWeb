@@ -1,7 +1,6 @@
 /* ============================================================
    The T-Shirt Shop — base design system  (Milestone 0)
-   Warm industrial: wood + olive + steel + warm neutrals,
-   sharpened with true black and white. Placeholder identity.
+   Retinted to the crest: olive, charcoal & steel, off a warm paper ground.
    ============================================================ */
 
 /* ---- tokens ------------------------------------------------ */
@@ -14,14 +13,14 @@
   --ink-soft:       #55503f;
   --ink-faint:      #8a8271;
 
-  /* brand */
-  --olive:      #4b5034;
-  --olive-deep: #363b27;
-  --steel:      #47606f;
+  /* brand — matched to the crest */
+  --olive:      #6b7042;
+  --olive-deep: #2d322f;
+  --steel:      #4f7482;
   --walnut:     #6e4433;
 
   /* sharpeners */
-  --black: #131310;
+  --black: #131716;
   --white: #ffffff;
 
   /* lines & glass */
@@ -33,7 +32,7 @@
   --shadow-sm:    0 1px 2px rgba(27, 31, 28, 0.06), 0 6px 20px -12px rgba(27, 31, 28, 0.18);
 
   /* semantic */
-  --ok:   #4b5034;
+  --ok:   #6b7042;
   --warn: #9a6b1f;
   --crit: #8a3a28;
 
@@ -70,9 +69,9 @@
     --ink:            #ece4d2;
     --ink-soft:       #a79e88;
     --ink-faint:      #6f6857;
-    --olive:      #9da87b;
-    --olive-deep: #b7c293;
-    --steel:      #86a1b1;
+    --olive:      #a7ac7a;
+    --olive-deep: #c2c5c1;
+    --steel:      #8fafba;
     --walnut:     #c68a6e;
     --black: #0b0b08;
     --white: #f3efe4;
@@ -82,6 +81,7 @@
     --glass-border: rgba(236, 228, 210, 0.12);
     --glass-shadow: 0 8px 34px -14px rgba(0, 0, 0, 0.6);
     --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 22px -14px rgba(0, 0, 0, 0.55);
+    --ok: #a7ac7a;
     --warn: #d69a3c;
     --crit: #d6795f;
   }
@@ -93,9 +93,9 @@
   --ink:            #ece4d2;
   --ink-soft:       #a79e88;
   --ink-faint:      #6f6857;
-  --olive:      #9da87b;
-  --olive-deep: #b7c293;
-  --steel:      #86a1b1;
+  --olive:      #a7ac7a;
+  --olive-deep: #c2c5c1;
+  --steel:      #8fafba;
   --walnut:     #c68a6e;
   --black: #0b0b08;
   --white: #f3efe4;
@@ -105,6 +105,7 @@
   --glass-border: rgba(236, 228, 210, 0.12);
   --glass-shadow: 0 8px 34px -14px rgba(0, 0, 0, 0.6);
   --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 22px -14px rgba(0, 0, 0, 0.55);
+  --ok: #a7ac7a;
   --warn: #d69a3c;
   --crit: #d6795f;
 }
@@ -205,17 +206,11 @@ main {
   text-decoration: none;
   color: var(--white);
 }
-/* placeholder mark — a plain monogram tile until the real crest lands */
 .brand__mark {
   width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 1.5px solid var(--white);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: 0.02em;
+  height: 42px;
+  display: block;
+  flex-shrink: 0;
 }
 .brand__word {
   font-family: var(--font-display);
@@ -817,7 +812,7 @@ body.console { background: var(--ground, var(--paper)); }
   color: var(--white); text-decoration: none;
   font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.9rem;
 }
-.console-brand .brand__mark { width: 26px; height: 26px; font-size: 0.7rem; }
+.console-brand .brand__mark { width: 26px; height: 32px; }
 .console-nav { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; flex: 1; }
 .console-nav a {
   color: rgba(255,255,255,0.72); text-decoration: none;

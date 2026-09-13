@@ -8,8 +8,9 @@
 
   <title>{% block title %}The T-Shirt Shop{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}Screen-printed shirts, made to order. A small curated shop.{% endblock %}" />
-  <meta name="theme-color" content="#131310" />
+  <meta name="theme-color" content="#131716" />
   <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}" />
+  <link rel="icon" type="image/svg+xml" href="{% static 'shop/images/crest.svg' %}" />
 
   {# --- Open Graph / Twitter (per-page overridable) --- #}
   <meta property="og:site_name" content="The T-Shirt Shop" />
@@ -49,8 +50,7 @@
   <header class="site-header">
     <div class="wrap">
       <a class="brand" href="{% url 'shop:landing' %}" aria-label="The T-Shirt Shop — home">
-        {# placeholder mark: swapped for the real crest in the identity pass #}
-        <span class="brand__mark" aria-hidden="true">T</span>
+        <img class="brand__mark" src="{% static 'shop/images/crest.svg' %}" alt="" aria-hidden="true" />
         <span class="brand__word">The T&middot;Shirt Shop</span>
       </a>
 
@@ -112,8 +112,7 @@
       </form>
 
       <address>
-        The T-Shirt Shop &mdash; Wyoming, USA<br />
-        Placeholder identity &middot; pilot build
+        The T-Shirt Shop &mdash; Wyoming, USA
       </address>
     </div>
   </footer>

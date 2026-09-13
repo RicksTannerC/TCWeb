@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="800"
+   height="1000"
+   viewBox="0 0 800 1000"
+   role="img"
+   aria-labelledby="title desc"
+   version="1.1"
+   id="svg63"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <title
+     id="title">Futuristic TTB mountain shield logo</title>
+  <desc
+     id="desc">Olive and charcoal shield containing a rising sun, two geometric mountains, and the letters TTB.</desc>
+  <!-- Transparent outside the shield -->
+  <defs
+     id="defs7">
+    <clipPath
+       id="shieldClip">
+      <path
+         d="M100 95H700V495C700 710 575 846 400 930C225 846 100 710 100 495Z"
+         id="path4" />
+    </clipPath>
+  </defs>
+  <!-- Outer shield and layered frame -->
+  <g
+     id="shield-frame"
+     fill-rule="evenodd">
+    <path
+       fill="#171a18"
+       d="M 72,67 H 728 V 495 C 728,732 589,884 400,972 211,884 72,732 72,495 Z"
+       id="path9" />
+    <path
+       fill="#6b7042"
+       d="M 87,82 H 713 V 495 C 713,719 582,860 400,948 218,860 87,719 87,495 Z"
+       id="path11" />
+    <path
+       fill="#2d322f"
+       d="M 112,108 H 688 V 495 C 688,698 569,829 400,913 231,829 112,698 112,495 Z"
+       id="path13" />
+    <path
+       fill="#8fafba"
+       d="M 123,119 H 677 V 495 C 677,690 563,818 400,899 237,818 123,690 123,495 Z"
+       id="path15" />
+    <path
+       fill="#b5b8b3"
+       d="M 128,124 H 672 V 495 C 672,686 560,811 400,891 240,811 128,686 128,495 Z"
+       id="path17" />
+    <path
+       fill="#242927"
+       d="M 136,132 H 664 V 495 C 664,679 557,800 400,880 243,800 136,679 136,495 Z"
+       id="path19" />
+  </g>
+  <g
+     id="interior"
+     clip-path="url(#shieldClip)">
+    <path
+       fill="#31372f"
+       d="M 136,132 H 664 V 880 H 136 Z"
+       id="path22" />
+    <!-- Rising sun on the left -->
+    <g
+       id="sun">
+      <path
+         fill="#a7a36a"
+         d="m 143,481 a 128,128 0 0 1 256,0 z"
+         id="path24" />
+      <path
+         fill="#171a18"
+         d="m 143,486 h 256 v 14 H 143 Z m 14,33 h 211 v 10 H 157 Z m 17,33 h 166 v 8 H 174 Z"
+         id="path26" />
+    </g>
+    <!-- Smaller right mountain -->
+    <g
+       id="right-mountain">
+      <path
+         fill="#151918"
+         d="M 444,632 574,362 711,643 V 796 H 437 Z"
+         id="path29" />
+      <path
+         fill="#8b908c"
+         d="M 466,633 574,395 677,641 V 767 H 462 Z"
+         id="path31" />
+      <path
+         fill="#d4d5d0"
+         d="m 574,395 v 225 l 103,21 z"
+         id="path33" />
+      <path
+         fill="#303633"
+         d="m 574,395 44,104 -23,-13 -23,45 -24,-38 -29,25 z"
+         id="path35" />
+      <path
+         fill="#181d1b"
+         d="m 574,620 103,21 V 767 L 574,722 Z"
+         id="path37" />
+      <path
+         fill="#7c8990"
+         d="m 574,395 12,27 -12,29 z"
+         id="path39" />
+    </g>
+    <!-- Dominant central mountain -->
+    <g
+       id="central-mountain">
+      <path
+         fill="#131716"
+         d="M 142,760 399,278 632,756 V 866 H 142 Z"
+         id="path42" />
+      <path
+         fill="#626966"
+         d="M 170,758 399,315 v 509 l -229,26 z"
+         id="path44" />
+      <path
+         fill="#aeb2af"
+         d="m 399,315 207,439 v 96 L 399,824 Z"
+         id="path46" />
+      <path
+         fill="#e0e1dd"
+         d="m 399,315 v 195 l -45,-41 -24,53 -31,-28 -42,79 z"
+         id="path48" />
+      <path
+         fill="#242a27"
+         d="m 399,315 87,184 -34,-26 -26,57 -27,-20 z"
+         id="path50" />
+      <path
+         fill="#343b37"
+         d="m 170,758 125,-241 32,30 32,-47 40,45 v 279 z"
+         id="path52" />
+      <path
+         fill="#4b5450"
+         d="m 399,545 31,-36 37,53 25,-30 114,222 v 96 L 399,824 Z"
+         id="path54" />
+      <path
+         fill="#8fafba"
+         d="m 392,329 7,-14 7,14 -7,178 z"
+         id="path56" />
+    </g>
+    <!-- Lower field keeps the monogram readable -->
+    <path
+       id="monogram-field"
+       fill="#262c29"
+       d="m 205,638 194,-48 196,48 V 785 L 400,824 205,785 Z"
+       opacity="0.96" />
+    <!-- TTB lettering; converted to paths in the delivered SVG -->
+    <g
+       aria-label="TTB"
+       id="ttb-monogram"
+       style="font-weight:700;font-size:150px;font-family:'DejaVu Sans';letter-spacing:-13;text-anchor:middle;fill:#c2c5c1;stroke:#111513;stroke-width:7;paint-order:stroke fill">
+      <path
+         d="m 252.52637,634.64941 h 100.78125 v 21.31348 H 317.05273 V 744 h -28.19824 v -88.03711 h -36.32812 z"
+         id="path67" />
+      <path
+         d="m 345.28809,634.64941 h 100.78125 v 21.31348 H 409.81445 V 744 h -28.19824 v -88.03711 h -36.32812 z"
+         id="path69" />
+      <path
+         d="m 491.44336,676.9834 q 6.66504,0 10.10742,-2.92969 3.44238,-2.92969 3.44238,-8.64258 0,-5.63965 -3.44238,-8.56933 -3.44238,-3.00293 -10.10742,-3.00293 h -15.60059 v 23.14453 z m 0.95215,47.82715 q 8.49609,0 12.74414,-3.58887 4.32129,-3.58887 4.32129,-10.83984 0,-7.1045 -4.24805,-10.62012 -4.24805,-3.58887 -12.81738,-3.58887 h -16.55274 v 28.6377 z m 26.2207,-39.33106 q 9.08203,2.63672 14.0625,9.74121 4.98047,7.1045 4.98047,17.43164 0,15.82032 -10.69336,23.58399 Q 516.27246,744 494.44629,744 H 447.64453 V 634.64941 h 42.33399 q 22.77832,0 32.95898,6.88477 10.25391,6.88477 10.25391,22.0459 0,7.9834 -3.73536,13.62304 -3.73535,5.56641 -10.83984,8.27637 z"
+         id="path71" />
+    </g>
+  </g>
+  <!-- Crisp inner keyline -->
+  <path
+     id="inner-keyline"
+     fill="none"
+     stroke="#B5B8B3"
+     stroke-width="5"
+     d="M136 132H664V495C664 679 557 800 400 880C243 800 136 679 136 495Z" />
+</svg>

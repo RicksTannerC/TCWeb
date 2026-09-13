@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="light dark" />
   <meta name="robots" content="noindex" />
   <title>{% block title %}Console{% endblock %} — The T-Shirt Shop</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'shop/images/crest.svg' %}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -21,7 +22,7 @@
   <header class="console-bar">
     <div class="wrap">
       <a class="console-brand" href="{% url 'shop:manage_dashboard' %}">
-        <span class="brand__mark" aria-hidden="true">T</span> Console
+        <img class="brand__mark" src="{% static 'shop/images/crest.svg' %}" alt="" aria-hidden="true" /> Console
       </a>
       <nav class="console-nav" aria-label="Console">
         {% with u=request.resolver_match.url_name %}
