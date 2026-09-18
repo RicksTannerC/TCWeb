@@ -25,7 +25,7 @@ SECRET_KEY = env("SECRET_KEY", default="dev-only-insecure-key-change-me")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = [
     value.strip()
-    for value in env.str("ALLOWED_HOSTS", default="").split(",")
+    for value in env.str("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
     if value.strip()
 ]
 CSRF_TRUSTED_ORIGINS = [
