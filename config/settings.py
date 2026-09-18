@@ -13,7 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env(
     DEBUG=(bool, False),
-    ALLOWED_HOSTS=(list, ["localhost", "127.0.0.1"]),
+    ALLOWED_HOSTS=(list, []),
     CSRF_TRUSTED_ORIGINS=(list, []),
 )
 # Read .env if present (not required in dev).
@@ -23,8 +23,16 @@ environ.Env.read_env(BASE_DIR / ".env")
 
 SECRET_KEY = env("SECRET_KEY", default="dev-only-insecure-key-change-me")
 DEBUG = env("DEBUG")
-ALLOWED_HOSTS = env("ALLOWED_HOSTS")
-CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+ALLOWED_HOSTS = [
+    value.strip()
+    for value in env.str("ALLOWED_HOSTS", default="").split(",")
+    if value.strip()
+]
+CSRF_TRUSTED_ORIGINS = [
+    value.strip()
+    for value in env.str("CSRF_TRUSTED_ORIGINS", default="").split(",")
+    if value.strip()
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -158,9 +166,9 @@ SITE_BASE_URL = env("SITE_BASE_URL", default="http://127.0.0.1:8000")
 # --- Security (production) ----------------------------------------
 
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    #SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "http")
