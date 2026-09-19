@@ -166,9 +166,15 @@ SITE_BASE_URL = env("SITE_BASE_URL", default="http://127.0.0.1:8000")
 # --- Security (production) ----------------------------------------
 
 if not DEBUG:
-    SECURE_SSL_REDIRECT = False
+    # HTTPS is terminated at Cloudflare (Tunnel); the origin only sees plain
+    # HTTP plus an X-Forwarded-Proto header. Trusting it is safe because the
+    # origin listens on 127.0.0.1 and is reachable only through the tunnel.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    # Off by default so http://127.0.0.1 still works locally (no proxy header
+    # there). Cloudflare's "Always Use HTTPS" redirects at the edge; set
+    # SECURE_SSL_REDIRECT=True to have Django enforce it as well.
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    #SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "http")
