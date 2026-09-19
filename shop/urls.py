@@ -2,6 +2,7 @@ from django.urls import path
 
 from . import console_views as cv
 from . import manage_views as mv
+from . import two_factor
 from . import views
 
 app_name = "shop"
@@ -37,6 +38,7 @@ urlpatterns = [
     path("order/<str:token>/", views.order_track, name="order_track"),
 
     # ---- the curator's console (staff) ----
+    path("manage/2fa/", two_factor.verify, name="manage_2fa"),
     path("manage/", cv.dashboard, name="manage_dashboard"),
 
     path("manage/orders/", mv.order_queue, name="manage_queue"),

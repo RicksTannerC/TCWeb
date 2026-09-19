@@ -1,0 +1,47 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="robots" content="noindex" />
+  <title>Verify it's you — The T-Shirt Shop</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'shop/images/crest.svg' %}" />
+  <link rel="stylesheet" href="{% static 'shop/css/style.css' %}" />
+  <script>
+    (function(){try{var t=localStorage.getItem('tts-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+  </script>
+</head>
+<body class="console">
+  <main class="wrap console-main" style="max-width:26rem;margin-inline:auto">
+    <div class="glass panel" style="padding:1.5rem">
+      <img class="brand__mark" src="{% static 'shop/images/crest.svg' %}" alt="" aria-hidden="true" style="height:2.5rem" />
+      <h1 style="margin-top:.75rem">Verify it&rsquo;s you</h1>
+
+      {% if enrolled %}
+        <p class="muted">Signed in as <strong>{{ username }}</strong>. Enter the 6-digit code from your authenticator app, or one of your backup codes.</p>
+        {% if error %}<ul class="messages"><li class="error" role="alert">{{ error }}</li></ul>{% endif %}
+        <form method="post" autocomplete="off">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ next }}" />
+          <div class="field">
+            <label for="token">Code</label>
+            <input id="token" name="token" inputmode="text" autocomplete="one-time-code" autofocus required maxlength="16" />
+          </div>
+          <p><button type="submit" class="btn btn--block">Verify</button></p>
+        </form>
+      {% else %}
+        <p class="muted">Two-factor sign-in isn&rsquo;t set up for <strong>{{ username }}</strong>, so console access is locked.</p>
+        <p class="muted">On the machine that runs the shop, run:</p>
+        <pre style="overflow-x:auto"><code>python manage.py otp_setup {{ username }}</code></pre>
+        <p class="muted">Scan the QR code it prints with an authenticator app, then reload this page.</p>
+      {% endif %}
+
+      <form method="post" action="{% url 'admin:logout' %}" style="margin-top:1rem">
+        {% csrf_token %}
+        <button type="submit" class="linkish">Sign out</button>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

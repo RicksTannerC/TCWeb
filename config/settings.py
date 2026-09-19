@@ -43,6 +43,9 @@ INSTALLED_APPS = [
     "django.contrib.sitemaps",
     "django.contrib.staticfiles",
     "django_htmx",
+    "django_otp",
+    "django_otp.plugins.otp_totp",
+    "django_otp.plugins.otp_static",
     "shop",
 ]
 
@@ -53,9 +56,11 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django_otp.middleware.OTPMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
+    "shop.middleware.StaffTwoFactorMiddleware",
     "shop.middleware.VisitCaptureMiddleware",
 ]
 
@@ -162,6 +167,13 @@ SHOP_POSTAL_ADDRESS = env(
 )
 # Absolute base for links in emails (no request context there).
 SITE_BASE_URL = env("SITE_BASE_URL", default="http://127.0.0.1:8000")
+
+# --- Two-factor authentication for the console / admin ------------
+# Staff must pass an authenticator-app (TOTP) or backup-code check before
+# reaching /manage/ or /admin/. Enroll with: manage.py otp_setup <username>
+STAFF_2FA_REQUIRED = env.bool("STAFF_2FA_REQUIRED", default=True)
+STAFF_2FA_MAX_AGE = env.int("STAFF_2FA_MAX_AGE", default=60 * 60 * 12)  # re-verify after 12h
+OTP_TOTP_ISSUER = "The T-Shirt Shop"
 
 # --- Security (production) ----------------------------------------
 
