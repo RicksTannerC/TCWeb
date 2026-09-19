@@ -63,6 +63,7 @@ console_patterns = [
     path("listings/<int:pk>/image/", cv.listing_add_image, name="manage_listing_add_image"),
     path("listings/<int:pk>/mockups/", cv.listing_generate_mockups, name="manage_listing_mockups"),
     path("images/<int:pk>/delete/", cv.image_delete, name="manage_image_delete"),
+    path("designs/<int:pk>/artwork/", cv.design_artwork, name="manage_design_artwork"),
 
     path("collections/", cv.collections, name="manage_collections"),
     path("collections/create/", cv.collection_create, name="manage_collection_create"),

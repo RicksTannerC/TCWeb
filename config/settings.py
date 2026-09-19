@@ -124,6 +124,9 @@ STATICFILES_DIRS = []
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+# Print-ready originals. Not served by any public URL; the console reads them
+# through a staff-only view. Point this outside any synced folder if you can.
+PRIVATE_MEDIA_ROOT = Path(env.str("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private_media")))
 
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},

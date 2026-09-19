@@ -8,6 +8,7 @@ db.sqlite3-journal
 
 # Uploaded + collected files
 media/
+private_media/
 staticfiles/
 
 # Virtualenvs

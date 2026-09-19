@@ -86,8 +86,11 @@ class IntakeTests(TestCase):
     def setUp(self):
         media = tempfile.TemporaryDirectory()
         self.addCleanup(media.cleanup)
-        self.enterContext(override_settings(MEDIA_ROOT=media.name))
-        self.media = media.name
+        self.enterContext(override_settings(
+            MEDIA_ROOT=os.path.join(media.name, "public"),
+            PRIVATE_MEDIA_ROOT=os.path.join(media.name, "private"),
+        ))
+        self.media = os.path.join(media.name, "private")   # where the originals go
         self.staff = get_user_model().objects.create_user("curator", password="x-12345-yz", is_staff=True)
         self.c = Client()
         self.c.force_login(self.staff)
@@ -133,12 +136,12 @@ class IntakeTests(TestCase):
         self.assertIn("Created 3 draft design(s)", self.msgs(r)[0][1])
 
     def test_non_images_are_skipped_with_a_message_and_the_rest_carry_on(self):
-        bad = SimpleUploadedFile("logo.svg", b"<svg xmlns='http://www.w3.org/2000/svg'/>", content_type="image/svg+xml")
+        bad = SimpleUploadedFile("logo.png", b"this is not really a png", content_type="image/png")
         text = SimpleUploadedFile("notes.txt", b"hello", content_type="text/plain")
         r = self.upload(png("ok.png"), bad, text)
         self.assertEqual(Design.objects.count(), 1)
         errors = [m for level, m in self.msgs(r) if level == "error"]
-        self.assertTrue(errors and "logo.svg" in errors[0] and "notes.txt" in errors[0])
+        self.assertTrue(errors and "logo.png" in errors[0] and "notes.txt" in errors[0])
         self.assertEqual(len(self.files_on_disk()), 1)
 
     def test_a_failure_rolls_back_that_file_completely_and_others_still_work(self):

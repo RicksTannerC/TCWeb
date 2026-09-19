@@ -38,6 +38,7 @@ class ListingInline(admin.StackedInline):
 class DesignAdmin(admin.ModelAdmin):
     list_display = ("title", "listing_count", "has_artwork", "created")
     search_fields = ("title", "story")
+    exclude = ("artwork",)  # private original: upload and view it in the console
     prepopulated_fields = {"slug": ("title",)}
     filter_horizontal = ("tags",)
     inlines = [ListingInline]

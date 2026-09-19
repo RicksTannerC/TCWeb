@@ -5,15 +5,17 @@ manage_views.py; everything else is here.
 """
 
 import logging
+import mimetypes
+import xml.etree.ElementTree as ET
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
-from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Count, Sum
 from django.db.models.deletion import ProtectedError
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.text import slugify
@@ -34,6 +36,7 @@ from .models import (
     Tag,
 )
 from .orders import Order, OrderStatus, Subscriber
+from .storage import get_private_storage
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +133,34 @@ def _is_image(f):
         f.seek(0)
 
 
+SVG_MAX_BYTES = 20 * 1024 * 1024
+
+
+def _is_svg(f):
+    """True for a well-formed, script-free SVG document.
+
+    SVGs are private and only shown in the console inside a sandbox, but they
+    should still be plain artwork: no scripts, no entity tricks.
+    """
+    try:
+        if f.size > SVG_MAX_BYTES:
+            return False
+        raw = f.read()
+        lowered = raw.lower()
+        if b"<!entity" in lowered or b"<script" in lowered or b"javascript:" in lowered:
+            return False
+        root = ET.fromstring(raw)
+        return root.tag.rsplit("}", 1)[-1].lower() == "svg"
+    except Exception:  # noqa: BLE001 - anything unparseable is "not an SVG"
+        return False
+    finally:
+        f.seek(0)
+
+
+def _is_artwork(f):
+    return _is_svg(f) if f.name.lower().endswith(".svg") else _is_image(f)
+
+
 def _title_from_filename(name):
     stem = name.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").strip().title()
     return stem[:120] or "Untitled"
@@ -164,7 +195,7 @@ def listings_intake(request):
 
     made, duplicates, not_images, failed = 0, 0, [], []
     for f in files:
-        if not _is_image(f):
+        if not _is_artwork(f):
             not_images.append(f.name)
             continue
         title = _title_from_filename(f.name)
@@ -191,7 +222,7 @@ def listings_intake(request):
             logger.exception("Design intake failed for %r", f.name)
             failed.append(f.name)
             if saved_name:  # the database rolled back; don't leave the file behind
-                default_storage.delete(saved_name)
+                get_private_storage().delete(saved_name)
             continue
         made += 1
         duplicates += duplicate
@@ -207,7 +238,7 @@ def listings_intake(request):
     if not_images:
         messages.error(
             request,
-            "Skipped (not a PNG, JPEG or WebP image the server can read): " + ", ".join(not_images) + ".",
+            "Skipped (not a readable PNG, JPEG, WebP or SVG file): " + ", ".join(not_images) + ".",
         )
     if failed:
         messages.error(
@@ -220,6 +251,29 @@ def listings_intake(request):
             "A template has $0 costs, so its new listings are priced at $0. Set the costs on the Templates page.",
         )
     return redirect("shop:manage_listings")
+
+
+@staff_member_required
+def design_artwork(request, pk):
+    """Show a design's private print-ready original. Console host only, staff + 2FA.
+
+    Served with a locked-down policy so an SVG is displayed as an image and can
+    never run script or load anything, even if opened directly.
+    """
+    design = get_object_or_404(Design, pk=pk)
+    if not design.artwork:
+        raise Http404("No artwork for this design.")
+    try:
+        handle = design.artwork.open("rb")
+    except FileNotFoundError:
+        raise Http404("The artwork file is missing.")
+    content_type = mimetypes.guess_type(design.artwork.name)[0] or "application/octet-stream"
+    response = FileResponse(handle, content_type=content_type)
+    response["Content-Security-Policy"] = "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    response["X-Robots-Tag"] = "noindex"
+    return response
 
 
 @staff_member_required

@@ -21,7 +21,7 @@
       :class="{ 'is-over': over }">
   {% csrf_token %}
   <p><strong>Drop print-ready files here</strong> &mdash; one draft design per file (tee + sticker), not connected to Printful.</p>
-  <input type="file" name="artwork" x-ref="input" multiple accept="image/*" />
+  <input type="file" name="artwork" x-ref="input" multiple accept="image/*,.svg" />
   <button type="submit" class="btn btn--sm">Create drafts</button>
 </form>
 
@@ -33,7 +33,7 @@
         <li class="panel listing-row">
           <span class="listing-row__thumb">
             {% with img=l.primary_image %}
-              {% if img %}<img src="{{ img.image.url }}" alt="" />{% elif l.design.artwork %}<img src="{{ l.design.artwork.url }}" alt="" />{% else %}<span>{{ l.design.title }}</span>{% endif %}
+              {% if img %}<img src="{{ img.image.url }}" alt="" />{% elif l.design.artwork %}<img src="{% url 'shop:manage_design_artwork' l.design.pk %}" alt="" />{% else %}<span>{{ l.design.title }}</span>{% endif %}
             {% endwith %}
           </span>
           <span class="listing-row__meta">

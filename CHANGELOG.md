@@ -11,6 +11,28 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-19 — Print-ready originals are private (console-only)
+
+- **What:** Design originals (SVG or PNG) are now stored in `private_media/`
+  (`PRIVATE_MEDIA_ROOT`), outside public media, with no public URL. They are shown
+  only through a staff-only view on the console host (`/designs/<id>/artwork/`),
+  behind sign-in and two-factor, with a locked-down policy so an SVG is displayed
+  as an image and can never run script. SVG uploads are now accepted (scripts and
+  entity tricks rejected). Removed the raw admin's artwork upload. The existing
+  original was moved into private storage and the two duplicate files were deleted.
+- **Why:** the original is the print-ready file and shouldn't be downloadable;
+  product images were also returning 404 on the live site.
+- **Files:** `shop/storage.py` (new), `shop/models.py` + migration `0005`,
+  `shop/console_views.py`, `shop/urls.py`, `shop/printful.py`, `shop/fulfillment.py`,
+  `shop/admin.py`, `config/settings.py`, `.gitignore`, `.env.example`.
+- **Verified:** 17 new tests (private storage, headers, auth + 2FA, console-host only,
+  unsafe SVGs); full suite green (82). Real DB backed up before the migration.
+- **Follow-ups:** sending a design to Printful is now refused with a clear message
+  (Printful can't reach a private file); it needs a signed, expiring link. Storefront
+  images (downsized PNG/WebP copies and mockups) are still not served publicly.
+
+---
+
 ## 2026-09-19 — Upload fixes and the product-template dashboard
 
 *One commit: "Fix duplicate-name uploads; add a product-template dashboard" (see `git log` for the hash).*

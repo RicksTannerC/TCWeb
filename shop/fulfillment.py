@@ -89,7 +89,7 @@ def _line(item) -> dict:
         "sync_variant_id": (listing.printful_product_id or None) if listing else None,
         "name": item.design_title,
         "retail_price": str(item.unit_price),
-        "files": [{"url": listing.design.artwork.url}] if listing and listing.design.artwork else [],
+        "files": [{"url": listing.design.print_file_url}] if listing and listing.design.print_file_url else [],
     }
 
 

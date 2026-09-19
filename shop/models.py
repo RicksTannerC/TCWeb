@@ -14,6 +14,8 @@ from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
 
+from .storage import get_private_storage
+
 
 PRICING_MULTIPLIER = Decimal("2.5")
 PRICING_GUARDRAIL = Decimal("2.0")
@@ -151,9 +153,9 @@ class Design(models.Model):
     title = models.CharField(max_length=120)
     slug = models.SlugField(max_length=140, unique=True, blank=True)
     story = models.TextField(blank=True, help_text="The short narrative shown on the card.")
-    artwork = models.ImageField(
-        upload_to="designs/", null=True, blank=True,
-        help_text="Print-ready file. Empty until the real art is dropped in.",
+    artwork = models.FileField(
+        upload_to="designs/", storage=get_private_storage, null=True, blank=True,
+        help_text="Print-ready original (SVG or PNG). Private: viewable only in the console.",
     )
     tags = models.ManyToManyField(Tag, blank=True, related_name="designs")
 
@@ -170,6 +172,15 @@ class Design(models.Model):
         if not self.slug:
             self.slug = unique_slug(Design, self.title, pk=self.pk, max_length=140, fallback="design")
         super().save(*args, **kwargs)
+
+    @property
+    def print_file_url(self):
+        """A URL a print partner could fetch the original from, or None.
+
+        Originals are private and have no public URL. Delivering them to Printful
+        needs a signed, expiring link, which hasn't been built yet.
+        """
+        return None
 
     @property
     def sticker_listing(self):
