@@ -1,4 +1,5 @@
 {% extends "shop/manage/base.html" %}
+{% load shop_extras %}
 {% block title %}Pages{% endblock %}
 
 {% block console %}
@@ -15,7 +16,7 @@
         <span class="faint">/pages/{{ p.slug }}/ &middot; updated {{ p.updated|date:"j M Y" }}{% if p.show_in_footer %} &middot; in footer{% endif %}</span>
       </span>
       <span class="tag {% if p.status != 'live' %}faint{% endif %}">{{ p.get_status_display }}</span>
-      {% if p.status == 'live' %}<a class="faint" href="{{ p.get_absolute_url }}">view &rarr;</a>{% endif %}
+      {% if p.status == 'live' %}<a class="faint" href="{{ p.get_absolute_url|on_public_site }}">view &rarr;</a>{% endif %}
     </li>
   {% empty %}
     <li class="muted">No pages yet. Run <code>manage.py seed_pages</code> or add them here.</li>

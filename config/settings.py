@@ -52,6 +52,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "shop.middleware.HostRoutingMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -79,6 +80,7 @@ TEMPLATES = [
                 # {{ cart }} + {{ cart_count }} in every template.
                 "shop.context_processors.cart",
                 "shop.context_processors.footer_pages",
+                "shop.context_processors.site_urls",
             ],
         },
     },
@@ -167,6 +169,12 @@ SHOP_POSTAL_ADDRESS = env(
 )
 # Absolute base for links in emails (no request context there).
 SITE_BASE_URL = env("SITE_BASE_URL", default="http://127.0.0.1:8000")
+
+# Private console hostname. When set, the console is served at the root of this
+# host (e.g. https://manage.example.com/ = dashboard) and nothing else is; other
+# public hosts stop serving /manage/ and /admin/. Leave empty for the single-host
+# layout (console at /manage/), which is what local development uses.
+CONSOLE_HOST = env.str("CONSOLE_HOST", default="").strip().lower()
 
 # --- Two-factor authentication for the console / admin ------------
 # Staff must pass an authenticator-app (TOTP) or backup-code check before

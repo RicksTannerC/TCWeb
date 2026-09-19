@@ -5,6 +5,7 @@ import time
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django_otp import devices_for_user, login as otp_login
@@ -18,7 +19,7 @@ def _safe_next(request):
         target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
     ):
         return target
-    return "/manage/"
+    return reverse("shop:manage_dashboard")
 
 
 @never_cache
@@ -26,7 +27,8 @@ def _safe_next(request):
 def verify(request):
     next_url = _safe_next(request)
     if not request.user.is_staff:
-        return redirect("shop:index")
+        # On the private console host the shop isn't served; send them to the real one.
+        return redirect(settings.SITE_BASE_URL if getattr(request, "urlconf", None) else "shop:index")
     if two_factor_ok(request):
         return redirect(next_url)
 

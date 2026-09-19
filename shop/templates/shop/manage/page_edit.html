@@ -33,7 +33,7 @@
 
   <div style="grid-column:1/-1;" class="cluster">
     <button type="submit" class="btn">Save</button>
-    {% if page.pk and page.status == 'live' %}<a class="btn btn--ghost" href="{{ page.get_absolute_url }}">View live</a>{% endif %}
+    {% if page.pk and page.status == 'live' %}<a class="btn btn--ghost" href="{{ page.get_absolute_url|on_public_site }}">View live</a>{% endif %}
   </div>
 </form>
 

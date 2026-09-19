@@ -1,3 +1,6 @@
+from django.conf import settings
+from django.urls import reverse
+
 from .cart import Cart
 from .console import Page
 
@@ -13,3 +16,10 @@ def footer_pages(request):
             status=Page.Status.LIVE, show_in_footer=True
         ).only("title", "slug", "footer_order")
     }
+
+
+def site_urls(request):
+    """Absolute link to the public shop, for console pages that may be served
+    from the private console host (where the shop itself is not served)."""
+    base = settings.SITE_BASE_URL.rstrip("/")
+    return {"public_shop_url": base + reverse("shop:index")}
