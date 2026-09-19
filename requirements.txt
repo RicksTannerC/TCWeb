@@ -5,7 +5,8 @@ django-environ>=0.14
 django-htmx>=1.29
 Pillow>=12.0
 whitenoise>=6.12
-gunicorn>=26.0
+gunicorn>=26.0          # production on Linux
+waitress>=3.0; sys_platform == "win32"   # production server on Windows (gunicorn is Unix-only)
 Markdown>=3.6            # content pages
 django-otp>=1.6          # two-factor sign-in for the console / admin
 qrcode>=8.0              # QR code printed by `manage.py otp_setup`
