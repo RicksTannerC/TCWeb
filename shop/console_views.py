@@ -4,16 +4,21 @@ pricing workspace, books, messages. Staff-only. The order desk lives in
 manage_views.py; everything else is here.
 """
 
+import logging
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.files.storage import default_storage
+from django.db import transaction
 from django.db.models import Count, Sum
+from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
+from PIL import Image
 
 from . import printful
 from .console import ContactMessage, OverheadEntry, Page, VisitLog
@@ -29,6 +34,8 @@ from .models import (
     Tag,
 )
 from .orders import Order, OrderStatus, Subscriber
+
+logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------ dashboard
@@ -108,38 +115,110 @@ def listings(request):
         "groups": [(k, list(v)) for k, v in groups.items()],
         "status": status,
         "status_choices": Status.choices,
+        "has_templates": ProductTemplate.objects.exists(),
     })
+
+
+def _is_image(f):
+    """True if Pillow can open the upload as a raster image."""
+    try:
+        Image.open(f).verify()
+        return True
+    except Exception:  # noqa: BLE001 - anything unreadable is "not an image"
+        return False
+    finally:
+        f.seek(0)
+
+
+def _title_from_filename(name):
+    stem = name.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").strip().title()
+    return stem[:120] or "Untitled"
 
 
 @staff_member_required
 @require_POST
 def listings_intake(request):
-    """Drop one or more print-ready files -> a draft Design + tee + sticker per file."""
+    """Drop one or more print-ready files -> a draft Design + a listing per template.
+
+    Each file is all-or-nothing: if anything fails for one file, nothing is kept
+    for it (no half-made design, no stray file on disk) and the rest carry on.
+    """
     files = request.FILES.getlist("artwork")
     if not files:
         messages.error(request, "No files received.")
         return redirect("shop:manage_listings")
 
-    tee_tpl = ProductTemplate.objects.filter(product_type=ProductType.TEE).first()
-    sticker_tpl = ProductTemplate.objects.filter(product_type=ProductType.STICKER).first()
-    made = 0
+    templates = [
+        t for t in (
+            ProductTemplate.objects.filter(product_type=ProductType.TEE).first(),
+            ProductTemplate.objects.filter(product_type=ProductType.STICKER).first(),
+        ) if t
+    ]
+    if not templates:
+        messages.error(
+            request,
+            "Set up a product template first. Uploads create a listing from each template "
+            "(garment, costs, sizes), and there are none yet. Nothing was uploaded.",
+        )
+        return redirect("shop:manage_templates")
+
+    made, duplicates, not_images, failed = 0, 0, [], []
     for f in files:
-        stem = f.name.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").strip().title()
-        design = Design.objects.create(title=stem or "Untitled", story="", artwork=f)
-        for tpl in [t for t in (tee_tpl, sticker_tpl) if t]:
-            listing = Listing.objects.create(
-                design=design, template=tpl, product_type=tpl.product_type,
-                status=Status.DRAFT, base_cost=tpl.base_cost, shipping_est=tpl.shipping_est,
-            )
-            listing.price = listing.suggested_price
-            listing.save(update_fields=["price"])
-            for i, s in enumerate(tpl.default_sizes or []):
-                ListingSize.objects.create(
-                    listing=listing, label=s["label"],
-                    width_in=s.get("width_in"), height_in=s.get("height_in"), sort_order=i,
-                )
+        if not _is_image(f):
+            not_images.append(f.name)
+            continue
+        title = _title_from_filename(f.name)
+        duplicate = Design.objects.filter(title=title).exists()
+        saved_name = None
+        try:
+            with transaction.atomic():
+                design = Design.objects.create(title=title, story="")
+                design.artwork.save(f.name, f, save=True)
+                saved_name = design.artwork.name
+                for tpl in templates:
+                    listing = Listing.objects.create(
+                        design=design, template=tpl, product_type=tpl.product_type,
+                        status=Status.DRAFT, base_cost=tpl.base_cost, shipping_est=tpl.shipping_est,
+                    )
+                    listing.price = listing.suggested_price
+                    listing.save(update_fields=["price"])
+                    for i, size in enumerate(tpl.default_sizes or []):
+                        ListingSize.objects.create(
+                            listing=listing, label=size["label"],
+                            width_in=size.get("width_in"), height_in=size.get("height_in"), sort_order=i,
+                        )
+        except Exception:  # noqa: BLE001 - report it, keep going with the other files
+            logger.exception("Design intake failed for %r", f.name)
+            failed.append(f.name)
+            if saved_name:  # the database rolled back; don't leave the file behind
+                default_storage.delete(saved_name)
+            continue
         made += 1
-    messages.success(request, f"Created {made} draft design(s). Not connected to Printful yet.")
+        duplicates += duplicate
+
+    if made:
+        messages.success(request, f"Created {made} draft design(s). Not connected to Printful yet.")
+    if duplicates:
+        messages.info(
+            request,
+            f"{duplicates} of them share a title with an existing design and were added as separate "
+            "designs. Rename them in the editor if you want them told apart.",
+        )
+    if not_images:
+        messages.error(
+            request,
+            "Skipped (not a PNG, JPEG or WebP image the server can read): " + ", ".join(not_images) + ".",
+        )
+    if failed:
+        messages.error(
+            request,
+            "Couldn't add: " + ", ".join(failed) + ". Nothing was saved for those; the error is in the server log.",
+        )
+    if any(t.landed_cost == 0 for t in templates):
+        messages.warning(
+            request,
+            "A template has $0 costs, so its new listings are priced at $0. Set the costs on the Templates page.",
+        )
     return redirect("shop:manage_listings")
 
 
@@ -261,6 +340,161 @@ def image_delete(request, pk):
     listing_pk = img.listing_id
     img.delete()
     return redirect("shop:manage_listing_edit", pk=listing_pk)
+
+
+# ------------------------------------------------------------------ product templates
+
+TEE_CEILING = Decimal("40")
+
+
+def parse_sizes(text):
+    """Parse the size box into the JSON stored on a template.
+
+    One size per line: "label", "label, width", or "label, width, height"
+    (inches). Returns (sizes, error); error is a message or None.
+    """
+    sizes = []
+    for n, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) > 3 or not parts[0]:
+            return None, f"Size line {n} (\u201c{line}\u201d): use  label, width, height  (width and height optional)."
+        label = parts[0]
+        if len(label) > 16:
+            return None, f"Size line {n}: the label is longer than 16 characters."
+        entry = {"label": label}
+        for key, value in zip(("width_in", "height_in"), parts[1:]):
+            if not value:
+                continue
+            try:
+                number = Decimal(value)
+            except InvalidOperation:
+                return None, f"Size line {n} (\u201c{line}\u201d): \u201c{value}\u201d isn't a number."
+            if not (0 < number < 1000):
+                return None, f"Size line {n}: measurements must be between 0 and 1000 inches."
+            entry[key] = int(number) if number == number.to_integral() else float(number)
+        sizes.append(entry)
+    if not sizes:
+        return None, "Add at least one size (for example  M, 20, 29 )."
+    labels = [x["label"].lower() for x in sizes]
+    if len(labels) != len(set(labels)):
+        return None, "Two sizes have the same label."
+    return sizes, None
+
+
+def format_sizes(sizes):
+    lines = []
+    for s in sizes or []:
+        bits = [str(s.get("label", ""))]
+        for key in ("width_in", "height_in"):
+            if s.get(key) is not None:
+                bits.append(str(s[key]))
+        lines.append(", ".join(bits))
+    return "\n".join(lines)
+
+
+def _money(value):
+    try:
+        amount = Decimal(str(value).strip().lstrip("$") or "0")
+    except InvalidOperation:
+        return None
+    return amount if 0 <= amount < 100000 else None
+
+
+@staff_member_required
+def product_templates(request):
+    rows = []
+    for t in ProductTemplate.objects.annotate(n_listings=Count("listings")):
+        warnings = []
+        if t.landed_cost == 0:
+            warnings.append("Costs are $0, so listings would be priced at $0.")
+        if t.product_type == ProductType.TEE and t.suggested_price > TEE_CEILING:
+            warnings.append(f"Suggested price is over the ${TEE_CEILING} tee ceiling.")
+        if not t.default_sizes:
+            warnings.append("No sizes.")
+        rows.append({"t": t, "warnings": warnings})
+    used_types = set(ProductTemplate.objects.values_list("product_type", flat=True))
+    return render(request, "shop/manage/templates.html", {
+        "rows": rows,
+        "ceiling": TEE_CEILING,
+        "missing": [label for value, label in ProductType.choices
+                    if value in (ProductType.TEE, ProductType.STICKER) and value not in used_types],
+    })
+
+
+@staff_member_required
+def product_template_edit(request, pk=None):
+    tpl = get_object_or_404(ProductTemplate, pk=pk) if pk else None
+    form = {
+        "name": tpl.name if tpl else "",
+        "product_type": tpl.product_type if tpl else ProductType.TEE,
+        "base_cost": tpl.base_cost if tpl else "",
+        "shipping_est": tpl.shipping_est if tpl else "",
+        "print_placement": tpl.print_placement if tpl else "",
+        "printful_blueprint_id": tpl.printful_blueprint_id if tpl else "",
+        "printful_provider_id": tpl.printful_provider_id if tpl else "",
+        "sizes": format_sizes(tpl.default_sizes) if tpl else "",
+    }
+    errors = []
+
+    if request.method == "POST":
+        form = {k: request.POST.get(k, "").strip() for k in
+                ("name", "product_type", "base_cost", "shipping_est", "print_placement",
+                 "printful_blueprint_id", "printful_provider_id")}
+        form["sizes"] = request.POST.get("sizes", "")
+
+        if not form["name"]:
+            errors.append("Give the template a name.")
+        elif ProductTemplate.objects.filter(name__iexact=form["name"]).exclude(pk=pk).exists():
+            errors.append("Another template already has that name.")
+        if form["product_type"] not in ProductType.values:
+            errors.append("Pick a product type.")
+        base = _money(form["base_cost"])
+        ship = _money(form["shipping_est"])
+        if base is None:
+            errors.append("Base cost must be a dollar amount, like 11.00.")
+        if ship is None:
+            errors.append("Shipping estimate must be a dollar amount, like 5.00.")
+        sizes, size_error = parse_sizes(form["sizes"])
+        if size_error:
+            errors.append(size_error)
+
+        if not errors:
+            tpl = tpl or ProductTemplate()
+            tpl.name = form["name"][:80]
+            tpl.product_type = form["product_type"]
+            tpl.base_cost, tpl.shipping_est = base, ship
+            tpl.print_placement = form["print_placement"][:40]
+            tpl.printful_blueprint_id = form["printful_blueprint_id"][:40]
+            tpl.printful_provider_id = form["printful_provider_id"][:40]
+            tpl.default_sizes = sizes
+            tpl.save()
+            messages.success(request, f"Saved template \u201c{tpl.name}\u201d. It applies to new uploads; existing listings keep their own values.")
+            return redirect("shop:manage_templates")
+
+    return render(request, "shop/manage/template_edit.html", {
+        "tpl": tpl,
+        "form": form,
+        "errors": errors,
+        "types": ProductType.choices,
+        "n_listings": tpl.listings.count() if tpl and tpl.pk else 0,
+    })
+
+
+@staff_member_required
+@require_POST
+def product_template_delete(request, pk):
+    tpl = get_object_or_404(ProductTemplate, pk=pk)
+    try:
+        name = tpl.name
+        tpl.delete()
+    except ProtectedError:
+        messages.error(request, f"\u201c{tpl.name}\u201d is used by existing listings, so it can't be deleted.")
+        return redirect("shop:manage_templates")
+    messages.success(request, f"Deleted template \u201c{name}\u201d.")
+    return redirect("shop:manage_templates")
 
 
 # ------------------------------------------------------------------ collections

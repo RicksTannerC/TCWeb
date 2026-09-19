@@ -6,6 +6,14 @@
   <h1>Listings</h1>
 </div>
 
+{% if not has_templates %}
+<div class="panel" role="status">
+  <strong>No product templates yet.</strong>
+  Uploads make a listing from each template (garment, costs, sizes), so
+  <a href="{% url 'shop:manage_template_new' %}">set one up</a> before dropping files.
+</div>
+{% endif %}
+
 <form class="dropzone panel" method="post" action="{% url 'shop:manage_listings_intake' %}"
       enctype="multipart/form-data"
       x-data="{ over:false }" @dragover.prevent="over=true" @dragleave.prevent="over=false"

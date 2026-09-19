@@ -65,8 +65,8 @@ synced folder you don't trust — they hold customer data and live keys.
 
 ## Console access and two-factor
 
-The curator's console (dashboard, listings, collections, pricing, orders, books,
-messages, pages) and the Django admin require a **password plus an authenticator
+The curator's console (dashboard, listings, collections, pricing, product templates,
+orders, books, messages, pages) and the Django admin require a **password plus an authenticator
 code** (TOTP) or a one-time backup code.
 
 - **Enroll** on the machine that runs the shop: `python manage.py otp_setup <username>`.

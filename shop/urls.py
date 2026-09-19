@@ -72,6 +72,11 @@ console_patterns = [
     path("pricing/", cv.pricing, name="manage_pricing"),
     path("pricing/update/", cv.pricing_update, name="manage_pricing_update"),
 
+    path("templates/", cv.product_templates, name="manage_templates"),
+    path("templates/new/", cv.product_template_edit, name="manage_template_new"),
+    path("templates/<int:pk>/", cv.product_template_edit, name="manage_template_edit"),
+    path("templates/<int:pk>/delete/", cv.product_template_delete, name="manage_template_delete"),
+
     path("books/", cv.books, name="manage_books"),
     path("books/overhead/add/", cv.overhead_add, name="manage_overhead_add"),
     path("books/overhead/<int:pk>/delete/", cv.overhead_delete, name="manage_overhead_delete"),

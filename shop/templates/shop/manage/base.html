@@ -30,6 +30,7 @@
         <a href="{% url 'shop:manage_listings' %}" {% if 'listing' in u %}aria-current="page"{% endif %}>Listings</a>
         <a href="{% url 'shop:manage_collections' %}" {% if 'collection' in u %}aria-current="page"{% endif %}>Collections</a>
         <a href="{% url 'shop:manage_pricing' %}" {% if 'pricing' in u %}aria-current="page"{% endif %}>Pricing</a>
+        <a href="{% url 'shop:manage_templates' %}" {% if 'template' in u %}aria-current="page"{% endif %}>Templates</a>
         <a href="{% url 'shop:manage_queue' %}" {% if 'order' in u or 'queue' in u or 'fulfillment' in u %}aria-current="page"{% endif %}>Orders</a>
         <a href="{% url 'shop:manage_books' %}" {% if 'books' in u or 'overhead' in u %}aria-current="page"{% endif %}>Books</a>
         <a href="{% url 'shop:manage_inbox' %}" {% if 'inbox' in u or 'message' in u %}aria-current="page"{% endif %}>Messages</a>

@@ -19,6 +19,21 @@ PRICING_MULTIPLIER = Decimal("2.5")
 PRICING_GUARDRAIL = Decimal("2.0")
 
 
+def unique_slug(model, text, *, pk=None, max_length=140, fallback="item"):
+    """A slug for `text` that no other `model` row is using.
+
+    Slugifies `text`, then appends -2, -3, ... until it is free. Falls back to
+    `fallback` when the text has nothing sluggable in it (e.g. only symbols).
+    """
+    base = slugify(text)[: max_length - 8].strip("-") or fallback
+    candidate, n = base, 2
+    others = model.objects.exclude(pk=pk) if pk else model.objects.all()
+    while others.filter(slug=candidate).exists():
+        candidate = f"{base}-{n}"
+        n += 1
+    return candidate
+
+
 class ProductType(models.TextChoices):
     TEE = "tee", "T-shirt"
     STICKER = "sticker", "Sticker"
@@ -116,8 +131,18 @@ class ProductTemplate(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            self.slug = unique_slug(ProductTemplate, self.name, pk=self.pk, max_length=90, fallback="template")
         super().save(*args, **kwargs)
+
+    @property
+    def landed_cost(self):
+        return self.base_cost + self.shipping_est
+
+    @property
+    def suggested_price(self):
+        """What the pricing rule would charge for a listing made from this template."""
+        raw = self.landed_cost * PRICING_MULTIPLIER
+        return raw.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
 class Design(models.Model):
@@ -143,7 +168,7 @@ class Design(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.title)
+            self.slug = unique_slug(Design, self.title, pk=self.pk, max_length=140, fallback="design")
         super().save(*args, **kwargs)
 
     @property

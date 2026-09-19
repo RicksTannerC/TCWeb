@@ -1,0 +1,75 @@
+{% extends "shop/manage/base.html" %}
+{% block title %}{% if tpl %}{{ tpl.name }}{% else %}New template{% endif %}{% endblock %}
+
+{% block console %}
+<p class="eyebrow"><a href="{% url 'shop:manage_templates' %}">&larr; Templates</a></p>
+<h1>{% if tpl %}{{ tpl.name }}{% else %}New template{% endif %}</h1>
+
+{% if errors %}
+  <ul class="messages" role="alert">{% for e in errors %}<li class="error">{{ e }}</li>{% endfor %}</ul>
+{% endif %}
+
+<form method="post" class="stack">
+  {% csrf_token %}
+  <div class="panel stack">
+    <div class="row-2">
+      <div class="field"><label for="name">Name</label>
+        <input id="name" name="name" value="{{ form.name }}" maxlength="80" required placeholder="Standard tee — front print" /></div>
+      <div class="field"><label for="product_type">Product type</label>
+        <select id="product_type" name="product_type">
+          {% for value, label in types %}<option value="{{ value }}" {% if form.product_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select></div>
+    </div>
+    <p class="faint">Uploads use the <strong>first</strong> template of each type they need (tee and sticker), in name order.</p>
+  </div>
+
+  <div class="panel stack">
+    <h2>Costs</h2>
+    <p class="faint">Nominal figures the pricing rule uses until real Printful costs replace them. New listings are priced
+      <code>(base + ship) &times; 2.5</code>, rounded to the dollar; you can still adjust each one on the Pricing page.</p>
+    <div class="row-2">
+      <div class="field"><label for="base_cost">Base cost ($)</label>
+        <input id="base_cost" name="base_cost" inputmode="decimal" value="{{ form.base_cost }}" required placeholder="11.00" /></div>
+      <div class="field"><label for="shipping_est">Absorbed shipping estimate ($)</label>
+        <input id="shipping_est" name="shipping_est" inputmode="decimal" value="{{ form.shipping_est }}" required placeholder="5.00" /></div>
+    </div>
+  </div>
+
+  <div class="panel stack">
+    <h2>Default sizes</h2>
+    <p class="faint">One size per line, as <code>label, width, height</code> in inches (width and height are optional).
+      These are copied onto each new listing and shown inline in the size dropdown.</p>
+    <div class="field"><label for="sizes">Sizes</label>
+      <textarea id="sizes" name="sizes" rows="7" spellcheck="false" placeholder="S, 18, 28&#10;M, 20, 29&#10;L, 22, 30">{{ form.sizes }}</textarea></div>
+  </div>
+
+  <details class="panel stack">
+    <summary>Printful mapping (optional &mdash; filled in during the Printful milestone)</summary>
+    <div class="row-2">
+      <div class="field"><label for="printful_blueprint_id">Printful product ID</label>
+        <input id="printful_blueprint_id" name="printful_blueprint_id" value="{{ form.printful_blueprint_id }}" maxlength="40" /></div>
+      <div class="field"><label for="printful_provider_id">Printful provider / variant group</label>
+        <input id="printful_provider_id" name="printful_provider_id" value="{{ form.printful_provider_id }}" maxlength="40" /></div>
+    </div>
+    <div class="field"><label for="print_placement">Print placement</label>
+      <input id="print_placement" name="print_placement" value="{{ form.print_placement }}" maxlength="40" placeholder="front" /></div>
+  </details>
+
+  <div class="cluster">
+    <button type="submit" class="btn">Save template</button>
+    <a class="btn btn--ghost" href="{% url 'shop:manage_templates' %}">Cancel</a>
+  </div>
+</form>
+
+{% if tpl %}
+  <form method="post" action="{% url 'shop:manage_template_delete' tpl.pk %}" class="panel cluster"
+        onsubmit="return confirm('Delete this template?');">
+    {% csrf_token %}
+    {% if n_listings %}
+      <span class="faint">Used by {{ n_listings }} listing{{ n_listings|pluralize }}, so it can't be deleted.</span>
+    {% else %}
+      <button type="submit" class="btn btn--sm btn--ghost">Delete template</button>
+    {% endif %}
+  </form>
+{% endif %}
+{% endblock %}

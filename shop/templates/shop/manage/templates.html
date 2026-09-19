@@ -1,0 +1,55 @@
+{% extends "shop/manage/base.html" %}
+{% block title %}Templates{% endblock %}
+
+{% block console %}
+<div class="cluster" style="justify-content:space-between;">
+  <h1>Product templates</h1>
+  <a class="btn btn--sm" href="{% url 'shop:manage_template_new' %}">New template</a>
+</div>
+<p class="muted">A template is a reusable product setup: the garment, its nominal costs and its default sizes.
+  Every file you drop on the Listings page becomes a draft listing <em>per template</em> (the first tee template and
+  the first sticker template are used). Editing a template changes <strong>new</strong> uploads only; existing listings keep their own values.
+  Suggested price uses the pricing rule <code>(base + ship) &times; 2.5</code>, rounded to the dollar.</p>
+
+{% if missing %}
+  <div class="panel" role="status">
+    No <strong>{{ missing|join:" or " }}</strong> template yet
+    {% if missing|length == 2 %}&mdash; uploads can't make any listings until there is at least one.{% else %}&mdash; uploads will skip that product until you add one.{% endif %}
+  </div>
+{% endif %}
+
+{% if rows %}
+<div class="table-wrap">
+  <table class="pricing-table">
+    <thead>
+      <tr><th>Template</th><th>Type</th><th>Base</th><th>Ship</th><th>Landed</th><th>Suggested</th><th>Sizes</th><th>Listings</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+        {% with t=r.t %}
+        <tr {% if r.warnings %}class="is-flag"{% endif %}>
+          <td>
+            <a href="{% url 'shop:manage_template_edit' t.pk %}"><strong>{{ t.name }}</strong></a>
+            {% for w in r.warnings %}<div class="faint">&#9888; {{ w }}</div>{% endfor %}
+          </td>
+          <td>{{ t.get_product_type_display }}</td>
+          <td class="tnum">${{ t.base_cost }}</td>
+          <td class="tnum">${{ t.shipping_est }}</td>
+          <td class="tnum">${{ t.landed_cost }}</td>
+          <td class="tnum">${{ t.suggested_price }}</td>
+          <td class="faint">{% for s in t.default_sizes %}{{ s.label }}{% if not forloop.last %}, {% endif %}{% empty %}&mdash;{% endfor %}</td>
+          <td class="tnum">{{ t.n_listings }}</td>
+          <td><a class="btn btn--sm btn--ghost" href="{% url 'shop:manage_template_edit' t.pk %}">Edit</a></td>
+        </tr>
+        {% endwith %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <div class="panel">
+    <p>No templates yet. Create one for your tee and one for your sticker, then drop your first artwork on the Listings page.</p>
+    <p><a class="btn btn--sm" href="{% url 'shop:manage_template_new' %}">Create the first template</a></p>
+  </div>
+{% endif %}
+{% endblock %}
