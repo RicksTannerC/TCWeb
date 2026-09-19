@@ -8,13 +8,12 @@ are included only so every "shop:..." name still reverses (links in emails, the
 them, so the shop itself is never served from this host.
 """
 
-from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include, path
 
 from shop import urls as shop_urls
+from shop.public_media import media_patterns
 
 
 def robots_txt(request):
@@ -27,5 +26,4 @@ urlpatterns = [
     path("", include((shop_urls.console_patterns + shop_urls.public_patterns, "shop"))),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += media_patterns()  # console pages show the same public images

@@ -11,6 +11,27 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-19 — Storefront images now load (public media served)
+
+- **What:** the public media folder (mockups, lifestyle shots, collection art) is now
+  served on both hosts at `/media/...`, in production as well as debug. Only plain
+  raster images are served (`png jpg jpeg webp gif avif`); SVG, HTML and anything
+  else return 404, and path traversal is refused. Responses carry `nosniff` and a
+  one-day public cache header. Print-ready originals are unaffected: they live in
+  private storage and are still reachable only in the console.
+- **Why:** a live listing showed a broken image. Its mockup was requested from
+  `/media/listings/...` and returned 404, because uploaded files were only served
+  with `DEBUG=True`.
+- **Files:** `shop/public_media.py` (new), `config/urls.py`, `config/urls_console.py`.
+- **Verified:** 7 new tests (served with safe headers, non-images refused, originals
+  and traversal unreachable, both hosts, a live listing's page and image load);
+  full suite green (89).
+- **Follow-ups:** images are served from this machine; Cloudflare will cache them, but
+  Cloudflare R2 remains the launch plan. Duplicate design 1 (no listings) is still
+  in the database, and the "Basic T" tee prices at $53, over the $40 tee ceiling.
+
+---
+
 ## 2026-09-19 — Print-ready originals are private (console-only)
 
 - **What:** Design originals (SVG or PNG) are now stored in `private_media/`

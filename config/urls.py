@@ -1,9 +1,8 @@
 from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
-from django.conf import settings
-from django.conf.urls.static import static
 from django.urls import include, path
 
+from shop.public_media import media_patterns
 from shop.sitemaps import SITEMAPS
 from shop.views import robots_txt
 
@@ -14,5 +13,5 @@ urlpatterns = [
     path("", include("shop.urls")),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Public images (mockups etc.); originals are private and not served from here.
+urlpatterns += media_patterns()
