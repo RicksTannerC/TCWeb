@@ -11,6 +11,37 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-21 — Real data moved off the OneDrive-synced project folder
+
+- **What:** `db.sqlite3`, `.env`, and `private_media/` (print-ready originals)
+  now live at `D:\TCData\` — a plain local drive, not the OneDrive-synced
+  `Desktop\TShirtBrand\` folder they'd been sitting in since the project
+  started. `config/settings.py` reads `.env` from the OS environment variable
+  `TCWEB_ENV_FILE` if it's set (`D:\TCData\.env` here), falling back to the
+  project folder otherwise — so a plain checkout with no variable set still
+  works for local dev, against its own separate, empty database, never the
+  real one. `MEDIA_ROOT` (public product images) is now environment-driven
+  too, the same way `PRIVATE_MEDIA_ROOT` already was, though it was left in
+  the project folder for now since it holds nothing sensitive.
+- **Why:** requested; the original reason for asking about this early on in
+  this project's setup. Real customer and order data, and unreleased artwork,
+  no longer sit in a folder that syncs to Microsoft's cloud.
+- **Files:** `config/settings.py`, `.env.example`, `README.md`. Nothing on
+  `D:\TCData\` is or was ever tracked by git.
+- **Verified:** copied the live files (not left duplicated — confirmed the
+  old copies were gone from the project folder after the move, sizes matched
+  exactly on the new location); full test suite green (111) both before and
+  after; confirmed live afterwards against the real domain: the shop, the
+  console, and a design's signed Printful link all resolved correctly from
+  the new location, and a clean shell with the environment variable unset
+  correctly falls back to an empty local database rather than the real one.
+- **Follow-ups:** OneDrive may still hold the old copies in its own online
+  recycle bin / version history for a retention period even though they're
+  gone locally; purging that, if wanted, is a OneDrive-side action on
+  onedrive.com, outside what's changeable from this machine's filesystem.
+
+---
+
 ## 2026-09-21 — Printful can now fetch private artwork; checkout is a safe placeholder
 
 ### Signed, expiring links for Printful

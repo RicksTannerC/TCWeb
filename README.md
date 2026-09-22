@@ -55,13 +55,22 @@ working SQLite site. See [.env.example](.env.example) for the full list.
 | `CONSOLE_HOST` | private console hostname — see [Console access](#console-access-and-two-factor) |
 | `STAFF_2FA_REQUIRED`, `STAFF_2FA_MAX_AGE` | second factor for staff (default on; re-verify every 12 h) |
 | `SECURE_SSL_REDIRECT` | `True` makes Django enforce HTTPS itself (default off; Cloudflare redirects at the edge) |
-| `DATABASE_URL` | unset → local SQLite; a `postgres://` URL in production (Milestone 6) |
+| `DATABASE_URL` | unset → local SQLite in the project folder; a `postgres://` URL in production (Milestone 6) |
+| `MEDIA_ROOT`, `PRIVATE_MEDIA_ROOT` | unset → served from the project folder; point elsewhere to keep uploads off a synced drive too |
 | `EMAIL_URL` | unset → console backend; an SMTP URL for real mail |
 | `STRIPE_*` | checkout |
-| `PRINTFUL_API_KEY` | fulfilment |
+| `PRINTFUL_API_KEY`, `PRINTFUL_ARTWORK_LINK_MAX_AGE` | fulfilment; the latter is how long a signed print-file link stays valid (default 30 min) |
 
-Keep `.env` and `db.sqlite3` out of git (they are ignored) and out of any shared or
-synced folder you don't trust — they hold customer data and live keys.
+Keep `.env`, the database and `private_media/` out of git (all git-ignored) and
+out of any cloud-synced folder — they hold customer data, private artwork and
+live keys. **This project's real data lives on `D:\TCData\`**, not in this
+folder: `db.sqlite3`, `.env` (with `DATABASE_URL` / `PRIVATE_MEDIA_ROOT` set to
+point back into that same folder) and `private_media/`. Django is told where
+to find that `.env` by the OS environment variable `TCWEB_ENV_FILE`
+(`D:\TCData\.env`), set for the Windows user account that runs the app; with
+that variable unset, Django falls back to `.env` in this project folder — a
+separate, empty local-dev setup, never the real data. See `.env.example` for
+how to point a fresh checkout at data of its own.
 
 ## Console access and two-factor
 
@@ -90,6 +99,9 @@ layout (`/manage/`), and with `CONSOLE_HOST` unset nothing changes. Add the host
 
 Current setup (interim, from a Windows machine):
 
+- `TCWEB_ENV_FILE` is set as a permanent environment variable for the Windows
+  user account that runs the app (`D:\TCData\.env`), so any shell that user
+  opens finds the real config without it being passed explicitly.
 - The app runs under **waitress** (`gunicorn` doesn't run on Windows):
   `python -m waitress --listen=127.0.0.1:8000 config.wsgi:application` — bound
   to localhost only, so it is reachable solely through the tunnel. Run it as a

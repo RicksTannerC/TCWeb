@@ -5,6 +5,7 @@ Configuration is environment-driven (see .env.example). Local development
 needs no .env at all — the defaults below run a working SQLite site.
 """
 
+import os
 from pathlib import Path
 
 import environ
@@ -16,8 +17,12 @@ env = environ.Env(
     ALLOWED_HOSTS=(list, []),
     CSRF_TRUSTED_ORIGINS=(list, []),
 )
-# Read .env if present (not required in dev).
-environ.Env.read_env(BASE_DIR / ".env")
+# Read .env from the project folder by default (zero-config local dev). Set the
+# OS environment variable TCWEB_ENV_FILE to read it from somewhere else instead
+# -- e.g. off a cloud-synced drive -- so the real .env (secrets, and every path
+# it points at: the database, private_media) never has to live in this folder.
+# The override itself is never committed; only this fallback lives in code.
+environ.Env.read_env(os.environ.get("TCWEB_ENV_FILE", str(BASE_DIR / ".env")))
 
 # --- Core ----------------------------------------------------------------
 
@@ -123,7 +128,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = []
 
 MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(env.str("MEDIA_ROOT", default=str(BASE_DIR / "media")))
 # Print-ready originals. Not served by any public URL; the console reads them
 # through a staff-only view. Point this outside any synced folder if you can.
 PRIVATE_MEDIA_ROOT = Path(env.str("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private_media")))
