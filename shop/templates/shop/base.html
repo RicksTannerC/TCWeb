@@ -171,8 +171,8 @@
       });
       document.addEventListener('mouseleave', function () { active = false; el.classList.remove('is-active'); });
       (function tick() {
-        curX += (targetX - curX) * 0.18;
-        curY += (targetY - curY) * 0.18;
+        curX += (targetX - curX) * 0.55;
+        curY += (targetY - curY) * 0.55;
         el.style.transform = 'translate3d(' + curX + 'px,' + curY + 'px,0)';
         requestAnimationFrame(tick);
       })();

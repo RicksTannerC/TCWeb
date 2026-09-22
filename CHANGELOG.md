@@ -11,6 +11,35 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-22 — Follow-up from the design review: cursor lag, backdrop blur, swipe pacing
+
+*Feedback on last round's work, not new review items.*
+
+- **Cursor shadow felt delayed.** Not a latency artifact — the smoothing
+  factor was too slow (~300ms to catch up to the real pointer). Tightened
+  from a 0.18 to a 0.55 easing factor per frame; now reads as essentially
+  real-time with just enough smoothing to avoid jitter.
+- **The full-page blur behind the enlarged tile wasn't reading as blur.**
+  Checked live: the backdrop genuinely did cover the whole viewport already
+  (confirmed via its actual rendered size), but at 3px the blur was too weak
+  to notice against mostly-flat dark backgrounds, so only the card's own
+  stronger glass-panel blur was visible — which read as "a blurred box
+  around the card, everything else normal." Strengthened to 10px, and the
+  header now explicitly stacks above the overlay (it has its own solid
+  background, so nothing to blur) so it stays sharp and usable — the "other
+  than the nav bar" part of the request — while the rest of the page behind
+  the card is now clearly blurred.
+- **Slowed and smoothed the swipe-to-dismiss close animation** — 0.2s linear
+  ease to 0.34s with a gentler ease-out curve, with the JS timing that hands
+  off to the actual close action adjusted to match so it no longer cuts the
+  animation off partway through.
+- **Files:** `shop/static/shop/css/style.css`, `shop/templates/shop/base.html`,
+  `shop/templates/shop/_overlay.html`.
+- **Verified:** full suite green (123, unchanged — CSS/JS tuning only);
+  `collectstatic` run and restarted; re-checked live.
+
+---
+
 ## 2026-09-21 — Landing page shows collection cards, curator-controlled
 
 - **What:** the landing page now shows a card per **live, curator-featured**

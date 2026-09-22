@@ -190,6 +190,8 @@ main {
 
 /* ---- header --------------------------------------------- */
 .site-header {
+  position: relative;   /* stack above the enlarged-tile overlay (z-index 60), so it */
+  z-index: 61;           /* stays sharp and usable — solid background, nothing to blur */
   background: var(--black);
   color: var(--white);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -509,8 +511,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--steel); out
   width: 100vw;                  /* cover the reserved scrollbar gutter too */
   height: 100%;
   background: rgba(19, 19, 16, 0.5);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .overlay__card {
   position: relative;
@@ -521,7 +523,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--steel); out
   grid-template-columns: 1.1fr 1fr;
   gap: clamp(1rem, 3vw, 2rem);
   padding: clamp(1rem, 3vw, 2rem);
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.34s ease;
   touch-action: pan-y;
 }
 .overlay__grabber { display: none; }
