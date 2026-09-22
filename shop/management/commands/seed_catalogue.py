@@ -54,7 +54,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         base, _ = Collection.objects.get_or_create(
             slug="the-t-shirt-shop",
-            defaults={"name": "The T-Shirt Shop", "is_base": True, "status": Status.LIVE},
+            defaults={"name": "The T-Shirt Brand", "is_base": True, "status": Status.LIVE},
         )
         deep_field, _ = Collection.objects.get_or_create(
             slug="deep-field",

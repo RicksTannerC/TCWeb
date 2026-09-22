@@ -6,16 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="color-scheme" content="light dark" />
 
-  <title>{% block title %}The T-Shirt Shop{% endblock %}</title>
+  <title>{% block title %}The T-Shirt Brand{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}Screen-printed shirts, made to order. A small curated shop.{% endblock %}" />
   <meta name="theme-color" content="#131716" />
   <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}" />
   <link rel="icon" type="image/svg+xml" href="{% static 'shop/images/crest.svg' %}" />
 
   {# --- Open Graph / Twitter (per-page overridable) --- #}
-  <meta property="og:site_name" content="The T-Shirt Shop" />
+  <meta property="og:site_name" content="The T-Shirt Brand" />
   <meta property="og:type" content="{% block og_type %}website{% endblock %}" />
-  <meta property="og:title" content="{% block og_title %}The T-Shirt Shop{% endblock %}" />
+  <meta property="og:title" content="{% block og_title %}The T-Shirt Brand{% endblock %}" />
   <meta property="og:description" content="{% block og_description %}Screen-printed shirts, made to order.{% endblock %}" />
   <meta property="og:url" content="{{ request.build_absolute_uri }}" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -49,9 +49,9 @@
 
   <header class="site-header">
     <div class="wrap">
-      <a class="brand" href="{% url 'shop:landing' %}" aria-label="The T-Shirt Shop — home">
+      <a class="brand" href="{% url 'shop:landing' %}" aria-label="The T-Shirt Brand — home">
         <img class="brand__mark" src="{% static 'shop/images/crest.svg' %}" alt="" aria-hidden="true" />
-        <span class="brand__word">The T&middot;Shirt Shop</span>
+        <span class="brand__word">The T&middot;Shirt Brand</span>
       </a>
 
       <nav class="site-nav" aria-label="Primary">
@@ -112,10 +112,12 @@
       </form>
 
       <address>
-        The T-Shirt Shop &mdash; Wyoming, USA
+        The T-Shirt Brand &mdash; Wyoming, USA
       </address>
     </div>
   </footer>
+
+  <div id="cursor-glow" aria-hidden="true"></div>
 
   {% django_htmx_script %}
   <script>
@@ -149,6 +151,32 @@
         },
       };
     }
+  </script>
+  <script>
+    // A soft shadow that follows the cursor, as though it hovers just above
+    // the page. Desktop with a real pointer only; off for touch and for
+    // anyone who has asked for reduced motion.
+    (function () {
+      var fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!fine || reduced) return;
+      var el = document.getElementById('cursor-glow');
+      if (!el) return;
+      var targetX = -100, targetY = -100, curX = -100, curY = -100, active = false;
+      document.addEventListener('mousemove', function (e) {
+        targetX = e.clientX; targetY = e.clientY;
+        if (!active) { active = true; el.classList.add('is-active'); }
+        var over = e.target.closest && e.target.closest('.tile, .btn');
+        el.classList.toggle('is-over-tile', !!over);
+      });
+      document.addEventListener('mouseleave', function () { active = false; el.classList.remove('is-active'); });
+      (function tick() {
+        curX += (targetX - curX) * 0.18;
+        curY += (targetY - curY) * 0.18;
+        el.style.transform = 'translate3d(' + curX + 'px,' + curY + 'px,0)';
+        requestAnimationFrame(tick);
+      })();
+    })();
   </script>
   {% block body_extra %}{% endblock %}
 </body>

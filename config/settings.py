@@ -1,5 +1,5 @@
 """
-Django settings for The T-Shirt Shop.
+Django settings for The T-Shirt Brand.
 
 Configuration is environment-driven (see .env.example). Local development
 needs no .env at all — the defaults below run a working SQLite site.
@@ -159,7 +159,7 @@ EMAIL_PORT = _email.get("EMAIL_PORT", 25)
 EMAIL_HOST_USER = _email.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = _email.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = _email.get("EMAIL_USE_TLS", False)
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="The T-Shirt Shop <shop@localhost>")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="The T-Shirt Brand <shop@localhost>")
 
 # --- Integrations (wired up later; safe to be blank) ---------------
 
@@ -175,9 +175,9 @@ PRINTFUL_API_KEY = env("PRINTFUL_API_KEY", default="")
 PRINTFUL_ARTWORK_LINK_MAX_AGE = env.int("PRINTFUL_ARTWORK_LINK_MAX_AGE", default=1800)
 
 # Shop identity used in emails / CAN-SPAM footer.
-SHOP_NAME = "The T-Shirt Shop"
+SHOP_NAME = "The T-Shirt Brand"
 SHOP_POSTAL_ADDRESS = env(
-    "SHOP_POSTAL_ADDRESS", default="The T-Shirt Shop, Wyoming, USA"
+    "SHOP_POSTAL_ADDRESS", default="The T-Shirt Brand, Wyoming, USA"
 )
 # Absolute base for links in emails (no request context there).
 SITE_BASE_URL = env("SITE_BASE_URL", default="http://127.0.0.1:8000")
@@ -193,7 +193,7 @@ CONSOLE_HOST = env.str("CONSOLE_HOST", default="").strip().lower()
 # reaching /manage/ or /admin/. Enroll with: manage.py otp_setup <username>
 STAFF_2FA_REQUIRED = env.bool("STAFF_2FA_REQUIRED", default=True)
 STAFF_2FA_MAX_AGE = env.int("STAFF_2FA_MAX_AGE", default=60 * 60 * 12)  # re-verify after 12h
-OTP_TOTP_ISSUER = "The T-Shirt Shop"
+OTP_TOTP_ISSUER = "The T-Shirt Brand"
 
 # --- Security (production) ----------------------------------------
 

@@ -1,4 +1,4 @@
-# The T-Shirt Shop
+# The T-Shirt Brand
 
 A curated print-on-demand storefront (Django + htmx). Currently in **Phase 1**
 — see the vision document and build plan for scope.

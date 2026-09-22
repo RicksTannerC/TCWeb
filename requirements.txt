@@ -1,4 +1,4 @@
-# The T-Shirt Shop — Phase 1
+# The T-Shirt Brand — Phase 1
 # Runtime
 Django>=6.1,<6.2
 django-environ>=0.14

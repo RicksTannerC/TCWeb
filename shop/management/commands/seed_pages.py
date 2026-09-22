@@ -17,7 +17,7 @@ PAGES = [
         "footer_order": 1,
         "meta_description": "A one-person, curated print-to-order shirt shop.",
         "body": """\
-The T-Shirt Shop is a one-person operation. One person picks the art, picks
+The T-Shirt Brand is a one-person operation. One person picks the art, picks
 the garment, sets the price, and packs nothing — because every shirt is
 **printed when you order it** by a print partner.
 
@@ -69,7 +69,7 @@ full refund, no questions asked. A photo helps but isn't required.
 _Last updated when this page was published. This is a plain-language summary,
 not a substitute for legal advice._
 
-The T-Shirt Shop is operated from Wyoming, USA.
+The T-Shirt Brand is operated from Wyoming, USA.
 
 ## What we collect
 

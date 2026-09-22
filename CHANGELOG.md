@@ -1,6 +1,6 @@
 # Change log
 
-The running record of what changed in The T-Shirt Shop, why, and how it was
+The running record of what changed in The T-Shirt Brand, why, and how it was
 checked. Newest first. One entry per change (or tight group of changes), each
 pointing at the commit(s) that carry it.
 
@@ -8,6 +8,82 @@ pointing at the commit(s) that carry it.
 > line with the FDR / SDR process once that guide is added to the repo; until
 > then, entries record: **What** changed, **Why**, **Files**, **Verified** (how it
 > was tested), and **Follow-ups** (anything left open).
+
+---
+
+## 2026-09-21 — First design review pass
+
+*From the curator's live design review: renamed the site, separated the
+enlarged tile's close control from the title, added a mobile swipe-to-dismiss
+gesture, gave tiles/buttons a real hover shadow, and added a cursor shadow
+effect. Two review items (the landing page's catalogue cards, and the
+console's nav) need a decision before they're built, and the logo swap is
+waiting on the file.*
+
+- **Renamed the site** from "The T-Shirt Shop" to "The T-Shirt Brand" to
+  match the domain, everywhere it's customer- or operator-facing: page
+  titles, Open Graph tags, the header/footer wordmark, email sender name and
+  CAN-SPAM postal line, the two-factor issuer name shown in authenticator
+  apps, and the demo/seed content. Historical CHANGELOG entries and the
+  external vision/build-plan documents are left as they were — they're a
+  record of what was decided at the time, not live copy.
+- **Separated the enlarged tile's close button from the title.** It was
+  absolutely positioned over the info column with no reserved space, so it
+  sat on top of the product name. It's now a distinct circular control with
+  its own background, with the info column padded clear of it; unchanged on
+  the stacked mobile layout, where it sits over the image instead.
+- **Swipe down to dismiss, on mobile.** The enlarged tile now tracks a
+  downward touch drag, following the finger 1:1, and either snaps back or
+  slides fully off-screen (fading out) into the close action past a small
+  threshold. A small handle bar at the top (mobile only) hints at the
+  gesture. Scoped to the card itself, ignoring drags that start on the size
+  dropdown, the buy buttons, or the thumbnail strip, so it doesn't fight
+  those controls.
+- **Real hover/press feedback.** Tiles now lift with a genuine drop shadow on
+  hover (previously just a thin outline ring); buttons lift with a soft
+  shadow on hover and settle back down on press. Kept subtle and consistent
+  with the rest of the transition language (all of it already respects
+  `prefers-reduced-motion`, which the base stylesheet turns into near-zero
+  transition durations globally).
+- **A soft cursor shadow, desktop only.** A blurred glow now follows the
+  pointer with a slight trailing lag, reading as something hovering just
+  above the page, and grows slightly over tiles and buttons. Only runs on
+  devices reporting a real mouse (`hover: hover` and `pointer: fine`) and
+  skips itself entirely under `prefers-reduced-motion: reduce`; the console
+  doesn't get it, matching its own stated "lighter weight, less animation"
+  design intent.
+- **Dashboard: "Top designs" and "Where visits came from" are now their own
+  cards**, matching the stat tiles above them, instead of two bare headings
+  and lists sitting under the fold with no card treatment.
+- **Files:** `shop/static/shop/css/style.css`, `shop/templates/shop/base.html`,
+  `shop/templates/shop/_overlay.html`, `shop/templates/shop/manage/dashboard.html`,
+  plus the rename across `config/settings.py`, `README.md`, `requirements.txt`,
+  `shop/management/commands/seed_catalogue.py` / `seed_pages.py`, and every
+  template title/meta tag.
+- **Verified:** full test suite green (111, unchanged — this pass is
+  template/CSS/JS, no behavior to newly cover); checked live afterwards
+  against the real domain in both the desktop and a mobile viewport: the
+  close button's separation, the mobile grab handle, the cursor shadow
+  activating and growing over a tile (confirmed via its own DOM state, not
+  just by eye), and the renamed title/meta tags.
+- **A real gap this caught:** none of the CSS changes were actually visible
+  live at first, because production (`DEBUG=False`) serves compiled,
+  hashed static files from `staticfiles/`, and `collectstatic` hadn't been
+  run since the edits — so the site was quietly still serving the old
+  stylesheet. Running `python manage.py collectstatic` fixed it; **this is
+  now a step to remember after every static-file (CSS/JS/image) change on
+  this Windows/waitress setup**, the same way a Python change needs a
+  restart.
+- **Follow-ups / still open from the review:**
+  - Logo swap — waiting on the file.
+  - Landing page: show a few catalogue-type cards instead of individual
+    shirts, linking through to the catalogue — needs a decision on what a
+    "catalogue card" is before building it (see discussion).
+  - Console nav: collapse the row of top-level tabs into a simpler, grouped
+    structure — needs a decision on the grouping before building it (see
+    discussion).
+  - Dashboard cards are now correctly styled but not restyled beyond that;
+    the deeper console visual pass is bundled with the nav item above.
 
 ---
 

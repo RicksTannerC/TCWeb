@@ -1,7 +1,30 @@
 {% load static %}
 <div class="overlay" role="dialog" aria-modal="true"
      aria-label="{{ listing.design.title }}"
-     x-data="{ selected: 0, hover: null, added: 0, stickerAdded: 0 }"
+     x-data="{
+       selected: 0, hover: null, added: 0, stickerAdded: 0,
+       dragY: 0, dragging: false, closing: false, startY: 0,
+       dragStart(e) {
+         if (this.closing || e.target.closest('select, .overlay__buy, .overlay__addon, .overlay__strip')) return;
+         this.startY = e.touches[0].clientY;
+         this.dragging = true;
+       },
+       dragMove(e) {
+         if (!this.dragging) return;
+         this.dragY = Math.max(0, e.touches[0].clientY - this.startY);
+       },
+       dragEnd() {
+         if (!this.dragging) return;
+         this.dragging = false;
+         if (this.dragY > 90) {
+           this.closing = true;
+           this.dragY = 700;
+           setTimeout(() => $refs.close.click(), 180);
+         } else {
+           this.dragY = 0;
+         }
+       },
+     }"
      x-init="document.documentElement.classList.add('overlay-open'); $nextTick(() => $refs.close.focus())"
      @keydown.escape.window="$refs.close.click()"
      @keydown.tab="(() => {
@@ -16,7 +39,10 @@
      hx-get="{% url 'shop:overlay_close' %}" hx-target="#overlay-root" hx-swap="innerHTML"
      hx-push-url="{% url 'shop:index' %}"></a>
 
-  <div class="overlay__card glass">
+  <div class="overlay__card glass"
+       @touchstart="dragStart($event)" @touchmove.passive="dragMove($event)" @touchend="dragEnd()"
+       :style="dragY > 0 ? ('transform: translateY(' + dragY + 'px); opacity:' + Math.max(0.15, 1 - dragY / 500) + (dragging ? '; transition:none' : '')) : ''">
+    <div class="overlay__grabber" aria-hidden="true"></div>
     <a href="{% url 'shop:index' %}" class="overlay__close" x-ref="close" aria-label="Close"
        hx-get="{% url 'shop:overlay_close' %}" hx-target="#overlay-root" hx-swap="innerHTML"
        hx-push-url="{% url 'shop:index' %}">&times;</a>
