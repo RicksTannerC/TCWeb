@@ -91,8 +91,12 @@ layout (`/manage/`), and with `CONSOLE_HOST` unset nothing changes. Add the host
 Current setup (interim, from a Windows machine):
 
 - The app runs under **waitress** (`gunicorn` doesn't run on Windows):
-  `waitress-serve --listen=127.0.0.1:8000 config.wsgi:application` — bound to
-  localhost only, so it is reachable solely through the tunnel.
+  `python -m waitress --listen=127.0.0.1:8000 config.wsgi:application` — bound
+  to localhost only, so it is reachable solely through the tunnel. Run it as a
+  `python -m` module rather than the `waitress-serve.exe` shim: Windows **Smart
+  App Control**, if enabled, blocks that shim as an unrecognized unsigned
+  binary (`python.exe` itself isn't affected). This is a Windows quirk, not a
+  code issue, and stops mattering once this moves to a Linux VPS.
 - A **Cloudflare Tunnel** publishes the shop (`yourdomain.com`) and the private
   console host (`manage.yourdomain.com`) to `http://127.0.0.1:8000`. Leave the
   route's *Path* field empty, and use `127.0.0.1` rather than `localhost`.

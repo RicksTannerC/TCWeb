@@ -11,6 +11,22 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-21 — Run waitress as a module, not the .exe shim
+
+- **What:** README's run command changed from `waitress-serve ...` to
+  `python -m waitress ...`.
+- **Why:** on this Windows machine, Windows Smart App Control blocks
+  `waitress-serve.exe` (an unsigned, auto-generated launcher) as unrecognized
+  software, which silently kept the site's app server from (re)starting.
+  `python.exe` itself isn't affected, so running waitress as a module sidesteps
+  it entirely with no behavior change. No code change; documentation only.
+- **Verified:** restarted the live server with the new command; site, console
+  and media all reachable through Cloudflare afterwards.
+- **Follow-ups:** Windows-only quirk; moot once Milestone 6 moves the app to a
+  Linux VPS under gunicorn.
+
+---
+
 ## 2026-09-19 — Storefront images now load (public media served)
 
 - **What:** the public media folder (mockups, lifestyle shots, collection art) is now
