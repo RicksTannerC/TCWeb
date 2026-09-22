@@ -1,13 +1,14 @@
 from django.conf import settings
 from django.contrib import messages
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 import json
+import mimetypes
 
 from . import fulfillment, payments
 from .cart import Cart
@@ -163,11 +164,28 @@ def cart_detail(request):
 
 # ---------------------------------------------------------------- checkout
 
+def checkout_open():
+    """Whether a visitor can actually place an order right now: real Stripe
+    keys, or the DEBUG-only simulated checkout that stands in for them."""
+    return payments.stripe_ready() or settings.DEBUG
+
+
 @require_POST
 def checkout(request):
     cart = Cart(request)
     if len(cart) == 0:
         messages.info(request, "Your cart is empty.")
+        return redirect("shop:cart_detail")
+
+    if not checkout_open():
+        # No Order is created here: payment isn't wired up yet, so there is
+        # nothing for a pending_payment order to lead to. Nothing is charged
+        # and nothing is queued for fulfillment.
+        messages.info(
+            request,
+            "Checkout isn't open yet — we're still setting up payments. "
+            "Check back soon.",
+        )
         return redirect("shop:cart_detail")
 
     order = payments.create_order_from_cart(cart)
@@ -177,11 +195,7 @@ def checkout(request):
         session = payments.create_checkout_session(request, order)
         return redirect(session.url, permanent=False)
 
-    if settings.DEBUG:
-        return redirect("shop:checkout_dev")
-
-    messages.error(request, "Checkout is temporarily unavailable. Please try again later.")
-    return redirect("shop:cart_detail")
+    return redirect("shop:checkout_dev")
 
 
 def checkout_success(request):
@@ -259,6 +273,29 @@ def printful_webhook(request):
     if etype:
         fulfillment.apply_partner_event(etype, data)
     return HttpResponse(status=200)
+
+
+# ---------------------------------------------------------------- printful artwork delivery
+
+def printful_artwork(request, pk, token):
+    """Serve a design's private original to Printful's servers via a signed,
+    expiring link (see printful_delivery.py). Deliberately not staff-only:
+    Printful can't sign in, so the token itself is the only gate."""
+    from .printful_delivery import verify_token
+
+    design = verify_token(pk, token)
+    if design is None:
+        raise Http404("This link is invalid or has expired.")
+    try:
+        handle = design.artwork.open("rb")
+    except FileNotFoundError:
+        raise Http404("The artwork file is missing.")
+    content_type = mimetypes.guess_type(design.artwork.name)[0] or "application/octet-stream"
+    response = FileResponse(handle, content_type=content_type)
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    response["X-Robots-Tag"] = "noindex"
+    return response
 
 
 # ---------------------------------------------------------------- subscribers

@@ -164,6 +164,10 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
 # Stripe Tax: enable once a Wyoming registration is in place (see vision §09).
 STRIPE_TAX_ENABLED = env.bool("STRIPE_TAX_ENABLED", default=False)
 PRINTFUL_API_KEY = env("PRINTFUL_API_KEY", default="")
+# How long a signed print-file link handed to Printful stays valid (seconds).
+# Only needs to outlive the moment Printful's servers fetch it after we call
+# their API; see shop/printful_delivery.py.
+PRINTFUL_ARTWORK_LINK_MAX_AGE = env.int("PRINTFUL_ARTWORK_LINK_MAX_AGE", default=1800)
 
 # Shop identity used in emails / CAN-SPAM footer.
 SHOP_NAME = "The T-Shirt Shop"

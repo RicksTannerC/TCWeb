@@ -38,18 +38,10 @@ def sync_listing(listing):
     from .models import Status
 
     client = get_client()
-    files = []
-    if listing.design.artwork:
-        url = listing.design.print_file_url
-        if url:
-            files = [{"url": url}]
-        elif not getattr(client, "is_mock", False):
-            # Originals are private and have no public URL, so Printful can't
-            # fetch them yet. Refuse rather than create a product with no art.
-            raise PrintfulError(
-                "The print file is private and Printful can't reach it yet: "
-                "delivering originals to Printful (a signed, expiring link) isn't built."
-            )
+    # print_file_url signs a fresh, short-lived link each call, so it is built
+    # right before the API call rather than stored anywhere.
+    url = listing.design.print_file_url
+    files = [{"url": url}] if url else []
     payload = {
         "sync_product": {"name": listing.design.title, "external_id": listing.slug},
         "sync_variants": [

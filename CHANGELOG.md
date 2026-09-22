@@ -11,6 +11,63 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-21 — Printful can now fetch private artwork; checkout is a safe placeholder
+
+### Signed, expiring links for Printful
+
+- **What:** `Design.print_file_url` now returns a real, working URL (was
+  always `None`) — a signed, expiring link (`shop/printful_delivery.py`,
+  `PRINTFUL_ARTWORK_LINK_MAX_AGE`, default 30 min) at
+  `/printful/artwork/<id>/<token>/`, unauthenticated by design since Printful
+  can't sign in. The token is bound to the design's id *and* its current
+  file name, so it dies the instant the artwork is replaced or the design is
+  deleted, on top of expiring. `sync_listing()` (send-to-Printful) and order
+  fulfillment lines both use it automatically; the earlier guard that
+  refused real Printful calls ("print file is private...") is now moot and
+  removed, since there's a real link to hand over.
+- **Why:** requested, to let the live Printful key be exercised for real
+  instead of only against the mock.
+- **Files:** `shop/printful_delivery.py` (new), `shop/models.py`
+  (`Design.print_file_url`), `shop/printful.py` (`sync_listing`, guard
+  removed), `shop/views.py` (`printful_artwork`), `shop/urls.py`,
+  `config/settings.py`, `.env.example`.
+- **Verified:** 15 new tests (expiry, tampering, wrong design, stale link
+  after artwork replaced, deleted design, missing file, unauthenticated,
+  console-host vs public-host) plus 5 updated Printful tests confirming
+  `sync_listing`/fulfillment lines carry a working link; full suite green
+  (111). Manually confirmed against the real Printful key: catalog reads
+  succeed and authenticate correctly (no product was created — that's a
+  real, visible action in the live Printful account and was left for the
+  curator to trigger from the console when ready).
+- **Follow-ups:** none blocking; a real "send to Printful" will now create a
+  real product in the connected Printful store.
+
+### Checkout is a safe placeholder until Stripe is set up
+
+- **What:** with no Stripe keys configured (Stripe account creation hit a
+  snag), the cart page shows a disabled "Checkout" button with a short note
+  instead of a live one, and the checkout endpoint itself refuses before
+  creating anything — no `Order` row, no charge, nothing queued — showing an
+  on-brand message instead. Previously, every checkout attempt (even now, in
+  production with no Stripe key) silently created an abandoned
+  `pending_payment` Order row that would never resolve; that's fixed too.
+  Local dev is unaffected: with `DEBUG=True` the existing simulated checkout
+  still works for testing the full order pipeline without Stripe.
+- **Why:** requested, so the storefront reads as intentional rather than
+  broken while Stripe is pending, without risking a real (or fake) order
+  being taken.
+- **Files:** `shop/views.py` (`checkout_open`, `checkout`),
+  `shop/context_processors.py`, `shop/templates/shop/_cart_body.html`,
+  `_cart_drawer_body.html`.
+- **Verified:** 8 new tests (no order created in production without Stripe,
+  no orphan rows across repeated attempts, cart keeps its contents, empty
+  cart's own message still wins, dev simulated checkout still works, correct
+  button shown with/without Stripe keys); full suite green (111).
+- **Follow-ups:** none; remove once real Stripe keys are in place (the
+  button reappears automatically).
+
+---
+
 ## 2026-09-21 — Run waitress as a module, not the .exe shim
 
 - **What:** README's run command changed from `waitress-serve ...` to

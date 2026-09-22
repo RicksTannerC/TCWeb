@@ -45,10 +45,15 @@
     <div class="cart-summary panel">
       <p class="cart-total"><span>Subtotal</span> <span class="price">${{ cart.get_total }}</span></p>
       <p class="faint">Free shipping. Sales tax calculated at checkout.</p>
-      <form method="post" action="{% url 'shop:checkout' %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn--block">Checkout</button>
-      </form>
+      {% if checkout_open %}
+        <form method="post" action="{% url 'shop:checkout' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--block">Checkout</button>
+        </form>
+      {% else %}
+        <button type="button" class="btn btn--block" disabled>Checkout</button>
+        <p class="faint">Checkout isn't open yet &mdash; we're still setting up payments.</p>
+      {% endif %}
     </div>
   {% endif %}
 </div>

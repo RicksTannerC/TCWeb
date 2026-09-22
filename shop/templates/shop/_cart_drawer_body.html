@@ -34,10 +34,15 @@
       <p class="drawer__total"><span>Subtotal</span> <span class="price">${{ cart.get_total }}</span></p>
       <p class="faint drawer__ship">Free shipping. Tax at checkout.</p>
       <a class="btn btn--ghost" href="{% url 'shop:cart_detail' %}">View full cart</a>
-      <form method="post" action="{% url 'shop:checkout' %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn--block">Checkout</button>
-      </form>
+      {% if checkout_open %}
+        <form method="post" action="{% url 'shop:checkout' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--block">Checkout</button>
+        </form>
+      {% else %}
+        <button type="button" class="btn btn--block" disabled>Checkout</button>
+        <p class="faint">Not open yet &mdash; setting up payments.</p>
+      {% endif %}
     </div>
   {% endif %}
 </div>

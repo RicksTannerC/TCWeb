@@ -175,12 +175,11 @@ class Design(models.Model):
 
     @property
     def print_file_url(self):
-        """A URL a print partner could fetch the original from, or None.
+        """A signed, expiring URL Printful can fetch this design's private
+        original from, or None if it has no artwork. See printful_delivery.py."""
+        from .printful_delivery import build_delivery_url
 
-        Originals are private and have no public URL. Delivering them to Printful
-        needs a signed, expiring link, which hasn't been built yet.
-        """
-        return None
+        return build_delivery_url(self)
 
     @property
     def sticker_listing(self):

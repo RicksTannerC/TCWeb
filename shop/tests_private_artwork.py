@@ -5,7 +5,9 @@ import tempfile
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest import mock
+from urllib.parse import urlsplit
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -13,7 +15,7 @@ from django.test import Client, TestCase, override_settings
 
 from . import printful
 from .fulfillment import _line
-from .models import Design, Listing, ProductTemplate, ProductType
+from .models import Design, Listing, ListingSize, ProductTemplate, ProductType
 from .storage import get_private_storage
 from .tests_2fa import totp_now
 from .tests_templates_intake import TEE_SIZES, png
@@ -173,16 +175,26 @@ class NoPublicAccessTests(PrivateBase):
 
 
 class PrintfulGuardTests(PrivateBase):
+    """sync_listing() and order fulfillment lines, now that print_file_url is real."""
+
     def listing(self, with_art=True):
         d = self.design_with("pillars.svg", SVG) if with_art else Design.objects.create(title="No art")
-        return Listing.objects.create(design=d, template=self.tee, product_type="tee")
+        listing = Listing.objects.create(design=d, template=self.tee, product_type="tee")
+        ListingSize.objects.create(listing=listing, label="M")
+        return listing
 
-    def test_real_printful_refuses_a_private_file_instead_of_sending_no_art(self):
+    def test_real_printful_is_sent_a_working_signed_link_for_the_art(self):
         client = mock.MagicMock(is_mock=False)
+        client.create_sync_product.return_value = {"id": 1, "sync_variants": []}
+        listing = self.listing()
         with mock.patch.object(printful, "get_client", return_value=client):
-            with self.assertRaises(printful.PrintfulError):
-                printful.sync_listing(self.listing())
-        client.create_sync_product.assert_not_called()
+            printful.sync_listing(listing)
+        payload = client.create_sync_product.call_args[0][0]
+        url = payload["sync_variants"][0]["files"][0]["url"]
+        self.assertTrue(url.startswith(settings.SITE_BASE_URL))
+        r = Client().get(urlsplit(url).path)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(b"".join(r.streaming_content), SVG)
 
     def test_mock_printful_still_works_locally(self):
         with mock.patch.object(printful, "get_client", return_value=printful.MockPrintful()):
@@ -194,8 +206,16 @@ class PrintfulGuardTests(PrivateBase):
         client.create_sync_product.return_value = {"id": 1, "sync_variants": []}
         with mock.patch.object(printful, "get_client", return_value=client):
             printful.sync_listing(self.listing(with_art=False))
-        client.create_sync_product.assert_called_once()
+        payload = client.create_sync_product.call_args[0][0]
+        self.assertEqual(payload["sync_variants"][0]["files"], [])
 
-    def test_order_lines_never_carry_a_private_file_url(self):
+    def test_order_fulfillment_lines_now_carry_a_working_signed_link(self):
         item = SimpleNamespace(listing=self.listing(), quantity=1, design_title="Pillars", unit_price=Decimal("40"))
+        url = _line(item)["files"][0]["url"]
+        r = Client().get(urlsplit(url).path)
+        self.assertEqual(r.status_code, 200)
+        r.close()
+
+    def test_order_lines_have_no_url_when_the_design_has_no_artwork(self):
+        item = SimpleNamespace(listing=self.listing(with_art=False), quantity=1, design_title="No art", unit_price=Decimal("40"))
         self.assertEqual(_line(item)["files"], [])

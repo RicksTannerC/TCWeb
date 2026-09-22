@@ -6,8 +6,10 @@ from .console import Page
 
 
 def cart(request):
+    from .views import checkout_open
+
     c = Cart(request)
-    return {"cart": c, "cart_count": len(c)}
+    return {"cart": c, "cart_count": len(c), "checkout_open": checkout_open()}
 
 
 def footer_pages(request):

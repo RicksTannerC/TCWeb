@@ -26,6 +26,10 @@ public_patterns = [
     path("webhooks/stripe/", views.stripe_webhook, name="stripe_webhook"),
     path("webhooks/printful/", views.printful_webhook, name="printful_webhook"),
 
+    # Signed, expiring link so Printful's servers can fetch a private design
+    # original; see shop/printful_delivery.py.
+    path("printful/artwork/<int:pk>/<str:token>/", views.printful_artwork, name="printful_artwork"),
+
     # subscribers + contact
     path("subscribe/", views.subscribe, name="subscribe"),
     path("unsubscribe/<str:token>/", views.unsubscribe, name="unsubscribe"),
