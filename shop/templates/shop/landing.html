@@ -14,7 +14,33 @@
   <p><a class="btn btn--lg" href="{% url 'shop:index' %}">Enter the shop</a></p>
 </section>
 
-{% if featured %}
+{% if cards %}
+<section class="landing-featured">
+  <h2>Explore the catalogue</h2>
+  <ul class="tile-grid" role="list">
+    {% for col in cards %}
+      <li class="tile-item">
+        <a class="tile glass" href="{% url 'shop:index' %}#collection-{{ col.slug }}">
+          <span class="tile__image">
+            {% with img=col.centerpiece_listing.primary_image %}
+              {% if img %}
+                <img src="{{ img.image.url }}" alt="{{ col.name }}" loading="lazy" />
+              {% else %}
+                <span class="tile__fallback">{{ col.name }}</span>
+              {% endif %}
+            {% endwith %}
+          </span>
+          <span class="tile__meta">
+            <span class="tile__title">{{ col.name }}</span>
+            {% if col.summary %}<span class="tile__sub faint">{{ col.summary }}</span>{% endif %}
+          </span>
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+  <p><a href="{% url 'shop:index' %}">See everything &rarr;</a></p>
+</section>
+{% elif featured %}
 <section class="landing-featured">
   <h2>In the shop now</h2>
   <ul class="tile-grid" role="list">

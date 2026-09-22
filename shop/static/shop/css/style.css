@@ -1018,7 +1018,7 @@ body.console { background: var(--ground, var(--paper)); }
 .shop-search { margin-top: var(--sp-3); display: none; }
 .shop-search.is-open { display: flex; }
 
-.shop-collection { margin-bottom: var(--sp-5); }
+.shop-collection { margin-bottom: var(--sp-5); scroll-margin-top: var(--sp-3); }
 .shop-collection__head {
   border-bottom: 1px solid var(--line);
   padding-bottom: var(--sp-2);

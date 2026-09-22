@@ -594,6 +594,19 @@ def collection_toggle(request, pk):
 
 @staff_member_required
 @require_POST
+def collection_toggle_landing(request, pk):
+    col = get_object_or_404(Collection, pk=pk)
+    col.featured_on_landing = not col.featured_on_landing
+    col.save(update_fields=["featured_on_landing", "updated"])
+    if col.featured_on_landing and col.status != Status.LIVE:
+        messages.warning(request, f"{col.name} will show on the landing page once it's published.")
+    else:
+        messages.success(request, f"{col.name} {'now shows' if col.featured_on_landing else 'no longer shows'} on the landing page.")
+    return redirect("shop:manage_collections")
+
+
+@staff_member_required
+@require_POST
 def collection_create(request):
     name = request.POST.get("name", "").strip()
     if name:

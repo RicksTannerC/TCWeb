@@ -11,6 +11,39 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-21 — Landing page shows collection cards, curator-controlled
+
+- **What:** the landing page now shows a card per **live, curator-featured**
+  collection — its centerpiece image is that collection's first live listing,
+  and the card links to that collection's own section on `/shop/` (a real
+  anchor, `#collection-<slug>`, now present on each collection's section
+  there) rather than to an individual product. A new **"Show on landing" /
+  "Remove from landing"** toggle on the console's Collections page controls
+  which collections appear, in what order (`landing_sort_order`); a
+  collection can be flagged while still hidden, with a warning that it won't
+  actually show until published. If nothing is featured yet, the landing
+  page falls back to today's small grid of individual live shirts, so it's
+  never empty before any collection is set up.
+- **Why:** requested in the design review, plus the follow-up request to let
+  the curator choose which collections surface on landing rather than always
+  showing all of them.
+- **Files:** `shop/models.py` (`Collection.featured_on_landing`,
+  `landing_sort_order`, `centerpiece_listing`, `landing_cards`), migration
+  `0006`, `shop/views.py` (`landing`), `shop/console_views.py`
+  (`collection_toggle_landing`), `shop/urls.py`,
+  `shop/templates/shop/landing.html`, `_grid.html` (anchor id),
+  `manage/collections.html`.
+- **Verified:** 12 new tests (centerpiece selection, the live+featured+has-
+  listings filter, ordering, the landing fallback, the anchor link, the
+  toggle and its warning, auth); full suite green (123). Migrated and
+  `collectstatic`'d the real database/static files.
+- **Follow-ups:** right now there's one real collection ("Base Heros," not
+  yet marked to show on landing) — toggle it on from the console's
+  Collections page to see a real card live. Nothing else pending on this
+  item.
+
+---
+
 ## 2026-09-21 — First design review pass
 
 *From the curator's live design review: renamed the site, separated the

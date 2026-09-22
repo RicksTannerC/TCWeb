@@ -13,15 +13,18 @@ import mimetypes
 from . import fulfillment, payments
 from .cart import Cart
 from .emails import send_order_confirmation, send_subscribe_welcome
-from .models import Listing, ListingSize, ProductType, Status
+from .models import Collection, Listing, ListingSize, ProductType, Status
 from .orders import Order, OrderStatus, Subscriber
 
 
 # ---------------------------------------------------------------- front door
 
 def landing(request):
-    featured = _live_tees()[:4]
-    return render(request, "shop/landing.html", {"featured": featured})
+    cards = Collection.landing_cards()
+    # Curator hasn't featured any collection yet: fall back to a few shirts
+    # so the landing page is never empty.
+    featured = [] if cards else _live_tees()[:4]
+    return render(request, "shop/landing.html", {"cards": cards, "featured": featured})
 
 
 def page(request, slug):

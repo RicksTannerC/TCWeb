@@ -12,10 +12,15 @@
         <span class="faint">{{ c.n }} listing{{ c.n|pluralize }}{% if c.is_base %} &middot; base world{% endif %}{% if c.go_live_at %} &middot; live {{ c.go_live_at|date:"j M" }}{% endif %}</span>
       </span>
       <span class="tag {% if c.status != 'live' %}faint{% endif %}">{{ c.get_status_display }}</span>
+      {% if c.featured_on_landing %}<span class="tag" title="Shown as a card on the landing page">On landing</span>{% endif %}
       {% if not c.is_base %}
         <form method="post" action="{% url 'shop:manage_collection_toggle' c.pk %}">
           {% csrf_token %}
           <button type="submit" class="btn btn--sm btn--ghost">{% if c.status == 'live' %}Unpublish{% else %}Publish{% endif %}</button>
+        </form>
+        <form method="post" action="{% url 'shop:manage_collection_toggle_landing' c.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--sm btn--ghost">{% if c.featured_on_landing %}Remove from landing{% else %}Show on landing{% endif %}</button>
         </form>
       {% endif %}
     </li>

@@ -73,6 +73,7 @@ console_patterns = [
     path("collections/create/", cv.collection_create, name="manage_collection_create"),
     path("collections/<int:pk>/", cv.collection_edit, name="manage_collection_edit"),
     path("collections/<int:pk>/toggle/", cv.collection_toggle, name="manage_collection_toggle"),
+    path("collections/<int:pk>/toggle-landing/", cv.collection_toggle_landing, name="manage_collection_toggle_landing"),
 
     path("pricing/", cv.pricing, name="manage_pricing"),
     path("pricing/update/", cv.pricing_update, name="manage_pricing_update"),

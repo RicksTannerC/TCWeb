@@ -81,6 +81,12 @@ class Collection(models.Model):
     is_base = models.BooleanField(default=False)
     go_live_at = models.DateTimeField(null=True, blank=True)
 
+    # Shown as its own card on the landing page (centerpiece image = its
+    # first live listing's primary image), linking through to the catalogue.
+    # Only ever shown while also `status == LIVE`.
+    featured_on_landing = models.BooleanField(default=False)
+    landing_sort_order = models.PositiveIntegerField(default=0)
+
     # dormant until the seasonal-worlds milestone
     theme_tokens = models.JSONField(default=dict, blank=True)
     scene_asset = models.ImageField(upload_to="collections/", null=True, blank=True)
@@ -100,6 +106,25 @@ class Collection(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+
+    @property
+    def centerpiece_listing(self):
+        """The listing whose image represents this collection on a landing card."""
+        return (
+            self.listings.filter(status=Status.LIVE)
+            .select_related("design")
+            .prefetch_related("images")
+            .first()
+        )
+
+    @classmethod
+    def landing_cards(cls):
+        """Live, curator-featured collections that have something to show."""
+        return [
+            c for c in cls.objects.filter(status=Status.LIVE, featured_on_landing=True)
+            .order_by("landing_sort_order", "name")
+            if c.centerpiece_listing
+        ]
 
 
 class ProductTemplate(models.Model):
