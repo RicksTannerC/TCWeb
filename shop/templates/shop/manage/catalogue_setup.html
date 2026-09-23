@@ -35,6 +35,11 @@
           <tr {% if r.warnings %}class="is-flag"{% endif %}>
             <td>
               <a href="{% url 'shop:manage_template_edit' t.pk %}"><strong>{{ t.name }}</strong></a>
+              {% if t.printful_blueprint_id %}
+                <div class="faint">Printful: {{ t.printful_blueprint_name|default:t.printful_blueprint_id }}</div>
+              {% else %}
+                <div class="faint">Not linked to a Printful product yet</div>
+              {% endif %}
               {% for w in r.warnings %}<div class="faint">&#9888; {{ w }}</div>{% endfor %}
             </td>
             <td>{{ t.get_product_type_display }}</td>

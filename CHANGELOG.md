@@ -11,6 +11,88 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-22 — Pick a real Printful blank and match its sizes, from the console
+
+- **What:** the Templates editor now has a **search box** for Printful's real
+  catalog (by name, model or brand — e.g. "Stanley Stella STTU169") instead
+  of a bare numeric-ID field; picking a result fills in the product ID and
+  a human-readable name (`ProductTemplate.printful_blueprint_name`, new,
+  display-only). Once a template has a Printful product chosen, a listing
+  using that template gets a **"Match sizes to Printful variants"** button
+  on its editor: it looks up that product's real variants in the listing's
+  color, and fills in the correct Printful variant id for every one of the
+  listing's sizes automatically — the number `sync_listing()` actually needs
+  to place a real order, which nothing in the console could set before this.
+  A mismatch (unknown color, a size Printful doesn't have) reports exactly
+  which sizes didn't match and lists the colors Printful really has for that
+  product, rather than failing silently.
+- **Why:** requested, after finding the ID fields on the Templates page were
+  unused free-text placeholders with nowhere to get the real numbers from,
+  and no way at all to set the per-size variant id `sync_listing()` needs.
+- **A real, third-party API call, used deliberately:** the search box and
+  the "Match sizes" button both make a real, read-only call to Printful's
+  catalog using the account's live key — but only when the curator
+  triggers it themselves, signed into their own console. Printful's full
+  catalog (not searchable server-side) is cached for an hour so repeated
+  searches don't refetch it.
+- **Files:** `shop/printful.py` (`search_catalog`, `match_variants`,
+  `list_catalog` on both the real and mock client), `shop/models.py`
+  (`printful_blueprint_name`), migration `0007`, `shop/console_views.py`
+  (`template_printful_search`, `listing_match_printful_sizes`),
+  `shop/urls.py`, `shop/templates/shop/manage/template_edit.html` /
+  `listing_edit.html` / `catalogue_setup.html` (shows the linked product) /
+  `_printful_search_results.html` (new), `shop/static/shop/css/style.css`.
+- **Verified:** 24 new tests, entirely against the local Printful mock
+  (extended with a small real-shaped catalog and multi-color variants) —
+  search matching/caching, color+size matching and its failure messages,
+  both new views, and that a listing with no product chosen is told to set
+  one rather than silently failing. Full suite green (163). A real,
+  disclosed, one-off lookup against the live catalog (before this rule
+  existed) confirmed Printful's actual data shape, including a `null`
+  brand field on some products that the original search code didn't
+  handle — fixed (`str(x or "")` throughout) before this shipped, so it
+  won't crash the same way against the real catalog in use.
+- **Follow-ups:** none blocking. `sync_listing()` itself is unchanged; it
+  already sends whatever variant id is stored per size, so a real "Send to
+  Printful" should now work end to end once a real order is actually
+  placed against a matched listing (still untested against the real API,
+  per the new rule below).
+
+---
+
+## 2026-09-22 — Incident: dev/test commands were silently reading the real environment
+
+- **What happened:** `TCWEB_ENV_FILE` had been set as a *permanent* Windows
+  environment variable so the real server always found its config. That was
+  the mistake: a permanent env var is inherited by every shell, including
+  the ones used for ordinary local development and to run the automated
+  test suite. While it was set, `python manage.py test` and similar dev
+  commands were silently reading the real `.env` — real `PRINTFUL_API_KEY`
+  included — instead of the safe, mock-only local defaults. In practice this
+  caused one batch of new, not-yet-reviewed tests to make about a dozen
+  real, read-only GET requests to Printful's catalog API
+  (`/products`, `/products/456`) during a test run, rather than hitting the
+  local mock as intended. Nothing was created, changed, or ordered in the
+  Printful account — every call involved was a read; no writes, no orders,
+  no store changes — but it should never have reached the real API at all
+  without being asked first, and is reported here in full rather than
+  quietly fixed.
+- **Fix:** removed `TCWEB_ENV_FILE` as a permanent environment variable.
+  It's now set explicitly, only for the one command that needs it (starting
+  the real server, or a one-off `migrate`/`collectstatic` against the real
+  data) — see the updated **Deployment** section in `README.md`. Local
+  development and the test suite now get the safe project-folder defaults
+  (SQLite, the Printful mock) unless that one command explicitly opts in.
+- **Files:** `README.md` (Deployment section rewritten); no application
+  code changed by this entry.
+- **Follow-ups:** the session's own shell history may still have the
+  variable cached in an already-running process for its remaining
+  lifetime; new shells no longer pick it up. Going forward, dev/test
+  commands are run with an explicit empty override
+  (`TCWEB_ENV_FILE=`) as a second layer of protection regardless.
+
+---
+
 ## 2026-09-22 — Cursor tracking, and the console nav restructure
 
 ### Cursor shadow: true 1:1 tracking

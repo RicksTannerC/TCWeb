@@ -53,7 +53,9 @@
     <h2>Sizes</h2>
     {% for s in listing.sizes.all %}
       <div class="row-2">
-        <span>{{ s.label }}{% if s.measurements %} &mdash; {{ s.measurements }}{% endif %}</span>
+        <span>{{ s.label }}{% if s.measurements %} &mdash; {{ s.measurements }}{% endif %}
+          <span class="faint">{% if s.printful_variant_id %}&middot; Printful #{{ s.printful_variant_id }}{% else %}&middot; not matched to Printful{% endif %}</span>
+        </span>
         <input name="size_price_{{ s.id }}" type="number" step="0.01" placeholder="inherits ${{ listing.price }}"
                value="{{ s.price_override|default_if_none:'' }}" />
       </div>
@@ -94,6 +96,18 @@
 
 <div class="panel stack">
   <h2>Printful &amp; publishing</h2>
+  {% if not listing.template.printful_blueprint_id %}
+    <p class="faint">This design's template has no Printful product chosen yet —
+      set one on the <a href="{% url 'shop:manage_catalogue_setup' %}#templates">Catalogue setup page</a> first.</p>
+  {% else %}
+    <form method="post" action="{% url 'shop:manage_listing_match_printful_sizes' listing.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--ghost btn--sm">Match sizes to Printful variants</button>
+    </form>
+    <p class="faint">Looks up {{ listing.template.printful_blueprint_name|default:listing.template.printful_blueprint_id }}
+      in color &ldquo;{{ listing.color|default:"(not set)" }}&rdquo; and fills in each size's real Printful variant, above.
+      A real, read-only call to your Printful account, made only when you click this.</p>
+  {% endif %}
   {% if listing.is_connected %}
     <p class="ok-text">Connected — product {{ listing.printful_product_id }}</p>
   {% else %}

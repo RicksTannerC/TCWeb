@@ -63,6 +63,7 @@ console_patterns = [
     path("listings/intake/", cv.listings_intake, name="manage_listings_intake"),
     path("listings/<int:pk>/", cv.listing_edit, name="manage_listing_edit"),
     path("listings/<int:pk>/printful/", cv.listing_send_to_printful, name="manage_listing_printful"),
+    path("listings/<int:pk>/match-printful-sizes/", cv.listing_match_printful_sizes, name="manage_listing_match_printful_sizes"),
     path("listings/<int:pk>/status/", cv.listing_set_status, name="manage_listing_status"),
     path("listings/<int:pk>/image/", cv.listing_add_image, name="manage_listing_add_image"),
     path("listings/<int:pk>/mockups/", cv.listing_generate_mockups, name="manage_listing_mockups"),
@@ -91,6 +92,7 @@ console_patterns = [
     path("templates/new/", cv.product_template_edit, name="manage_template_new"),
     path("templates/<int:pk>/", cv.product_template_edit, name="manage_template_edit"),
     path("templates/<int:pk>/delete/", cv.product_template_delete, name="manage_template_delete"),
+    path("templates/printful-search/", cv.template_printful_search, name="manage_template_printful_search"),
 
     path("books/", cv.books, name="manage_books"),
     path("books/overhead/add/", cv.overhead_add, name="manage_overhead_add"),

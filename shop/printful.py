@@ -29,6 +29,55 @@ class PrintfulError(Exception):
     pass
 
 
+CATALOG_CACHE_SECONDS = 60 * 60  # Printful's blank catalog barely changes; avoid refetching it on every search.
+
+
+def search_catalog(query):
+    """Printful's own catalog listing has no server-side search, so this
+    fetches the full list (cached) and filters client-side by name/model/brand."""
+    from django.core.cache import cache
+
+    query = (query or "").strip().lower()
+    if len(query) < 2:
+        return []
+    client = get_client()
+    cache_key = "printful:catalog:mock" if getattr(client, "is_mock", False) else "printful:catalog"
+    catalog = cache.get(cache_key)
+    if catalog is None:
+        catalog = client.list_catalog()
+        cache.set(cache_key, catalog, CATALOG_CACHE_SECONDS)
+    return [
+        p for p in catalog
+        if query in str(p.get("title") or "").lower()
+        or query in str(p.get("model") or "").lower()
+        or query in str(p.get("brand") or "").lower()
+    ][:25]
+
+
+def match_variants(blueprint_id, color, size_labels):
+    """For a Printful catalog product, find the variant id for each of
+    `size_labels` in `color` (case-insensitive, exact match).
+
+    Returns (matches: {label: variant_id str}, unmatched: [label, ...],
+    available_colors: [str, ...]) so the caller can explain a mismatch.
+    """
+    client = get_client()
+    data = client.catalog_variants(blueprint_id)
+    variants = data.get("variants", [])
+    available_colors = sorted({v.get("color", "") for v in variants if v.get("color")})
+    color_l = (color or "").strip().lower()
+    in_color = [v for v in variants if v.get("color", "").strip().lower() == color_l]
+
+    matches, unmatched = {}, []
+    for label in size_labels:
+        hit = next((v for v in in_color if v.get("size", "").strip().lower() == label.strip().lower()), None)
+        if hit and hit.get("id") is not None:
+            matches[label] = str(hit["id"])
+        else:
+            unmatched.append(label)
+    return matches, unmatched, available_colors
+
+
 def sync_listing(listing):
     """
     'Send to Printful': create the sync product from a draft listing's
@@ -96,6 +145,9 @@ class RealPrintful:
         return data.get("result", data)
 
     # --- catalogue / products ---
+    def list_catalog(self):
+        return self._get("/products")
+
     def catalog_variants(self, blueprint_id):
         return self._get(f"/products/{blueprint_id}")
 
@@ -129,12 +181,27 @@ class MockPrintful:
 
     is_mock = True
 
+    _CATALOG = [
+        {"id": 456, "title": "Unisex Organic Cotton Creator 2.0 T-Shirt | Stanley/Stella STTU169",
+         "model": "STTU169", "brand": "Stanley/Stella"},
+        {"id": 71, "title": "Unisex Staple T-Shirt | Bella + Canvas 3001",
+         "model": "3001", "brand": "Bella + Canvas"},
+        {"id": 145, "title": "Unisex Heavy Cotton Tee | Gildan 5000",
+         "model": "5000", "brand": "Gildan"},
+    ]
+
+    def list_catalog(self):
+        return self._CATALOG
+
     def catalog_variants(self, blueprint_id):
+        product = next((p for p in self._CATALOG if p["id"] == blueprint_id),
+                        {"id": blueprint_id, "title": "Mock blank"})
         return {
-            "product": {"id": blueprint_id, "title": "Mock blank"},
+            "product": product,
             "variants": [
-                {"id": _fake_id(blueprint_id, s), "size": s, "color": "Default", "price": "11.00"}
-                for s in ["S", "M", "L", "XL", "2XL"]
+                {"id": _fake_id(blueprint_id, color, size), "size": size, "color": color, "price": "11.00"}
+                for color in ["Black", "White", "Khaki"]
+                for size in ["S", "M", "L", "XL", "2XL"]
             ],
         }
 

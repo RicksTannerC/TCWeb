@@ -145,8 +145,12 @@ class ProductTemplate(models.Model):
     # [{"label": "M", "width_in": 20, "height_in": 28}, ...]
     default_sizes = models.JSONField(default=list, blank=True)
 
-    # dormant until the Printful milestone
+    # The real Printful catalog product (blueprint) this template maps to,
+    # picked via the catalog search in the console. printful_blueprint_name
+    # is display-only (never sent to Printful) so a saved template still
+    # reads as "Stanley/Stella STTU169" rather than a bare number.
     printful_blueprint_id = models.CharField(max_length=40, blank=True)
+    printful_blueprint_name = models.CharField(max_length=160, blank=True)
     printful_provider_id = models.CharField(max_length=40, blank=True)
     print_placement = models.CharField(max_length=40, blank=True)
 

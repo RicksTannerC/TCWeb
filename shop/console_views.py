@@ -342,6 +342,56 @@ def listing_send_to_printful(request, pk):
 
 @staff_member_required
 @require_POST
+def listing_match_printful_sizes(request, pk):
+    """Look up this listing's color + sizes against its template's chosen
+    Printful product, filling in each size's real variant id. A real outbound
+    Printful call, made only when the curator clicks this button."""
+    listing = get_object_or_404(Listing.objects.select_related("template"), pk=pk)
+    blueprint_id = listing.template.printful_blueprint_id
+    if not blueprint_id:
+        messages.error(
+            request,
+            "This listing's template has no Printful product chosen yet — "
+            "set one on the Catalogue setup page first.",
+        )
+        return redirect("shop:manage_listing_edit", pk=pk)
+    if not listing.color:
+        messages.error(request, "Set this listing's color first, then match sizes.")
+        return redirect("shop:manage_listing_edit", pk=pk)
+
+    sizes = list(listing.sizes.all())
+    try:
+        matches, unmatched, available_colors = printful.match_variants(
+            blueprint_id, listing.color, [s.label for s in sizes])
+    except printful.PrintfulError as exc:
+        messages.error(request, str(exc))
+        return redirect("shop:manage_listing_edit", pk=pk)
+
+    for s in sizes:
+        if s.label in matches:
+            s.printful_variant_id = matches[s.label]
+            s.save(update_fields=["printful_variant_id"])
+
+    if matches and not unmatched:
+        messages.success(request, f"Matched all {len(matches)} size(s) to Printful variants.")
+    elif matches:
+        messages.warning(
+            request,
+            f"Matched {len(matches)} size(s); couldn't match: {', '.join(unmatched)}. "
+            f"Check the size label spelling, or the listing's color against what Printful has: "
+            f"{', '.join(available_colors) or 'nothing found'}.",
+        )
+    else:
+        messages.error(
+            request,
+            f"No sizes matched color “{listing.color}”. Printful has these colors "
+            f"for this product: {', '.join(available_colors) or 'none found'}.",
+        )
+    return redirect("shop:manage_listing_edit", pk=pk)
+
+
+@staff_member_required
+@require_POST
 def listing_set_status(request, pk):
     listing = get_object_or_404(Listing, pk=pk)
     new = request.POST.get("status")
@@ -488,6 +538,7 @@ def product_template_edit(request, pk=None):
         "shipping_est": tpl.shipping_est if tpl else "",
         "print_placement": tpl.print_placement if tpl else "",
         "printful_blueprint_id": tpl.printful_blueprint_id if tpl else "",
+        "printful_blueprint_name": tpl.printful_blueprint_name if tpl else "",
         "printful_provider_id": tpl.printful_provider_id if tpl else "",
         "sizes": format_sizes(tpl.default_sizes) if tpl else "",
     }
@@ -496,7 +547,7 @@ def product_template_edit(request, pk=None):
     if request.method == "POST":
         form = {k: request.POST.get(k, "").strip() for k in
                 ("name", "product_type", "base_cost", "shipping_est", "print_placement",
-                 "printful_blueprint_id", "printful_provider_id")}
+                 "printful_blueprint_id", "printful_blueprint_name", "printful_provider_id")}
         form["sizes"] = request.POST.get("sizes", "")
 
         if not form["name"]:
@@ -522,6 +573,7 @@ def product_template_edit(request, pk=None):
             tpl.base_cost, tpl.shipping_est = base, ship
             tpl.print_placement = form["print_placement"][:40]
             tpl.printful_blueprint_id = form["printful_blueprint_id"][:40]
+            tpl.printful_blueprint_name = form["printful_blueprint_name"][:160]
             tpl.printful_provider_id = form["printful_provider_id"][:40]
             tpl.default_sizes = sizes
             tpl.save()
@@ -549,6 +601,17 @@ def product_template_delete(request, pk):
         return redirect(reverse("shop:manage_catalogue_setup") + "#templates")
     messages.success(request, f"Deleted template \u201c{name}\u201d.")
     return redirect(reverse("shop:manage_catalogue_setup") + "#templates")
+
+
+@staff_member_required
+def template_printful_search(request):
+    """htmx: search Printful's real catalog by name, for picking a template's
+    blueprint product. This is a real outbound call using PRINTFUL_API_KEY --
+    made only when a curator types into this search box, on their own
+    initiative, from their own signed-in console session."""
+    q = request.GET.get("q", "")
+    results = printful.search_catalog(q)
+    return render(request, "shop/manage/_printful_search_results.html", {"results": results, "q": q.strip()})
 
 
 # ------------------------------------------------------------------ collections

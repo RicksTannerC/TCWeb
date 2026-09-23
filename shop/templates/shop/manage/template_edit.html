@@ -43,14 +43,29 @@
       <textarea id="sizes" name="sizes" rows="7" spellcheck="false" placeholder="S, 18, 28&#10;M, 20, 29&#10;L, 22, 30">{{ form.sizes }}</textarea></div>
   </div>
 
-  <details class="panel stack">
-    <summary>Printful mapping (optional &mdash; filled in during the Printful milestone)</summary>
+  <details class="panel stack" {% if form.printful_blueprint_id %}open{% endif %} x-data="{ label: '{{ form.printful_blueprint_name|default:''|escapejs }}' }">
+    <summary>Printful product (optional &mdash; needed before "Send to Printful" for a real order)</summary>
+
+    <p class="faint" x-show="label" x-cloak>Currently: <strong x-text="label"></strong></p>
+
+    <div class="field">
+      <label for="printful_search">Search Printful's catalog</label>
+      <input type="search" id="printful_search" name="q" autocomplete="off"
+             placeholder="e.g. Stanley Stella STTU169, Bella Canvas 3001&hellip;"
+             hx-get="{% url 'shop:manage_template_printful_search' %}" hx-target="#printful-results" hx-swap="innerHTML"
+             hx-trigger="input changed delay:400ms" />
+      <p class="faint">Searches Printful's real catalog with your account's API key, when you type here.</p>
+    </div>
+    <div id="printful-results" class="printful-results"></div>
+
     <div class="row-2">
       <div class="field"><label for="printful_blueprint_id">Printful product ID</label>
-        <input id="printful_blueprint_id" name="printful_blueprint_id" value="{{ form.printful_blueprint_id }}" maxlength="40" /></div>
+        <input id="printful_blueprint_id" name="printful_blueprint_id" value="{{ form.printful_blueprint_id }}"
+               maxlength="40" @input="label = ''; document.getElementById('printful_blueprint_name').value = ''" /></div>
       <div class="field"><label for="printful_provider_id">Printful provider / variant group</label>
         <input id="printful_provider_id" name="printful_provider_id" value="{{ form.printful_provider_id }}" maxlength="40" /></div>
     </div>
+    <input type="hidden" id="printful_blueprint_name" name="printful_blueprint_name" value="{{ form.printful_blueprint_name }}" />
     <div class="field"><label for="print_placement">Print placement</label>
       <input id="print_placement" name="print_placement" value="{{ form.print_placement }}" maxlength="40" placeholder="front" /></div>
   </details>

@@ -99,9 +99,20 @@ layout (`/manage/`), and with `CONSOLE_HOST` unset nothing changes. Add the host
 
 Current setup (interim, from a Windows machine):
 
-- `TCWEB_ENV_FILE` is set as a permanent environment variable for the Windows
-  user account that runs the app (`D:\TCData\.env`), so any shell that user
-  opens finds the real config without it being passed explicitly.
+- `TCWEB_ENV_FILE` is **not** set as a permanent/ambient environment variable —
+  deliberately. A persistent one gets inherited by every shell and every dev
+  command (tests, `manage.py shell`, ...) without you noticing, which risks
+  those ordinary commands silently reading real secrets and hitting real
+  third-party APIs (Printful, Stripe) with the live key. Instead, set it
+  explicitly only for the specific command that needs the real config:
+  - PowerShell, before starting/restarting the real server:
+    `$env:TCWEB_ENV_FILE = "D:\TCData\.env"` then run waitress in that same
+    command.
+  - A one-off command (migrate, `collectstatic`, a real shell check):
+    prefix that single command, e.g. `TCWEB_ENV_FILE=D:/TCData/.env python manage.py migrate`.
+  - Local dev and the test suite should almost always run with **no**
+    `TCWEB_ENV_FILE` set, so they use the safe project-folder defaults
+    (SQLite, the Printful mock) automatically.
 - The app runs under **waitress** (`gunicorn` doesn't run on Windows):
   `python -m waitress --listen=127.0.0.1:8000 config.wsgi:application` — bound
   to localhost only, so it is reachable solely through the tunnel. Run it as a
