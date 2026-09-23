@@ -31,6 +31,8 @@ from .models import (
     Listing,
     ListingImage,
     ListingSize,
+    PrintPlacement,
+    PrintPosition,
     ProductTemplate,
     ProductType,
     Status,
@@ -302,6 +304,12 @@ def listing_edit(request, pk):
         listing.competitor_price = Decimal(comp) if comp else None
         cid = request.POST.get("collection", "")
         listing.collection = Collection.objects.filter(pk=cid).first() if cid else None
+        try:
+            listing.print_scale_pct = max(25, min(100, int(request.POST.get("print_scale_pct") or 100)))
+        except ValueError:
+            listing.print_scale_pct = 100
+        if request.POST.get("print_position") in PrintPosition.values:
+            listing.print_position = request.POST["print_position"]
         listing.save()
 
         for size in listing.sizes.all():
@@ -312,12 +320,22 @@ def listing_edit(request, pk):
         messages.success(request, "Saved.")
         return redirect("shop:manage_listing_edit", pk=pk)
 
+    printful_colors = []
+    blueprint_id = listing.template.printful_blueprint_id
+    if blueprint_id:
+        try:
+            printful_colors = printful.catalog_colors(blueprint_id)
+        except printful.PrintfulError:
+            pass  # fall back to the free-text color field below; never break the page over this
+
     return render(request, "shop/manage/listing_edit.html", {
         "listing": listing,
         "collections": Collection.objects.all(),
         "all_tags": Tag.objects.all(),
         "image_kinds": ListingImage.Kind.choices,
         "is_mock": getattr(printful.get_client(), "is_mock", False),
+        "printful_colors": printful_colors,
+        "print_positions": PrintPosition.choices,
     })
 
 
@@ -536,7 +554,7 @@ def product_template_edit(request, pk=None):
         "product_type": tpl.product_type if tpl else ProductType.TEE,
         "base_cost": tpl.base_cost if tpl else "",
         "shipping_est": tpl.shipping_est if tpl else "",
-        "print_placement": tpl.print_placement if tpl else "",
+        "print_placement": tpl.print_placement if tpl else PrintPlacement.FRONT,
         "printful_blueprint_id": tpl.printful_blueprint_id if tpl else "",
         "printful_blueprint_name": tpl.printful_blueprint_name if tpl else "",
         "printful_provider_id": tpl.printful_provider_id if tpl else "",
@@ -556,6 +574,8 @@ def product_template_edit(request, pk=None):
             errors.append("Another template already has that name.")
         if form["product_type"] not in ProductType.values:
             errors.append("Pick a product type.")
+        if form["print_placement"] and form["print_placement"] not in PrintPlacement.values:
+            errors.append("Pick a valid print placement.")
         base = _money(form["base_cost"])
         ship = _money(form["shipping_est"])
         if base is None:
@@ -585,6 +605,7 @@ def product_template_edit(request, pk=None):
         "form": form,
         "errors": errors,
         "types": ProductType.choices,
+        "placements": PrintPlacement.choices,
         "n_listings": tpl.listings.count() if tpl and tpl.pk else 0,
     })
 

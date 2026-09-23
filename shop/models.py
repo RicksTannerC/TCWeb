@@ -49,6 +49,27 @@ class Status(models.TextChoices):
     LIVE = "live", "Live"
 
 
+class PrintPlacement(models.TextChoices):
+    """Printful's standard print-area keys for apparel."""
+    FRONT = "front", "Front"
+    BACK = "back", "Back"
+    LEFT_CHEST = "left_chest", "Left chest"
+    LEFT_SLEEVE = "left_sleeve", "Left sleeve"
+    RIGHT_SLEEVE = "right_sleeve", "Right sleeve"
+
+
+class PrintPosition(models.TextChoices):
+    """A simple, curator-facing proxy for where the art sits within its
+    placement area -- not Printful's raw pixel coordinates. See
+    Listing.print_position_payload() for how this becomes an actual
+    position sent to Printful."""
+    CENTER = "center", "Centered"
+    HIGHER = "higher", "Higher"
+    LOWER = "lower", "Lower"
+    LEFT = "left", "Toward the left"
+    RIGHT = "right", "Toward the right"
+
+
 class Tag(models.Model):
     """A motif or theme — 'cosmic', 'mountains', 'skulls'."""
 
@@ -152,7 +173,9 @@ class ProductTemplate(models.Model):
     printful_blueprint_id = models.CharField(max_length=40, blank=True)
     printful_blueprint_name = models.CharField(max_length=160, blank=True)
     printful_provider_id = models.CharField(max_length=40, blank=True)
-    print_placement = models.CharField(max_length=40, blank=True)
+    print_placement = models.CharField(
+        max_length=40, choices=PrintPlacement.choices, default=PrintPlacement.FRONT, blank=True,
+    )
 
     class Meta:
         ordering = ["name"]
@@ -242,6 +265,16 @@ class Listing(models.Model):
     # empty = not connected to Printful
     printful_product_id = models.CharField(max_length=40, blank=True)
 
+    # Simple, curator-editable positioning within the template's placement
+    # area (front/back/etc. — see ProductTemplate.print_placement). Not
+    # Printful's raw pixel coordinates; see print_position_payload().
+    print_scale_pct = models.PositiveSmallIntegerField(
+        default=100, help_text="How large the print runs within its placement area (25-100%).",
+    )
+    print_position = models.CharField(
+        max_length=10, choices=PrintPosition.choices, default=PrintPosition.CENTER,
+    )
+
     sort_order = models.PositiveIntegerField(default=0)
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
@@ -280,6 +313,46 @@ class Listing(models.Model):
     @property
     def is_connected(self):
         return bool(self.printful_product_id)
+
+    # Where each position preset nudges the print, as a fraction of the
+    # placement area (0.5, 0.5 = dead center).
+    _POSITION_OFFSETS = {
+        PrintPosition.CENTER: (0.5, 0.5),
+        PrintPosition.HIGHER: (0.5, 0.3),
+        PrintPosition.LOWER: (0.5, 0.7),
+        PrintPosition.LEFT: (0.3, 0.5),
+        PrintPosition.RIGHT: (0.7, 0.5),
+    }
+
+    def print_file_payload(self):
+        """This listing's placement, scale and position, in the shape
+        Printful's sync-variant `files[]` entries expect (`type`, plus a
+        `position` object of area/width/height/top/left).
+
+        Best-effort: `area_width`/`area_height` are a normalized 1:1 square
+        rather than the placement's real pixel dimensions (which come from
+        Printful's own per-blueprint print-file spec and aren't fetched
+        here), so `width`/`height`/`top`/`left` are expressed proportionally
+        against that same square. This has not been verified against a real
+        Printful order — confirm it against a real API response, or a real
+        test order, before relying on a non-default scale/position for a
+        paying customer's order. The default (100% scale, centered) is the
+        safe, always-correct case: no positioning fields needed at all.
+        """
+        cx, cy = self._POSITION_OFFSETS.get(self.print_position, (0.5, 0.5))
+        placement = self.template.print_placement or PrintPlacement.FRONT
+        if self.print_scale_pct >= 100 and self.print_position == PrintPosition.CENTER:
+            return {"type": placement}
+        scale = max(25, min(100, self.print_scale_pct)) / 100
+        area = 1000
+        size = round(area * scale)
+        top = round(cy * area - size / 2)
+        left = round(cx * area - size / 2)
+        return {
+            "type": placement,
+            "position": {"area_width": area, "area_height": area, "width": size, "height": size,
+                         "top": top, "left": left},
+        }
 
     @property
     def landed_cost(self):

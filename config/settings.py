@@ -6,11 +6,19 @@ needs no .env at all — the defaults below run a working SQLite site.
 """
 
 import os
+import sys
 from pathlib import Path
 
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# True under `manage.py test` (any way it's invoked). A hard, code-level
+# guarantee -- independent of what .env/environment variables happen to be
+# set -- that the test suite can never reach a real third-party API: see
+# shop.printful.configured() and shop.payments.stripe_ready(), both of which
+# check this before deciding whether a real API key is usable.
+TESTING = "test" in sys.argv[:2]
 
 env = environ.Env(
     DEBUG=(bool, False),

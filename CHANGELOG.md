@@ -11,6 +11,84 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-23 — A code-level guarantee the test suite can't repeat the incident
+
+- **What:** `settings.TESTING` (`"test" in sys.argv[:2]`, set once at settings
+  load) is now checked first by both `shop.printful.configured()` and
+  `shop.payments.stripe_ready()`. While it's true, neither ever reports a
+  real key as usable, no matter what's actually in the environment — so
+  `manage.py test` can no longer reach a real third-party API by accident,
+  the way it did in the previous incident. This is a second, independent
+  layer on top of no longer making `TCWEB_ENV_FILE` a permanent variable:
+  even if the environment leaks again some other way, this closes the door
+  at the code level instead of relying on shell hygiene alone.
+- **Why:** asked for directly — turning the incident into a standing
+  safeguard rather than just a one-time fix.
+- **Files:** `config/settings.py` (`TESTING`), `shop/printful.py`
+  (`configured`), `shop/payments.py` (`stripe_ready`); one existing test
+  (`tests_checkout_placeholder.py`) updated to explicitly opt out of the
+  guard (`TESTING=False`) for the one case that deliberately simulates
+  "Stripe is configured."
+- **Verified:** new `tests_testing_guard.py` proves the guard itself works —
+  a real-looking key is refused while `TESTING` is on, and the same key
+  would be accepted if the guard were the only thing changed (`TESTING=False`)
+  — so this is locked in as a regression, not just asserted. Full suite green.
+
+---
+
+## 2026-09-23 — Print positioning, a real color dropdown, and a layout fix
+
+- **What:**
+  - **Placement** on the Templates page is now a dropdown of Printful's real
+    placement keys (front, back, left chest, left/right sleeve) instead of
+    free text.
+  - **Print size and position** — new, simple per-listing controls (a size
+    percentage and a Centered/Higher/Lower/Left/Right choice) let the
+    curator adjust where the design sits within its placement area, without
+    needing to know Printful's raw pixel coordinates. Both flow into the
+    file entry `sync_listing()` and a real customer order send to Printful.
+  - **Color** on the listing editor is now a dropdown of the linked
+    Printful product's real colors (cached, shared with the size-matching
+    lookup so it's one real fetch, not two) when a product is chosen;
+    otherwise it's still the free-text field it was. An existing color that
+    isn't one of the real options is kept, flagged, rather than silently
+    dropped. A Printful hiccup falls back to the free-text field instead of
+    breaking the page.
+  - **The Catalogue setup page's tables** no longer stretch to the full
+    width of a wide console window; `.table-wrap` is now capped and scrolls
+    horizontally on narrow screens instead of overflowing.
+- **An honest limit, flagged rather than glossed over:** the position sent
+  to Printful (`area_width`/`area_height`/`width`/`height`/`top`/`left`) is
+  a best-effort, self-consistent proportional shape — it has **not** been
+  checked against a real Printful order or API response, since that would
+  need a real API call (only made with the curator's own go-ahead from the
+  console, or with the user's explicit yes, never on request from Claude
+  alone). The always-safe case (100% scale, centered) needs no positioning
+  fields at all and is unaffected. Confirming the exact payload against a
+  real Printful response is a reasonable next step before relying on a
+  non-default scale/position for a paying customer's order.
+- **A separate bug found and flagged, not fixed here:** while wiring this
+  up, `shop/fulfillment.py`'s `_line()` (real customer orders, not the
+  "send to Printful" setup step) turned out to reference
+  `listing.printful_product_id` (the whole product's id) as the Printful
+  `sync_variant_id`, instead of the ordered size's own
+  `ListingSize.printful_variant_id`. Flagged as its own task rather than
+  folded in here, since it's a different code path (real order submission)
+  that deserves its own focused fix and test.
+- **Files:** `shop/models.py` (`PrintPlacement`, `PrintPosition`,
+  `Listing.print_scale_pct` / `print_position` / `print_file_payload`,
+  `ProductTemplate.print_placement` choices), migration `0008`,
+  `shop/printful.py` (`catalog_colors`, cached `_cached_variants`),
+  `shop/console_views.py`, `shop/templates/shop/manage/template_edit.html` /
+  `listing_edit.html`, `shop/static/shop/css/style.css`.
+- **Verified:** 25 new tests (payload construction and clamping for every
+  position preset, the sync payload carries it, both console forms
+  save/validate correctly, the color dropdown's real-options/fallback/error
+  paths, and that the color and size lookups share one cached fetch). Full
+  suite green (193).
+
+---
+
 ## 2026-09-22 — Pick a real Printful blank and match its sizes, from the console
 
 - **What:** the Templates editor now has a **search box** for Printful's real

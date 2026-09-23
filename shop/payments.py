@@ -21,6 +21,10 @@ def _configure():
 
 
 def stripe_ready():
+    # settings.TESTING is a hard guarantee, independent of the environment:
+    # see shop.printful.configured() for the matching guard and why it exists.
+    if settings.TESTING:
+        return False
     return bool(settings.STRIPE_SECRET_KEY)
 
 

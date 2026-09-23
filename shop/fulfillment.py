@@ -84,12 +84,13 @@ def _recipient(order: Order) -> dict:
 
 def _line(item) -> dict:
     listing = item.listing
+    url = listing.design.print_file_url if listing else None
     return {
         "quantity": item.quantity,
         "sync_variant_id": (listing.printful_product_id or None) if listing else None,
         "name": item.design_title,
         "retail_price": str(item.unit_price),
-        "files": [{"url": listing.design.print_file_url}] if listing and listing.design.print_file_url else [],
+        "files": [{"url": url, **listing.print_file_payload()}] if url else [],
     }
 
 

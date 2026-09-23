@@ -67,7 +67,11 @@
     </div>
     <input type="hidden" id="printful_blueprint_name" name="printful_blueprint_name" value="{{ form.printful_blueprint_name }}" />
     <div class="field"><label for="print_placement">Print placement</label>
-      <input id="print_placement" name="print_placement" value="{{ form.print_placement }}" maxlength="40" placeholder="front" /></div>
+      <select id="print_placement" name="print_placement">
+        {% for value, label in placements %}<option value="{{ value }}" {% if form.print_placement == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <span class="faint">Where the design sits on the garment. Fine positioning (size, up/down/left/right within this area) is set per listing.</span>
+    </div>
   </details>
 
   <div class="cluster">

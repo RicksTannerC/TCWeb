@@ -71,7 +71,10 @@ class CheckoutPlaceholderTests(TestCase):
         c = self.cart_with_item()
         self.assertIn('action="/checkout/"', c.get("/cart/").content.decode())
 
-    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_PUBLISHABLE_KEY="pk_test_x", DEBUG=False)
+    # TESTING=False: simulate production for this one assertion, overriding the
+    # hard test-suite guard (settings.TESTING) that otherwise always keeps
+    # stripe_ready() False — see shop.payments.stripe_ready().
+    @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_PUBLISHABLE_KEY="pk_test_x", DEBUG=False, TESTING=False)
     def test_cart_page_shows_real_checkout_once_stripe_keys_are_set(self):
         c = self.cart_with_item()
         self.assertIn('action="/checkout/"', c.get("/cart/").content.decode())

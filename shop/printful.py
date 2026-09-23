@@ -18,6 +18,11 @@ BASE_URL = "https://api.printful.com"
 
 
 def configured() -> bool:
+    # settings.TESTING is a hard guarantee: the test suite always gets the
+    # mock, regardless of what happens to be in the environment. See its
+    # definition in config/settings.py for why this exists.
+    if settings.TESTING:
+        return False
     return bool(settings.PRINTFUL_API_KEY)
 
 
@@ -54,6 +59,29 @@ def search_catalog(query):
     ][:25]
 
 
+def _cached_variants(blueprint_id):
+    """This product's real variants (cached) -- shared by the color dropdown
+    and size matching so opening a listing and then matching its sizes only
+    costs one real fetch per product per hour, not two."""
+    from django.core.cache import cache
+
+    client = get_client()
+    cache_key = f"printful:variants:{'mock' if getattr(client, 'is_mock', False) else 'real'}:{blueprint_id}"
+    data = cache.get(cache_key)
+    if data is None:
+        data = client.catalog_variants(blueprint_id)
+        cache.set(cache_key, data, CATALOG_CACHE_SECONDS)
+    return data
+
+
+def catalog_colors(blueprint_id):
+    """Real color options for a Printful catalog product, for a dropdown."""
+    if not blueprint_id:
+        return []
+    variants = _cached_variants(blueprint_id).get("variants", [])
+    return sorted({v.get("color", "") for v in variants if v.get("color")})
+
+
 def match_variants(blueprint_id, color, size_labels):
     """For a Printful catalog product, find the variant id for each of
     `size_labels` in `color` (case-insensitive, exact match).
@@ -61,9 +89,7 @@ def match_variants(blueprint_id, color, size_labels):
     Returns (matches: {label: variant_id str}, unmatched: [label, ...],
     available_colors: [str, ...]) so the caller can explain a mismatch.
     """
-    client = get_client()
-    data = client.catalog_variants(blueprint_id)
-    variants = data.get("variants", [])
+    variants = _cached_variants(blueprint_id).get("variants", [])
     available_colors = sorted({v.get("color", "") for v in variants if v.get("color")})
     color_l = (color or "").strip().lower()
     in_color = [v for v in variants if v.get("color", "").strip().lower() == color_l]
@@ -90,7 +116,7 @@ def sync_listing(listing):
     # print_file_url signs a fresh, short-lived link each call, so it is built
     # right before the API call rather than stored anywhere.
     url = listing.design.print_file_url
-    files = [{"url": url}] if url else []
+    files = [{"url": url, **listing.print_file_payload()}] if url else []
     payload = {
         "sync_product": {"name": listing.design.title, "external_id": listing.slug},
         "sync_variants": [

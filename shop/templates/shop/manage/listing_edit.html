@@ -26,7 +26,22 @@
   <div class="panel stack">
     <h2>Listing</h2>
     <div class="field"><label for="color">Color</label>
-      <input id="color" name="color" value="{{ listing.color }}" /></div>
+      {% if printful_colors %}
+        <select id="color" name="color">
+          <option value="">&mdash;</option>
+          {% for c in printful_colors %}<option value="{{ c }}" {% if listing.color == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+          {% if listing.color and listing.color not in printful_colors %}
+            <option value="{{ listing.color }}" selected>{{ listing.color }} (not a real Printful color &mdash; pick one above)</option>
+          {% endif %}
+        </select>
+        <p class="faint">From {{ listing.template.printful_blueprint_name|default:"the linked Printful product" }}'s real color options.</p>
+      {% else %}
+        <input id="color" name="color" value="{{ listing.color }}" />
+        {% if listing.template.printful_blueprint_id %}
+          <p class="faint">Couldn't reach Printful for its color list just now &mdash; type it in for now.</p>
+        {% endif %}
+      {% endif %}
+    </div>
     <div class="row-2">
       <div class="field"><label for="base_cost">Base cost</label>
         <input id="base_cost" name="base_cost" type="number" step="0.01" value="{{ listing.base_cost }}" /></div>
@@ -46,6 +61,16 @@
         <option value="">—</option>
         {% for c in collections %}<option value="{{ c.id }}" {% if listing.collection_id == c.id %}selected{% endif %}>{{ c.name }}{% if c.is_base %} (base){% endif %}</option>{% endfor %}
       </select>
+    </div>
+    <div class="row-2">
+      <div class="field"><label for="print_scale_pct">Print size</label>
+        <input id="print_scale_pct" name="print_scale_pct" type="number" min="25" max="100" step="5"
+               value="{{ listing.print_scale_pct }}" />
+        <span class="faint">% of the {{ listing.template.get_print_placement_display|default:"placement" }} area</span></div>
+      <div class="field"><label for="print_position">Print position</label>
+        <select id="print_position" name="print_position">
+          {% for value, label in print_positions %}<option value="{{ value }}" {% if listing.print_position == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select></div>
     </div>
   </div>
 
