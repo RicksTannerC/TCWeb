@@ -69,11 +69,20 @@ console_patterns = [
     path("images/<int:pk>/delete/", cv.image_delete, name="manage_image_delete"),
     path("designs/<int:pk>/artwork/", cv.design_artwork, name="manage_design_artwork"),
 
+    # Catalogue setup: product templates + collections, one merged page.
+    # The bare /templates/ and /collections/ URLs below still work (they
+    # redirect here) so nothing that already links to them breaks.
+    path("catalogue/setup/", cv.catalogue_setup, name="manage_catalogue_setup"),
+
     path("collections/", cv.collections, name="manage_collections"),
     path("collections/create/", cv.collection_create, name="manage_collection_create"),
     path("collections/<int:pk>/", cv.collection_edit, name="manage_collection_edit"),
     path("collections/<int:pk>/toggle/", cv.collection_toggle, name="manage_collection_toggle"),
     path("collections/<int:pk>/toggle-landing/", cv.collection_toggle_landing, name="manage_collection_toggle_landing"),
+
+    # Money: pricing + books, one merged page. /pricing/ and /books/ still
+    # work (they redirect here).
+    path("money/", cv.money, name="manage_money"),
 
     path("pricing/", cv.pricing, name="manage_pricing"),
     path("pricing/update/", cv.pricing_update, name="manage_pricing_update"),
@@ -86,6 +95,10 @@ console_patterns = [
     path("books/", cv.books, name="manage_books"),
     path("books/overhead/add/", cv.overhead_add, name="manage_overhead_add"),
     path("books/overhead/<int:pk>/delete/", cv.overhead_delete, name="manage_overhead_delete"),
+
+    # Content: messages (inbox) + pages, one merged page. /messages/ and
+    # /pages/ still work (they redirect here).
+    path("content/", cv.content, name="manage_content"),
 
     path("messages/", cv.inbox, name="manage_inbox"),
     path("messages/<int:pk>/toggle/", cv.message_toggle, name="manage_message_toggle"),

@@ -66,9 +66,23 @@ class ConsoleHostTests(TestCase):
 
     def test_verified_staff_use_the_console_without_a_manage_prefix(self):
         c = self.signed_in_console()
-        for path in ("/", "/orders/", "/listings/", "/collections/", "/pricing/",
-                     "/books/", "/messages/", "/pages/", "/admin/"):
+        for path in ("/", "/orders/", "/listings/", "/catalogue/setup/",
+                     "/money/", "/content/", "/admin/"):
             self.assertEqual(c.get(path).status_code, 200, path)
+
+    def test_old_merged_page_urls_still_redirect_on_the_console_host(self):
+        c = self.signed_in_console()
+        for path, target in (
+            ("/collections/", "/catalogue/setup/#collections"),
+            ("/templates/", "/catalogue/setup/#templates"),
+            ("/pricing/", "/money/#pricing"),
+            ("/books/", "/money/#books"),
+            ("/messages/", "/content/#messages"),
+            ("/pages/", "/content/#pages"),
+        ):
+            r = c.get(path)
+            self.assertEqual(r.status_code, 302, path)
+            self.assertEqual(r["Location"], target, path)
 
     def test_console_links_have_no_manage_prefix_and_shop_link_is_public(self):
         html = self.signed_in_console().get("/").content.decode()

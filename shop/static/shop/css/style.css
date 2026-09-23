@@ -838,6 +838,17 @@ body.console { background: var(--ground, var(--paper)); }
 .console-main { padding-block: var(--sp-4); }
 .console-main h1 { font-size: var(--step-3); margin-bottom: var(--sp-3); }
 .console-main h2 { font-size: var(--step-1); margin: var(--sp-4) 0 var(--sp-2); }
+.console-main h3 { font-size: var(--step-0); margin: var(--sp-3) 0 var(--sp-1); }
+
+/* Merged console pages (Catalogue setup, Money, Content): each is really two
+   pages stacked as sections, deep-linkable via #id from action redirects. */
+.console-section {
+  scroll-margin-top: var(--sp-3);
+  padding-top: var(--sp-4);
+  margin-top: var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+.console-section:first-of-type { padding-top: 0; margin-top: var(--sp-2); border-top: none; }
 
 .console-bar { background: var(--black); color: var(--white); }
 .console-bar .wrap {
@@ -858,6 +869,34 @@ body.console { background: var(--ground, var(--paper)); }
 }
 .console-nav a:hover { color: var(--white); }
 .console-nav a[aria-current="page"] { color: var(--white); border-color: var(--olive); }
+
+.console-nav__group { position: relative; }
+.console-nav__trigger {
+  background: none; border: none; cursor: pointer; margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.08em;
+  font-size: 0.76rem; padding: 0.2rem 0; border-bottom: 2px solid transparent;
+  display: inline-flex; align-items: center; gap: 0.35em;
+}
+.console-nav__trigger:hover,
+.console-nav__group.is-open .console-nav__trigger,
+.console-nav__group.has-active .console-nav__trigger { color: var(--white); }
+.console-nav__group.has-active .console-nav__trigger { border-color: var(--olive); }
+.console-nav__caret { font-size: 0.6em; transition: transform 0.12s ease; }
+.console-nav__group.is-open .console-nav__caret { transform: rotate(180deg); }
+.console-nav__menu {
+  position: absolute; top: 100%; left: 0; margin-top: 0.6rem;
+  background: var(--black); border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: var(--shadow-sm);
+  min-width: 11rem; padding: 0.3rem; z-index: 5;
+}
+.console-nav__menu a {
+  display: block; color: rgba(255, 255, 255, 0.78); text-decoration: none;
+  font-family: var(--font-body); text-transform: none; letter-spacing: 0;
+  font-size: 0.85rem; padding: 0.5rem 0.6rem; border-radius: 2px;
+}
+.console-nav__menu a:hover { background: rgba(255, 255, 255, 0.08); color: var(--white); }
+.console-nav__menu a[aria-current="page"] { color: var(--white); background: rgba(255, 255, 255, 0.08); }
 .console-bar__end { display: flex; align-items: center; gap: 1rem; font-size: var(--step--1); }
 .console-bar__end a { color: rgba(255,255,255,0.72); text-decoration: none; }
 .console-bar__end a:hover { color: var(--white); }

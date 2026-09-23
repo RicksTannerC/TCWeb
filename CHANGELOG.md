@@ -11,6 +11,64 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-22 — Cursor tracking, and the console nav restructure
+
+### Cursor shadow: true 1:1 tracking
+
+- **What:** removed the trailing/easing entirely — the cursor shadow now sets
+  its position directly from each `mousemove` event, with no smoothing loop.
+  As real-time as the browser's own pointer events allow.
+- **Files:** `shop/templates/shop/base.html`.
+- **Verified:** full suite green (139, unaffected — JS-only).
+
+### Console nav: 9 pages down to 5, with real merges (not just folders)
+
+- **What:** per the design review discussion, the console's top nav is now
+  **Dashboard · Catalogue ▾ · Orders · Money · Content** instead of nine
+  flat links. "Catalogue" is the only actual dropdown (Listings, and a new
+  **Setup** page); Money and Content are real merges, not just grouping:
+  - **Setup** = Templates + Collections, one page, two sections.
+  - **Money** = Pricing + Books, one page, two sections.
+  - **Content** = Messages (inbox) + Pages, one page, two sections.
+
+  Orders and Listings keep their own top-level slot — they're the two
+  highest-traffic, most detailed pages and don't belong folded into
+  anything. Every action that used to land back on one of the six old list
+  pages (saving/deleting a template, publishing a collection, saving
+  prices, logging an expense, etc.) now redirects straight to the right
+  section of its merged page (e.g. `#pricing`, `#collections`) instead of
+  the top. The six old bare URLs (`/manage/templates/`, `/collections/`,
+  `/pricing/`, `/books/`, `/messages/`, `/pages/`) still work — they
+  redirect to the right merged page/section — so nothing that already
+  linked to them (including the intake page's "no templates yet" notice)
+  had to change. The old, now-unused list templates were deleted; every
+  create/edit/delete sub-page (template editor, collection editor, page
+  editor, etc.) is untouched.
+- **Why:** requested in the design review ("a simpler collapsible setup
+  that connects related pages, cutting down on the amount of navigation
+  needed"), refined in discussion to favor real page merges over just
+  sorting the same nine pages into folders.
+- **Files:** `shop/console_views.py` (`catalogue_setup`, `money`, `content`,
+  and every redirect target updated), `shop/urls.py` (three new routes),
+  `shop/templates/shop/manage/catalogue_setup.html` / `money.html` /
+  `content.html` (new), `shop/templates/shop/manage/base.html` (the nav,
+  now with one Alpine dropdown), `shop/static/shop/css/style.css` (dropdown
+  + merged-section styling), six old list templates deleted.
+- **Verified:** 13 new tests (each merged page shows both of its sections;
+  every affected action's redirect lands on the right page and anchor; the
+  old bare URLs still redirect correctly, including preserving `?show=` on
+  the messages one; the nav shows exactly the five agreed destinations and
+  correctly highlights the active one/group); updated 9 existing tests that
+  asserted the old flat URLs/redirects (all in `tests_templates_intake.py`,
+  `tests_landing_cards.py`, `tests_console_host.py`); full suite green
+  (139). `collectstatic` run for the CSS.
+- **Follow-ups:** none blocking. The merged pages are plain stacked
+  sections for now (matching the "clean factory, still minimalist" brief);
+  a further visual pass on density/layout is still open from the original
+  review if wanted.
+
+---
+
 ## 2026-09-22 — Follow-up from the design review: cursor lag, backdrop blur, swipe pacing
 
 *Feedback on last round's work, not new review items.*

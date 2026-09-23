@@ -17,6 +17,7 @@ from django.db.models import Count, Sum
 from django.db.models.deletion import ProtectedError
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
@@ -191,7 +192,7 @@ def listings_intake(request):
             "Set up a product template first. Uploads create a listing from each template "
             "(garment, costs, sizes), and there are none yet. Nothing was uploaded.",
         )
-        return redirect("shop:manage_templates")
+        return redirect(reverse("shop:manage_catalogue_setup") + "#templates")
 
     made, duplicates, not_images, failed = 0, 0, [], []
     for f in files:
@@ -457,8 +458,7 @@ def _money(value):
     return amount if 0 <= amount < 100000 else None
 
 
-@staff_member_required
-def product_templates(request):
+def _template_rows():
     rows = []
     for t in ProductTemplate.objects.annotate(n_listings=Count("listings")):
         warnings = []
@@ -469,13 +469,13 @@ def product_templates(request):
         if not t.default_sizes:
             warnings.append("No sizes.")
         rows.append({"t": t, "warnings": warnings})
-    used_types = set(ProductTemplate.objects.values_list("product_type", flat=True))
-    return render(request, "shop/manage/templates.html", {
-        "rows": rows,
-        "ceiling": TEE_CEILING,
-        "missing": [label for value, label in ProductType.choices
-                    if value in (ProductType.TEE, ProductType.STICKER) and value not in used_types],
-    })
+    return rows
+
+
+@staff_member_required
+def product_templates(request):
+    """Old standalone URL: templates now live on the merged Catalogue setup page."""
+    return redirect(reverse("shop:manage_catalogue_setup") + "#templates")
 
 
 @staff_member_required
@@ -526,7 +526,7 @@ def product_template_edit(request, pk=None):
             tpl.default_sizes = sizes
             tpl.save()
             messages.success(request, f"Saved template \u201c{tpl.name}\u201d. It applies to new uploads; existing listings keep their own values.")
-            return redirect("shop:manage_templates")
+            return redirect(reverse("shop:manage_catalogue_setup") + "#templates")
 
     return render(request, "shop/manage/template_edit.html", {
         "tpl": tpl,
@@ -546,17 +546,36 @@ def product_template_delete(request, pk):
         tpl.delete()
     except ProtectedError:
         messages.error(request, f"\u201c{tpl.name}\u201d is used by existing listings, so it can't be deleted.")
-        return redirect("shop:manage_templates")
+        return redirect(reverse("shop:manage_catalogue_setup") + "#templates")
     messages.success(request, f"Deleted template \u201c{name}\u201d.")
-    return redirect("shop:manage_templates")
+    return redirect(reverse("shop:manage_catalogue_setup") + "#templates")
 
 
 # ------------------------------------------------------------------ collections
 
+def _collection_rows():
+    return Collection.objects.prefetch_related("listings").annotate(n=Count("listings"))
+
+
 @staff_member_required
 def collections(request):
-    cols = Collection.objects.prefetch_related("listings").annotate(n=Count("listings"))
-    return render(request, "shop/manage/collections.html", {"collections": cols})
+    """Old standalone URL: collections now live on the merged Catalogue setup page."""
+    return redirect(reverse("shop:manage_catalogue_setup") + "#collections")
+
+
+@staff_member_required
+def catalogue_setup(request):
+    """Templates + Collections, one page: both small, related setup tables that
+    don't need their own top-level nav slot. Individual create/edit/delete
+    actions keep their own focused sub-pages, reached from here."""
+    used_types = set(ProductTemplate.objects.values_list("product_type", flat=True))
+    return render(request, "shop/manage/catalogue_setup.html", {
+        "rows": _template_rows(),
+        "ceiling": TEE_CEILING,
+        "missing": [label for value, label in ProductType.choices
+                    if value in (ProductType.TEE, ProductType.STICKER) and value not in used_types],
+        "collections": _collection_rows(),
+    })
 
 
 @staff_member_required
@@ -589,7 +608,7 @@ def collection_toggle(request, pk):
     col.status = Status.HIDDEN if col.status == Status.LIVE else Status.LIVE
     col.save(update_fields=["status", "updated"])
     messages.success(request, f"{col.name} is now {col.get_status_display()}.")
-    return redirect("shop:manage_collections")
+    return redirect(reverse("shop:manage_catalogue_setup") + "#collections")
 
 
 @staff_member_required
@@ -602,7 +621,7 @@ def collection_toggle_landing(request, pk):
         messages.warning(request, f"{col.name} will show on the landing page once it's published.")
     else:
         messages.success(request, f"{col.name} {'now shows' if col.featured_on_landing else 'no longer shows'} on the landing page.")
-    return redirect("shop:manage_collections")
+    return redirect(reverse("shop:manage_catalogue_setup") + "#collections")
 
 
 @staff_member_required
@@ -612,19 +631,23 @@ def collection_create(request):
     if name:
         Collection.objects.create(name=name)
         messages.success(request, f"Created collection “{name}”.")
-    return redirect("shop:manage_collections")
+    return redirect(reverse("shop:manage_catalogue_setup") + "#collections")
 
 
 # ------------------------------------------------------------------ pricing
 
-@staff_member_required
-def pricing(request):
-    rows = (
+def _pricing_rows():
+    return (
         Listing.objects.select_related("design")
         .exclude(status=Status.DRAFT)
         .order_by("product_type", "design__title")
     )
-    return render(request, "shop/manage/pricing.html", {"rows": rows, "ceiling": Decimal("40")})
+
+
+@staff_member_required
+def pricing(request):
+    """Old standalone URL: pricing now lives on the merged Money page."""
+    return redirect(reverse("shop:manage_money") + "#pricing")
 
 
 @staff_member_required
@@ -645,13 +668,12 @@ def pricing_update(request):
         listing.competitor_price = Decimal(comp) if comp else None
         listing.save(update_fields=["competitor_price"])
     messages.success(request, "Prices updated.")
-    return redirect("shop:manage_pricing")
+    return redirect(reverse("shop:manage_money") + "#pricing")
 
 
 # ------------------------------------------------------------------ books
 
-@staff_member_required
-def books(request):
+def _books_context():
     completed = Order.objects.exclude(
         status__in=[OrderStatus.PENDING_PAYMENT, OrderStatus.REFUNDED]
     )
@@ -668,7 +690,7 @@ def books(request):
 
     net = revenue - supplier_cost - overhead_total - refunds
 
-    return render(request, "shop/manage/books.html", {
+    return {
         "revenue": revenue,
         "supplier_cost": supplier_cost,
         "overhead_total": overhead_total,
@@ -678,6 +700,22 @@ def books(request):
         "net": net,
         "entries": overhead_qs[:50],
         "categories": OverheadEntry.Category.choices,
+    }
+
+
+@staff_member_required
+def books(request):
+    """Old standalone URL: books now live on the merged Money page."""
+    return redirect(reverse("shop:manage_money") + "#books")
+
+
+@staff_member_required
+def money(request):
+    """Pricing + Books, one page: both are the financial side of the console."""
+    return render(request, "shop/manage/money.html", {
+        "rows": _pricing_rows(),
+        "ceiling": Decimal("40"),
+        **_books_context(),
     })
 
 
@@ -695,25 +733,31 @@ def overhead_add(request):
         messages.success(request, "Expense logged.")
     except Exception:  # noqa: BLE001
         messages.error(request, "Couldn't log that — check the amount and date.")
-    return redirect("shop:manage_books")
+    return redirect(reverse("shop:manage_money") + "#books")
 
 
 @staff_member_required
 @require_POST
 def overhead_delete(request, pk):
     OverheadEntry.objects.filter(pk=pk).delete()
-    return redirect("shop:manage_books")
+    return redirect(reverse("shop:manage_money") + "#books")
 
 
 # ------------------------------------------------------------------ messages
 
-@staff_member_required
-def inbox(request):
+def _inbox_context(request):
     show = request.GET.get("show", "open")
     qs = ContactMessage.objects.select_related("order")
     if show == "open":
         qs = qs.filter(handled=False)
-    return render(request, "shop/manage/inbox.html", {"messages_list": qs, "show": show})
+    return {"messages_list": qs, "show": show}
+
+
+@staff_member_required
+def inbox(request):
+    """Old standalone URL: messages now live on the merged Content page."""
+    qs = request.META.get("QUERY_STRING", "")
+    return redirect(reverse("shop:manage_content") + (f"?{qs}" if qs else "") + "#messages")
 
 
 @staff_member_required
@@ -729,7 +773,17 @@ def message_toggle(request, pk):
 
 @staff_member_required
 def pages(request):
-    return render(request, "shop/manage/pages.html", {"pages": Page.objects.all()})
+    """Old standalone URL: pages now live on the merged Content page."""
+    return redirect(reverse("shop:manage_content") + "#pages")
+
+
+@staff_member_required
+def content(request):
+    """Messages (inbox) + Pages, one page: both lower-frequency content/comms tasks."""
+    return render(request, "shop/manage/content.html", {
+        **_inbox_context(request),
+        "pages": Page.objects.all(),
+    })
 
 
 @staff_member_required

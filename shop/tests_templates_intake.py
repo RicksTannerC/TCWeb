@@ -166,7 +166,7 @@ class IntakeTests(TestCase):
         Listing.objects.all().delete()
         ProductTemplate.objects.all().delete()
         r = self.upload(png("art.png"))
-        self.assertRedirects(r, "/manage/templates/", fetch_redirect_response=False)
+        self.assertRedirects(r, "/manage/catalogue/setup/#templates", fetch_redirect_response=False)
         self.assertEqual(Design.objects.count(), 0)
         self.assertEqual(self.files_on_disk(), [])
         self.assertIn("Set up a product template first", self.msgs(r)[0][1])
@@ -214,17 +214,22 @@ class TemplateDashboardTests(TestCase):
             self.assertIn("/admin/login/", r["Location"])
 
     def test_empty_state_and_nav_link(self):
-        r = self.c.get("/manage/templates/")
+        r = self.c.get("/manage/catalogue/setup/")
         self.assertContains(r, "No templates yet")
-        self.assertContains(r, 'href="/manage/templates/"')     # console nav
+        self.assertContains(r, 'href="/manage/catalogue/setup/"')     # console nav
+
+    def test_old_templates_url_redirects_to_the_merged_page(self):
+        r = self.c.get("/manage/templates/")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/manage/catalogue/setup/#templates")
 
     def test_create_saves_costs_and_sizes(self):
         r = self.c.post("/manage/templates/new/", self.form())
-        self.assertRedirects(r, "/manage/templates/", fetch_redirect_response=False)
+        self.assertRedirects(r, "/manage/catalogue/setup/#templates", fetch_redirect_response=False)
         t = ProductTemplate.objects.get()
         self.assertEqual((t.name, t.product_type, t.base_cost, t.shipping_est), ("Standard tee", "tee", Decimal("11.00"), Decimal("5.00")))
         self.assertEqual(t.default_sizes, [{"label": "S", "width_in": 18, "height_in": 28}, {"label": "M", "width_in": 20, "height_in": 29}])
-        page = self.c.get("/manage/templates/")
+        page = self.c.get("/manage/catalogue/setup/")
         self.assertContains(page, "Standard tee")
         self.assertContains(page, "$40")            # (11 + 5) x 2.5
 
@@ -250,7 +255,7 @@ class TemplateDashboardTests(TestCase):
         self.c.post("/manage/templates/new/", self.form())
         t = ProductTemplate.objects.get()
         r = self.c.post(f"/manage/templates/{t.pk}/", self.form(base_cost="12.50"))
-        self.assertRedirects(r, "/manage/templates/", fetch_redirect_response=False)
+        self.assertRedirects(r, "/manage/catalogue/setup/#templates", fetch_redirect_response=False)
         t.refresh_from_db()
         self.assertEqual(t.base_cost, Decimal("12.50"))
         self.assertContains(self.c.get(f"/manage/templates/{t.pk}/"), "S, 18, 28")
@@ -281,13 +286,13 @@ class TemplateDashboardTests(TestCase):
     def test_warnings_for_zero_cost_and_tee_over_the_ceiling(self):
         ProductTemplate.objects.create(name="Free tee", product_type="tee", default_sizes=TEE_SIZES)
         ProductTemplate.objects.create(name="Fancy tee", product_type="tee", base_cost=Decimal("17"), shipping_est=Decimal("5"), default_sizes=TEE_SIZES)
-        page = self.c.get("/manage/templates/")
+        page = self.c.get("/manage/catalogue/setup/")
         self.assertContains(page, "Costs are $0")
         self.assertContains(page, "over the $40 tee ceiling")
 
     def test_missing_product_types_are_called_out(self):
         ProductTemplate.objects.create(name="Tee", product_type="tee", default_sizes=TEE_SIZES)
-        self.assertContains(self.c.get("/manage/templates/"), "No <strong>Sticker</strong> template yet")
+        self.assertContains(self.c.get("/manage/catalogue/setup/"), "No <strong>Sticker</strong> template yet")
 
     def test_unknown_template_is_404(self):
         self.assertEqual(self.c.get("/manage/templates/999/").status_code, 404)

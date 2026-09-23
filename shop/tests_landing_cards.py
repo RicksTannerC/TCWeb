@@ -93,7 +93,7 @@ class ConsoleToggleTests(TestCase):
 
     def test_toggle_flips_the_flag_and_redirects(self):
         r = self.c.post(f"/manage/collections/{self.col.pk}/toggle-landing/")
-        self.assertRedirects(r, "/manage/collections/", fetch_redirect_response=False)
+        self.assertRedirects(r, "/manage/catalogue/setup/#collections", fetch_redirect_response=False)
         self.col.refresh_from_db()
         self.assertTrue(self.col.featured_on_landing)
         self.c.post(f"/manage/collections/{self.col.pk}/toggle-landing/")
@@ -105,13 +105,18 @@ class ConsoleToggleTests(TestCase):
         self.assertContains(r, "once it&#x27;s published")
 
     def test_list_page_shows_the_state_and_the_button(self):
-        page = self.c.get("/manage/collections/")
+        page = self.c.get("/manage/catalogue/setup/")
         self.assertContains(page, "Show on landing")
         self.col.featured_on_landing = True
         self.col.save()
-        page = self.c.get("/manage/collections/")
+        page = self.c.get("/manage/catalogue/setup/")
         self.assertContains(page, "Remove from landing")
         self.assertContains(page, "On landing")
+
+    def test_old_collections_url_redirects_to_the_merged_page(self):
+        r = self.c.get("/manage/collections/")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/manage/catalogue/setup/#collections")
 
     def test_requires_staff_and_post(self):
         self.assertEqual(Client().post(f"/manage/collections/{self.col.pk}/toggle-landing/").status_code, 302)

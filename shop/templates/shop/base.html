@@ -162,20 +162,15 @@
       if (!fine || reduced) return;
       var el = document.getElementById('cursor-glow');
       if (!el) return;
-      var targetX = -100, targetY = -100, curX = -100, curY = -100, active = false;
+      var active = false;
       document.addEventListener('mousemove', function (e) {
-        targetX = e.clientX; targetY = e.clientY;
+        // 1:1 with the pointer, no trailing/easing.
+        el.style.transform = 'translate3d(' + e.clientX + 'px,' + e.clientY + 'px,0)';
         if (!active) { active = true; el.classList.add('is-active'); }
         var over = e.target.closest && e.target.closest('.tile, .btn');
         el.classList.toggle('is-over-tile', !!over);
       });
       document.addEventListener('mouseleave', function () { active = false; el.classList.remove('is-active'); });
-      (function tick() {
-        curX += (targetX - curX) * 0.55;
-        curY += (targetY - curY) * 0.55;
-        el.style.transform = 'translate3d(' + curX + 'px,' + curY + 'px,0)';
-        requestAnimationFrame(tick);
-      })();
     })();
   </script>
   {% block body_extra %}{% endblock %}
