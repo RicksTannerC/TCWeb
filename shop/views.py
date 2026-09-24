@@ -8,13 +8,18 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 import json
+import logging
 import mimetypes
+
+import stripe
 
 from . import fulfillment, payments
 from .cart import Cart
 from .emails import send_order_confirmation, send_subscribe_welcome
 from .models import Collection, Listing, ListingSize, ProductType, Status
 from .orders import Order, OrderStatus, Subscriber
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------- front door
@@ -195,7 +200,21 @@ def checkout(request):
     request.session["pending_order_id"] = order.id
 
     if payments.stripe_ready():
-        session = payments.create_checkout_session(request, order)
+        try:
+            session = payments.create_checkout_session(request, order)
+        except stripe.StripeError:
+            # Configured but broken (bad/mismatched keys, Stripe outage, ...):
+            # never leave the customer on a raw error page, and never leave
+            # an order stranded with nothing that will ever move it forward.
+            logger.exception("Stripe checkout session creation failed for order %s", order.pk)
+            order.delete()
+            request.session.pop("pending_order_id", None)
+            messages.error(
+                request,
+                "Checkout hit a snag on our end and your card was not charged. "
+                "Please try again in a moment, or use the contact form if it keeps happening.",
+            )
+            return redirect("shop:cart_detail")
         return redirect(session.url, permanent=False)
 
     return redirect("shop:checkout_dev")

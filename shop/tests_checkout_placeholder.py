@@ -1,9 +1,12 @@
 """Checkout is a placeholder until Stripe is configured: no order, no charge."""
 
 from decimal import Decimal
+from unittest import mock
 
+import stripe
 from django.test import Client, TestCase, override_settings
 
+from . import payments
 from .models import Design, Listing, ListingSize, ProductTemplate, ProductType, Status
 from .orders import Order
 
@@ -78,3 +81,54 @@ class CheckoutPlaceholderTests(TestCase):
     def test_cart_page_shows_real_checkout_once_stripe_keys_are_set(self):
         c = self.cart_with_item()
         self.assertIn('action="/checkout/"', c.get("/cart/").content.decode())
+
+
+@override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_PUBLISHABLE_KEY="pk_test_x", DEBUG=False, TESTING=False)
+class StripeFailureTests(TestCase):
+    """A Stripe error (bad keys, an outage, ...) must never strand an order
+    or show the customer a raw error page — this is what actually happened
+    in production once (wrong key type pasted in), leaving an orphan order."""
+
+    def cart_with_item(self):
+        c = Client()
+        listing, size = _live_tee()
+        c.post(f"/cart/add/{listing.id}/", {"size": size.id})
+        return c
+
+    def test_a_stripe_error_shows_a_friendly_message_not_a_500(self):
+        c = self.cart_with_item()
+        with mock.patch.object(payments, "create_checkout_session",
+                                side_effect=stripe.PermissionError("wrong key type")):
+            r = c.post("/checkout/")
+        self.assertRedirects(r, "/cart/", fetch_redirect_response=False)
+        r = c.get("/cart/")
+        self.assertContains(r, "hit a snag")
+
+    def test_a_stripe_error_leaves_no_orphan_order(self):
+        c = self.cart_with_item()
+        with mock.patch.object(payments, "create_checkout_session",
+                                side_effect=stripe.PermissionError("wrong key type")):
+            c.post("/checkout/")
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_a_stripe_error_clears_the_pending_order_from_session(self):
+        c = self.cart_with_item()
+        with mock.patch.object(payments, "create_checkout_session",
+                                side_effect=stripe.PermissionError("wrong key type")):
+            c.post("/checkout/")
+        self.assertNotIn("pending_order_id", c.session)
+
+    def test_the_cart_still_has_its_item_after_a_stripe_error(self):
+        c = self.cart_with_item()
+        with mock.patch.object(payments, "create_checkout_session",
+                                side_effect=stripe.PermissionError("wrong key type")):
+            c.post("/checkout/")
+        self.assertContains(c.get("/cart/"), "Pillars")
+
+    def test_a_successful_session_is_unaffected(self):
+        c = self.cart_with_item()
+        fake_session = mock.Mock(url="https://checkout.stripe.com/fake")
+        with mock.patch.object(payments, "create_checkout_session", return_value=fake_session):
+            r = c.post("/checkout/")
+        self.assertRedirects(r, "https://checkout.stripe.com/fake", fetch_redirect_response=False)
+        self.assertEqual(Order.objects.count(), 1)

@@ -11,6 +11,38 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-24 — Beta-launch cleanup; a real Stripe failure hardened
+
+- **What:** three small pre-launch items, plus one real bug caught live:
+  - Seeded the five launch content pages (About, Shipping & Returns,
+    Privacy, Terms, Social) — previously 0 existed.
+  - Deleted three stale `pending_payment` test orders with no email
+    attached (harmless leftovers from checkout being clicked before it was
+    gated, and from the incident below).
+  - **A real production error, fixed:** the live site returned a raw 500 on
+    `/checkout/` because `STRIPE_SECRET_KEY` had the *publishable* key
+    pasted into it. Stripe correctly rejected the API call
+    (`This API call cannot be made with a publishable API key`) — but the
+    view had no handling for a configured-yet-failing Stripe, so the
+    customer saw a crash page and an `Order` row was created and stranded
+    (this is the same `pending_payment`-orphan shape the placeholder fix
+    solved for "not configured", just reachable a different way: "configured
+    but broken"). `checkout()` now catches any `stripe.StripeError`, deletes
+    the order, clears the pending-order session key, and shows a plain
+    "checkout hit a snag, your card was not charged" message instead.
+- **Why:** found live, mid pre-launch setup, while wiring up the real keys.
+- **Files:** `shop/views.py` (`checkout`), `shop/tests_checkout_placeholder.py`.
+- **Verified:** 5 new tests (friendly message instead of a 500, no orphan
+  order, session cleaned up, cart keeps its contents, a real success path is
+  unaffected). Full suite green (198). The actual bad key is a `.env` value
+  on `D:\TCData\` the curator fixes themselves — this entry only covers the
+  code-side hardening.
+- **Follow-ups:** the underlying key-swap in `.env` needs the curator to
+  paste the real `sk_live_...` secret key over the current (incorrect)
+  publishable-key value before checkout will actually work.
+
+---
+
 ## 2026-09-23 — A code-level guarantee the test suite can't repeat the incident
 
 - **What:** `settings.TESTING` (`"test" in sys.argv[:2]`, set once at settings
