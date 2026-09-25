@@ -58,6 +58,7 @@ console_patterns = [
     path("orders/<int:pk>/refund/", mv.order_refund, name="manage_order_refund"),
     path("orders/<int:pk>/simulate/", mv.order_simulate, name="manage_order_simulate"),
     path("fulfillments/<int:pk>/reprint/", mv.fulfillment_reprint, name="manage_fulfillment_reprint"),
+    path("fulfillments/<int:pk>/cancel/", mv.fulfillment_cancel, name="manage_fulfillment_cancel"),
 
     path("listings/", cv.listings, name="manage_listings"),
     path("listings/intake/", cv.listings_intake, name="manage_listings_intake"),

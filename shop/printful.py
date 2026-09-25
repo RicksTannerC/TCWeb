@@ -245,6 +245,9 @@ class RealPrintful:
     def get_order(self, printful_id):
         return self._get(f"/orders/{printful_id}")
 
+    def cancel_order(self, printful_id):
+        return self._unwrap(self._http.delete(f"/orders/{printful_id}"))
+
     def estimate_shipping(self, payload):
         return self._post("/shipping/rates", payload)
 
@@ -331,6 +334,9 @@ class MockPrintful:
 
     def get_order(self, printful_id):
         return {"id": printful_id, "status": "pending", "shipments": []}
+
+    def cancel_order(self, printful_id):
+        return {"id": printful_id, "status": "canceled"}
 
     def estimate_shipping(self, payload):
         return [{"id": "STANDARD", "name": "Standard", "rate": "4.69", "currency": "USD"}]

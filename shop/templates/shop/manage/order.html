@@ -102,6 +102,13 @@
           <input name="reason" placeholder="reason (damage, print error…)" />
           <button type="submit" class="btn btn--ghost btn--sm">Reprint</button>
         </form>
+        {% if f.can_cancel %}
+          <form method="post" action="{% url 'shop:manage_fulfillment_cancel' f.pk %}"
+                onsubmit="return confirm('Cancel Printful order {{ f.partner_order_id }}? This does not refund the customer.')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--ghost btn--sm">Cancel on Printful</button>
+          </form>
+        {% endif %}
       </div>
     {% endfor %}
   {% endif %}

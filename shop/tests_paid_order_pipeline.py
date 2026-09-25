@@ -293,3 +293,106 @@ class FulfilmentNoteColorTests(TestCase):
     def test_note_on_a_problem_fulfilment_stays_red(self):
         html = self.page("problem")
         self.assertIn('class="form-note error">Reprint of', html)
+
+
+@override_settings(STAFF_2FA_REQUIRED=False)
+class RefundCancelsPrintfulTests(TestCase):
+    """Refunding must also cancel the print order, or Printful prints and
+    ships (and charges you for) an order the customer got their money back on."""
+
+    def setUp(self):
+        self.c = Client()
+        self.c.force_login(get_user_model().objects.create_user("cur", password="x-12345-yz", is_staff=True))
+
+    def submitted(self, status="submitted", partner="177915062"):
+        from .orders import Fulfillment
+        order = make_order()
+        order.status = OrderStatus.SUBMITTED
+        order.save()
+        ful = Fulfillment.objects.create(order=order, supplier="printful", status=status, partner_order_id=partner)
+        ful.items.set(order.items.all())
+        return order, ful
+
+    def cancel_client(self, error=None):
+        client = mock.MagicMock(is_mock=False)
+        if error:
+            client.cancel_order.side_effect = printful.PrintfulError(error)
+        return client
+
+    def test_refund_cancels_the_printful_order(self):
+        order, ful = self.submitted()
+        client = self.cancel_client()
+        with mock.patch.object(printful, "get_client", return_value=client):
+            r = self.c.post(f"/manage/orders/{order.pk}/refund/", {"reason": "wrong shirt"}, follow=True)
+        client.cancel_order.assert_called_once_with("177915062")
+        order.refresh_from_db(); ful.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.REFUNDED)
+        self.assertEqual(ful.status, "cancelled")
+        self.assertContains(r, "Printful order 177915062 cancelled")
+
+    def test_if_printful_wont_cancel_the_refund_stands_and_you_are_told(self):
+        order, ful = self.submitted(status="in_production")
+        with mock.patch.object(printful, "get_client", return_value=self.cancel_client("already in production")):
+            r = self.c.post(f"/manage/orders/{order.pk}/refund/", {"reason": "x"}, follow=True)
+        order.refresh_from_db(); ful.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.REFUNDED)
+        self.assertEqual(ful.status, "in_production")
+        self.assertContains(r, "Cancel it in the Printful dashboard by hand")
+        self.assertContains(r, "already in production")
+
+    def test_shipped_orders_are_not_cancelled(self):
+        order, ful = self.submitted(status="shipped")
+        client = self.cancel_client()
+        with mock.patch.object(printful, "get_client", return_value=client):
+            self.c.post(f"/manage/orders/{order.pk}/refund/", {"reason": "x"})
+        client.cancel_order.assert_not_called()
+
+    def test_a_stripe_failure_changes_nothing_and_shows_a_message(self):
+        import stripe
+        from . import payments
+        order, ful = self.submitted()
+        client = self.cancel_client()
+        with mock.patch.object(printful, "get_client", return_value=client), \
+                mock.patch.object(payments, "refund", side_effect=stripe.InvalidRequestError("already refunded", "x")):
+            r = self.c.post(f"/manage/orders/{order.pk}/refund/", {"reason": "x"}, follow=True)
+        order.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.SUBMITTED)
+        client.cancel_order.assert_not_called()
+        self.assertContains(r, "Stripe couldn")
+
+    def test_refunding_twice_is_a_noop(self):
+        order, ful = self.submitted()
+        client = self.cancel_client()
+        with mock.patch.object(printful, "get_client", return_value=client):
+            self.c.post(f"/manage/orders/{order.pk}/refund/", {"reason": "x"})
+            self.c.post(f"/manage/orders/{order.pk}/refund/", {"reason": "x"})
+        client.cancel_order.assert_called_once()
+
+    def test_printfuls_own_cancel_echo_does_not_flip_our_cancelled_fulfilment_to_problem(self):
+        order, ful = self.submitted(status="cancelled")
+        fulfillment.apply_partner_event("order_canceled", {"order": {"id": 177915062, "external_id": order.reference}})
+        ful.refresh_from_db()
+        self.assertEqual(ful.status, "cancelled")
+
+    def test_cancel_button_cancels_without_refunding(self):
+        order, ful = self.submitted()
+        client = self.cancel_client()
+        with mock.patch.object(printful, "get_client", return_value=client):
+            r = self.c.post(f"/manage/fulfillments/{ful.pk}/cancel/", follow=True)
+        order.refresh_from_db(); ful.refresh_from_db()
+        self.assertEqual(ful.status, "cancelled")
+        self.assertEqual(order.status, OrderStatus.SUBMITTED)  # payment untouched
+        self.assertContains(r, "cancelled")
+
+    def test_cancel_button_only_shows_when_cancellable(self):
+        order, ful = self.submitted()
+        self.assertContains(self.c.get(f"/manage/orders/{order.pk}/"), "Cancel on Printful")
+        ful.status = "shipped"; ful.save()
+        self.assertNotContains(self.c.get(f"/manage/orders/{order.pk}/"), "Cancel on Printful")
+
+    def test_cancel_endpoint_refuses_a_shipped_fulfilment(self):
+        order, ful = self.submitted(status="shipped")
+        client = self.cancel_client()
+        with mock.patch.object(printful, "get_client", return_value=client):
+            self.c.post(f"/manage/fulfillments/{ful.pk}/cancel/")
+        client.cancel_order.assert_not_called()

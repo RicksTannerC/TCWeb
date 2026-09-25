@@ -115,6 +115,7 @@ class Fulfillment(models.Model):
         SHIPPED = "shipped", "Shipped"
         DELIVERED = "delivered", "Delivered"
         PROBLEM = "problem", "Problem — needs attention"
+        CANCELLED = "cancelled", "Cancelled"
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="fulfillments")
     supplier = models.CharField(max_length=40, default="printful")
@@ -130,6 +131,12 @@ class Fulfillment(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
+
+    @property
+    def can_cancel(self):
+        """Still sitting at the print partner and not yet shipped."""
+        S = self.Status
+        return bool(self.partner_order_id) and self.status in (S.SUBMITTED, S.IN_PRODUCTION, S.PROBLEM)
 
     def __str__(self):
         return f"{self.order.reference} — {self.supplier} ({self.get_status_display()})"

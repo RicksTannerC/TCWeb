@@ -47,6 +47,17 @@ pointing at the commit(s) that carry it.
   - Console order page: a note on a healthy fulfilment (e.g. "Reprint of #1")
     now shows green (new `--good` token) instead of red; red is kept for
     fulfilments actually in `problem`.
+  - **Refund now also cancels the Printful order.** Found by the curator:
+    refunding only reversed the Stripe payment and left the print order
+    live at Printful (which would print, ship and bill for it). Refund goes
+    first (if Stripe refuses, nothing changes and a message is shown instead
+    of a crash), then every unshipped fulfilment is cancelled at Printful. If
+    Printful won't cancel (e.g. already in production) the refund stands and
+    the console says to cancel it by hand. Refunding twice is a no-op.
+  - **"Cancel on Printful" button** on each unshipped fulfilment, without
+    touching the payment (for orders already refunded). New `cancelled`
+    fulfilment status (migration 0010); Printful's own "order canceled"
+    notice no longer flips a fulfilment we cancelled into a Problem.
 - **Follow-ups:** the stuck order needs Stripe to re-send its event (below);
   the real Printful order submit is still untested against the live API.
 

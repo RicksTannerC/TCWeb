@@ -129,6 +129,8 @@ def apply_partner_event(event_type: str, data: dict) -> Order | None:
     if not ful:
         return None
     order = ful.order
+    if ful.status == Fulfillment.Status.CANCELLED:
+        return order  # we cancelled it ourselves; Printful's echo isn't a problem
 
     if event_type == "package_shipped":
         shipment = data.get("shipment", {})
@@ -159,7 +161,7 @@ def apply_partner_event(event_type: str, data: dict) -> Order | None:
 
 def _rollup(order: Order) -> None:
     S = Fulfillment.Status
-    statuses = list(order.fulfillments.values_list("status", flat=True))
+    statuses = list(order.fulfillments.exclude(status=S.CANCELLED).values_list("status", flat=True))
     if not statuses:
         return
 
@@ -187,12 +189,45 @@ def _rollup(order: Order) -> None:
 
 # ---- refunds & reprints -----------------------------------------
 
-def refund_order(order: Order, *, reason: str = "") -> Order:
+def cancel_partner_order(ful: Fulfillment) -> None:
+    """Cancel one fulfilment's order at Printful (a real call when Printful is
+    configured). Raises PrintfulError if Printful won't — typically because
+    production has already started."""
+    printful.get_client().cancel_order(ful.partner_order_id)
+    ful.status = Fulfillment.Status.CANCELLED
+    ful.problem_note = "Cancelled at Printful."
+    ful.save(update_fields=["status", "problem_note", "updated"])
+
+
+def cancel_printful_orders(order: Order) -> tuple[list[str], list[str]]:
+    """Cancel every cancellable fulfilment. Returns (cancelled, failures) as
+    display strings; a failure never stops the others."""
+    cancelled, failures = [], []
+    for ful in order.fulfillments.all():
+        if not ful.can_cancel:
+            continue
+        try:
+            cancel_partner_order(ful)
+            cancelled.append(ful.partner_order_id)
+        except printful.PrintfulError as exc:
+            failures.append(f"{ful.partner_order_id} ({exc})")
+    return cancelled, failures
+
+
+def refund_order(order: Order, *, reason: str = "") -> tuple[Order, list[str], list[str]]:
+    """Refund the payment, then cancel the print order(s) at Printful.
+
+    Refund goes first: if Stripe refuses, nothing else has changed. Returns
+    (order, cancelled, cancel_failures) so the caller can tell the curator
+    about any Printful order that still has to be cancelled by hand."""
+    if order.status == OrderStatus.REFUNDED:
+        return order, [], []
     payments.refund(order, reason=reason)
     order.status = OrderStatus.REFUNDED
     order.curator_note = (order.curator_note + f"\nRefunded: {reason}").strip()
     order.save(update_fields=["status", "curator_note", "updated"])
-    return order
+    cancelled, failures = cancel_printful_orders(order)
+    return order, cancelled, failures
 
 
 def reprint(fulfillment: Fulfillment, *, reason: str = "") -> Fulfillment:

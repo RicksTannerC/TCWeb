@@ -4,6 +4,7 @@ The curator's order desk — the seed of the Milestone 4 console. Staff-only
 the refund / reprint / status actions.
 """
 
+import stripe
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import get_object_or_404, redirect, render
@@ -75,9 +76,40 @@ def order_approve(request, pk):
 @require_POST
 def order_refund(request, pk):
     order = get_object_or_404(Order, pk=pk)
-    fulfillment.refund_order(order, reason=request.POST.get("reason", "curator refund"))
-    messages.success(request, f"{order.reference} refunded.")
+    try:
+        order, cancelled, failures = fulfillment.refund_order(
+            order, reason=request.POST.get("reason", "curator refund"))
+    except stripe.StripeError as exc:
+        # Nothing was changed: the order is not marked refunded.
+        messages.error(request, f"Stripe couldn't refund {order.reference}: {exc}")
+        return redirect("shop:manage_order", pk=pk)
+
+    msg = f"{order.reference} refunded."
+    if cancelled:
+        msg += f" Printful order {', '.join(cancelled)} cancelled."
+    messages.success(request, msg)
+    if failures:
+        messages.warning(
+            request,
+            "Printful wouldn't cancel: " + "; ".join(failures) + ". Cancel it in the Printful "
+            "dashboard by hand (it may already be in production).")
     return redirect("shop:manage_order", pk=pk)
+
+
+@staff_member_required
+@require_POST
+def fulfillment_cancel(request, pk):
+    """Cancel one fulfilment's order at Printful, without touching the payment."""
+    ful = get_object_or_404(Fulfillment, pk=pk)
+    if not ful.can_cancel:
+        messages.error(request, "That fulfilment can't be cancelled at Printful (already shipped, cancelled, or never sent).")
+        return redirect("shop:manage_order", pk=ful.order_id)
+    try:
+        fulfillment.cancel_partner_order(ful)
+        messages.success(request, f"Printful order {ful.partner_order_id} cancelled.")
+    except printful.PrintfulError as exc:
+        messages.error(request, f"Printful wouldn't cancel order {ful.partner_order_id}: {exc}")
+    return redirect("shop:manage_order", pk=ful.order_id)
 
 
 @staff_member_required
