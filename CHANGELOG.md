@@ -11,6 +11,33 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-25 — Legal-page corrections from an outside compliance read
+
+- **What:** an outside review of the live site flagged wording that was wrong
+  or looked unfinished. Fixed the clearly-wrong parts now (live pages + the
+  `seed_pages` defaults); the rest is waiting on decisions (see follow-ups).
+  - **Privacy:** "we do not log IP addresses ... or use third-party trackers"
+    was not accurate: the *shop* stores no IPs (its visit log holds only
+    referrer + campaign tag), but Cloudflare processes visitor IPs and every
+    page loads fonts from Google Fonts. Reworded to say exactly that and added
+    a "Services that handle data" list (Stripe, Printful, Cloudflare, email
+    provider, Google Fonts). Replaced "last updated when published" with a date.
+  - **Terms:** removed the public "have these reviewed before relying on them"
+    line; added a last-updated date.
+  - **Social:** the page listed placeholder handles; set to draft and hidden
+    from the footer until real accounts exist (dropped from the seed too).
+- **Files:** `shop/management/commands/seed_pages.py`; live `Page` rows
+  (backup: `D:\TCData\db-before-legal-text.sqlite3`).
+- **Verified:** live rows re-read after the update; seed file parses.
+- **Follow-ups (need the curator's input, not guessed):** the operating
+  entity's exact name/status for Terms, Privacy and footer; real production
+  and shipping times for the shipping page (FTC mail-order rule); a fuller
+  Terms of Service; textile-label check on the chosen blank; trademark/IP
+  clearance for "I ski and I know things" and the brand name; self-hosting the
+  fonts (removes the Google dependency); state sales-tax registration.
+
+---
+
 ## 2026-09-25 — First real payment never reached fulfilment (webhook crash)
 
 - **What:** a customer paid through Stripe but the order never moved past

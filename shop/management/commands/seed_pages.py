@@ -1,9 +1,9 @@
 """
 Seed the launch content pages with starting copy.
 
-Idempotent by slug. The Privacy and Terms drafts are plain-language
-starting points that reflect the shop's actual stances — have them
-reviewed before a real launch.
+Idempotent by slug. The Privacy and Terms copy is a plain-language
+starting point that reflects the shop's actual stances; have it reviewed
+by a lawyer before relying on it.
 """
 
 from django.core.management.base import BaseCommand
@@ -66,8 +66,7 @@ full refund, no questions asked. A photo helps but isn't required.
         "footer_order": 3,
         "meta_description": "What data we collect and why.",
         "body": """\
-_Last updated when this page was published. This is a plain-language summary,
-not a substitute for legal advice._
+_Last updated: September 25, 2026._
 
 The T-Shirt Brand is operated from Wyoming, USA.
 
@@ -79,9 +78,10 @@ The T-Shirt Brand is operated from Wyoming, USA.
 - **When you join the new-collection list:** just your email address. Every
   email has a one-click unsubscribe link.
 - **When you contact us:** whatever you put in the form.
-- **Basic visit data:** the site records which website referred you and any
-  campaign tag in the link. We do **not** log IP addresses, set advertising
-  cookies, or use third-party trackers.
+- **Basic visit data:** the shop itself records only which website referred
+  you and any campaign tag in the link. It doesn't store your IP address, set
+  advertising cookies, or run analytics or advertising trackers. The services
+  listed below handle some technical data as part of their own work.
 
 ## What we do with it
 
@@ -89,6 +89,18 @@ We use your details to fulfil and support your order, and — if you opted in �
 to email you when a new seasonal collection drops. We share your shipping
 details with the print partner making your order, and with Stripe to take
 payment. We don't sell your data.
+
+## Services that handle data
+
+- **Stripe** takes payment and sees your payment details and billing/shipping information.
+- **Printful**, our print partner, receives your name and shipping address to make and ship your order.
+- **Cloudflare** delivers this site to you. As part of that, it processes visitors'
+  IP addresses and technical request data (for example, to block abuse).
+- **Our email provider** sends order emails and, if you joined the list, collection emails.
+- **Google Fonts**: the site's typefaces load from Google, so your browser
+  contacts Google's servers when a page loads.
+
+Each handles data under its own privacy policy.
 
 ## Your choices
 
@@ -102,7 +114,7 @@ it deleted, [contact us](/contact/).
         "footer_order": 4,
         "meta_description": "The terms for using this shop.",
         "body": """\
-_Plain-language terms. Have these reviewed before relying on them._
+_Last updated: September 25, 2026._
 
 ## Orders
 
@@ -127,21 +139,6 @@ law.
 ## Governing law
 
 These terms are governed by the laws of the State of Wyoming, USA.
-""",
-    },
-    {
-        "slug": "social",
-        "title": "Social",
-        "footer_order": 5,
-        "meta_description": "Follow the shop.",
-        "body": """\
-New designs and collection drops are posted here first:
-
-- **Instagram** — @thetshirtshop _(placeholder)_
-- **Pinterest** — @thetshirtshop _(placeholder)_
-
-Or join the [new-collection email list](/) — one message when a season drops,
-nothing else.
 """,
     },
 ]
