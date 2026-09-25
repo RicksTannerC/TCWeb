@@ -31,6 +31,11 @@ pointing at the commit(s) that carry it.
 - **Verified:** new tests post locally HMAC-signed events through the real
   `construct_event` path (no network); with the fix disabled they fail with
   the exact production error. Full suite green.
+- **Later same day:** first real Printful submit was rejected ("Sync variant not
+  found") — the listing's stored size ids weren't real sync-variant ids.
+  `sync_listing` now also reads Printful's nested `sync_product` reply shape.
+  The listing's existing ids still need correcting from Printful (one
+  read-only lookup, pending the curator's approval to run it).
 - **Follow-ups:** the stuck order needs Stripe to re-send its event (below);
   the real Printful order submit is still untested against the live API.
 

@@ -134,3 +134,23 @@ class ApproveTests(TestCase):
         self.assertEqual(order.status, OrderStatus.APPROVED)
         self.assertIn("Match sizes", order.curator_note)
         self.assertEqual(order.fulfillments.get().status, "problem")
+
+
+class SyncListingReplyShapeTests(TestCase):
+    """sync_listing must store the ids from Printful's real nested reply."""
+
+    def test_real_nested_reply_shape_stores_product_and_sync_variant_ids(self):
+        design = Design.objects.create(title="Wanderer")
+        tpl = ProductTemplate.objects.create(name="Tee", product_type="tee")
+        listing = Listing.objects.create(design=design, template=tpl, product_type="tee")
+        ListingSize.objects.create(listing=listing, label="M", printful_variant_id="17145")
+        client = mock.MagicMock(is_mock=False)
+        client.create_sync_product.return_value = {
+            "sync_product": {"id": 474865517, "external_id": listing.slug},
+            "sync_variants": [{"id": 5123456789, "external_id": f"{listing.slug}::M", "variant_id": 17145}],
+        }
+        with mock.patch.object(printful, "get_client", return_value=client):
+            printful.sync_listing(listing)
+        listing.refresh_from_db()
+        self.assertEqual(listing.printful_product_id, "474865517")
+        self.assertEqual(listing.sizes.get(label="M").printful_variant_id, "5123456789")

@@ -131,7 +131,10 @@ def sync_listing(listing):
     }
     result = client.create_sync_product(payload)
 
-    listing.printful_product_id = str(result.get("id", ""))
+    # Printful's real reply nests the product as {"sync_product": {"id": ...},
+    # "sync_variants": [...]}; the mock returns the id at the top level.
+    product = result.get("sync_product") or result
+    listing.printful_product_id = str(product.get("id", ""))
     for sv in result.get("sync_variants", []):
         label = sv.get("external_id", "").split("::")[-1]
         listing.sizes.filter(label=label).update(printful_variant_id=str(sv.get("id", "")))
