@@ -13,6 +13,7 @@ def send_order_confirmation(order):
     ctx = {
         "order": order,
         "shop_name": settings.SHOP_NAME,
+        "legal_name": settings.SHOP_LEGAL_NAME,
         "postal_address": settings.SHOP_POSTAL_ADDRESS,
         "track_url": _abs(reverse("shop:order_track", args=[order.track_token])),
         "shop_url": _abs(reverse("shop:index")),
@@ -32,6 +33,7 @@ def send_order_status_update(order):
     ctx = {
         "order": order,
         "shop_name": settings.SHOP_NAME,
+        "legal_name": settings.SHOP_LEGAL_NAME,
         "postal_address": settings.SHOP_POSTAL_ADDRESS,
         "track_url": _abs(reverse("shop:order_track", args=[order.track_token])),
     }
@@ -48,6 +50,7 @@ def send_order_status_update(order):
 def send_subscribe_welcome(subscriber):
     ctx = {
         "shop_name": settings.SHOP_NAME,
+        "legal_name": settings.SHOP_LEGAL_NAME,
         "postal_address": settings.SHOP_POSTAL_ADDRESS,
         "shop_url": _abs(reverse("shop:index")),
         "unsubscribe_url": _abs(

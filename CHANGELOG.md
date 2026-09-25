@@ -26,6 +26,11 @@ pointing at the commit(s) that carry it.
     line; added a last-updated date.
   - **Social:** the page listed placeholder handles; set to draft and hidden
     from the footer until real accounts exist (dropped from the seed too).
+  - **Operating entity named** (curator supplied the name: The Tshirt Brand
+    L.L.C.): footer, Privacy ("operated by ..."), a new "Who we are" section
+    at the top of Terms, and every email footer (sender identity ahead of the
+    postal address, per CAN-SPAM). New `SHOP_LEGAL_NAME` setting (env
+    override; defaults to that name).
 - **Files:** `shop/management/commands/seed_pages.py`; live `Page` rows
   (backup: `D:\TCData\db-before-legal-text.sqlite3`).
 - **Verified:** live rows re-read after the update; seed file parses.

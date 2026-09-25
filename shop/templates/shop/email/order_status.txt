@@ -8,4 +8,5 @@ Order {{ order.reference }} — {{ order.get_status_display|lower }}
 Full details and tracking:
 {{ track_url }}
 
+{{ shop_name }} is operated by {{ legal_name }}
 {{ postal_address }}

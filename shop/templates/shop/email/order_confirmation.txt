@@ -25,4 +25,5 @@ Come back and see what's new — the selection rotates:
 Want a heads-up when the next seasonal collection drops?
 Sign up here: {{ subscribe_url }}
 
+{{ shop_name }} is operated by {{ legal_name }}
 {{ postal_address }}

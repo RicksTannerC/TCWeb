@@ -9,4 +9,5 @@ Browse what's in stock now: {{ shop_url }}
 
 ---
 Don't want these? Unsubscribe any time: {{ unsubscribe_url }}
+{{ shop_name }} is operated by {{ legal_name }}
 {{ postal_address }}

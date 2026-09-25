@@ -184,6 +184,7 @@ PRINTFUL_ARTWORK_LINK_MAX_AGE = env.int("PRINTFUL_ARTWORK_LINK_MAX_AGE", default
 
 # Shop identity used in emails / CAN-SPAM footer.
 SHOP_NAME = "The T-Shirt Brand"
+SHOP_LEGAL_NAME = env("SHOP_LEGAL_NAME", default="The Tshirt Brand L.L.C.")
 SHOP_POSTAL_ADDRESS = env(
     "SHOP_POSTAL_ADDRESS", default="The T-Shirt Brand, Wyoming, USA"
 )

@@ -24,4 +24,4 @@ def site_urls(request):
     """Absolute link to the public shop, for console pages that may be served
     from the private console host (where the shop itself is not served)."""
     base = settings.SITE_BASE_URL.rstrip("/")
-    return {"public_shop_url": base + reverse("shop:index")}
+    return {"public_shop_url": base + reverse("shop:index"), "shop_legal_name": settings.SHOP_LEGAL_NAME}

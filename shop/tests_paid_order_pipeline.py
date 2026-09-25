@@ -466,3 +466,31 @@ class UsWarningAndTrackingPageTests(TestCase):
         self.assertNotIn("Sync variant", html)
         self.assertNotIn("needs attention", html)
         self.assertIn("looking into it", html)
+
+
+class OperatingEntityTests(TestCase):
+    """The contracting business is named on the footer and in every email."""
+
+    LLC = "The Tshirt Brand L.L.C."
+
+    def test_footer_names_the_llc(self):
+        html = Client().get("/").content.decode()
+        self.assertIn(f"operated by {self.LLC}", html)
+        self.assertNotIn("Wyoming, USA", html)
+
+    def test_emails_identify_the_sender_and_postal_address(self):
+        from django.core import mail
+        from .emails import send_order_confirmation, send_subscribe_welcome
+        from .orders import Subscriber
+        order = make_order()
+        order.email = "buyer@example.com"
+        order.save()
+        send_order_confirmation(order)
+        send_subscribe_welcome(Subscriber.objects.create(email="fan@example.com"))
+        self.assertEqual(len(mail.outbox), 2)
+        for m in mail.outbox:
+            self.assertIn(f"operated by {self.LLC}", m.body)
+
+    def test_legal_name_is_configurable(self):
+        with override_settings(SHOP_LEGAL_NAME="Other Co LLC"):
+            self.assertIn("operated by Other Co LLC", Client().get("/").content.decode())

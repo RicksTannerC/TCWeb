@@ -68,7 +68,7 @@ full refund, no questions asked. A photo helps but isn't required.
         "body": """\
 _Last updated: September 25, 2026._
 
-The T-Shirt Brand is operated from Wyoming, USA.
+The T-Shirt Brand is operated by The Tshirt Brand L.L.C., a Wyoming limited liability company.
 
 ## What we collect
 
@@ -115,6 +115,12 @@ it deleted, [contact us](/contact/).
         "meta_description": "The terms for using this shop.",
         "body": """\
 _Last updated: September 25, 2026._
+
+## Who we are
+
+This shop, The T-Shirt Brand, is operated by The Tshirt Brand L.L.C., a Wyoming limited
+liability company ("we", "us"). When you place an order, you are contracting
+with The Tshirt Brand L.L.C.
 
 ## Orders
 
