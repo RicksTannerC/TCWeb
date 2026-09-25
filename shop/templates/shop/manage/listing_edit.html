@@ -8,6 +8,13 @@
   <span class="tag">{{ listing.get_product_type_display }} &middot; {{ listing.get_status_display }}</span>
 </div>
 
+{% if not_us_produced %}
+  <p class="form-note error"><strong>Not made in the US.</strong> Printful shows this product
+    ({{ listing.template.printful_blueprint_name|default:"the linked product" }}) as available outside the US only,
+    so US orders would be produced overseas &mdash; slower, pricier, and possibly subject to customs.
+    Pick a US-produced product on the template.</p>
+{% endif %}
+
 <form method="post" class="edit-grid">
   {% csrf_token %}
 

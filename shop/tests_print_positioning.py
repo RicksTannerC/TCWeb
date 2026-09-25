@@ -203,6 +203,10 @@ class ColorDropdownTests(ConsoleBase):
 
 
 class CatalogColorsTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()  # this class counts real fetches, so it must start from an empty cache
+
     def test_no_blueprint_is_an_empty_list(self):
         self.assertEqual(printful.catalog_colors(""), [])
 

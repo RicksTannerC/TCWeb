@@ -23,12 +23,12 @@
     <h2>Shipments</h2>
     {% for f in order.fulfillments.all %}
       <div class="panel">
-        <p><strong>{{ f.get_status_display }}</strong> &middot; {{ f.supplier|title }}</p>
+        <p><strong>{% if f.status == 'problem' %}We&rsquo;re looking into it{% else %}{{ f.get_status_display }}{% endif %}</strong> &middot; {{ f.supplier|title }}</p>
         {% if f.tracking_number %}
           <p>Tracking: {% if f.tracking_url %}<a href="{{ f.tracking_url }}">{{ f.tracking_number }}</a>{% else %}{{ f.tracking_number }}{% endif %}
              {% if f.carrier %}({{ f.carrier }}){% endif %}</p>
         {% endif %}
-        {% if f.problem_note %}<p class="form-note error">{{ f.problem_note }}</p>{% endif %}
+        {# f.problem_note is internal (supplier errors, reprint reasons): console-only, never shown here #}
       </div>
     {% endfor %}
   {% else %}

@@ -58,6 +58,18 @@ pointing at the commit(s) that carry it.
     touching the payment (for orders already refunded). New `cancelled`
     fulfilment status (migration 0010); Printful's own "order canceled"
     notice no longer flips a fulfilment we cancelled into a Problem.
+  - **Customer tracking page no longer shows internal notes.** Supplier
+    errors and reprint reasons (`Fulfillment.problem_note`) were visible to
+    anyone with the order link; they are now console-only, and a fulfilment
+    in `problem` reads "We're looking into it" instead of "Problem — needs
+    attention".
+  - **"Not made in the US" warning** on the listing page when Printful's
+    variant data shows a product available outside the US only (the
+    Stanley/Stella STTU169 blank was EU/UK-only, so a US order was routed to
+    Europe). Reads data already fetched for the color dropdown (no extra
+    call) and stays silent when Printful gives no availability info.
+    Written against an assumed reply shape (list or mapping of regions);
+    unverified against a real product with US availability.
 - **Follow-ups:** the stuck order needs Stripe to re-send its event (below);
   the real Printful order submit is still untested against the live API.
 

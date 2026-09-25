@@ -396,3 +396,73 @@ class RefundCancelsPrintfulTests(TestCase):
         with mock.patch.object(printful, "get_client", return_value=client):
             self.c.post(f"/manage/fulfillments/{ful.pk}/cancel/")
         client.cancel_order.assert_not_called()
+
+
+class UsProductionTests(TestCase):
+    def check(self, data):
+        with mock.patch.object(printful, "_cached_variants", return_value=data):
+            return printful.us_production("456")
+
+    def test_eu_only_list_shape_is_flagged(self):
+        self.assertIs(self.check({"variants": [
+            {"availability_status": [{"region": "EU", "status": "active"}, {"region": "UK", "status": "active"}]}]}), False)
+
+    def test_us_in_list_shape_is_ok(self):
+        self.assertIs(self.check({"variants": [
+            {"availability_status": [{"region": "US", "status": "active"}, {"region": "EU", "status": "active"}]}]}), True)
+
+    def test_mapping_shape_on_the_product_is_understood(self):
+        self.assertIs(self.check({"product": {"availability_regions": {"EU": "Europe", "LV": "Latvia"}}, "variants": []}), False)
+        self.assertIs(self.check({"product": {"availability_regions": {"US": "USA"}}, "variants": []}), True)
+
+    def test_a_discontinued_us_entry_does_not_count(self):
+        self.assertIs(self.check({"variants": [
+            {"availability_status": [{"region": "US", "status": "discontinued"}, {"region": "EU", "status": "active"}]}]}), False)
+
+    def test_no_availability_data_says_nothing_rather_than_warning(self):
+        self.assertIsNone(self.check({"variants": [{"id": 1, "size": "M"}]}))
+        self.assertIsNone(printful.us_production(""))
+
+    def test_a_printful_error_says_nothing(self):
+        with mock.patch.object(printful, "_cached_variants", side_effect=printful.PrintfulError("down")):
+            self.assertIsNone(printful.us_production("456"))
+
+
+@override_settings(STAFF_2FA_REQUIRED=False)
+class UsWarningAndTrackingPageTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()  # the listing page caches Printful variants; don't leak that into other tests
+        self.addCleanup(cache.clear)
+        self.c = Client()
+        self.c.force_login(get_user_model().objects.create_user("cur", password="x-12345-yz", is_staff=True))
+
+    def listing(self):
+        tpl = ProductTemplate.objects.create(name="Tee", product_type="tee", printful_blueprint_id="456",
+                                             printful_blueprint_name="Stanley/Stella STTU169")
+        return Listing.objects.create(design=Design.objects.create(title="W"), template=tpl, product_type="tee")
+
+    def test_listing_page_warns_when_the_product_is_not_us_produced(self):
+        listing = self.listing()
+        with mock.patch.object(printful, "us_production", return_value=False):
+            page = self.c.get(f"/manage/listings/{listing.pk}/")
+        self.assertContains(page, "Not made in the US")
+        self.assertContains(page, "Stanley/Stella STTU169")
+
+    def test_no_warning_when_us_produced_or_unknown(self):
+        listing = self.listing()
+        for value in (True, None):
+            with mock.patch.object(printful, "us_production", return_value=value):
+                self.assertNotContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Not made in the US")
+
+    def test_tracking_page_hides_internal_notes_and_softens_problem(self):
+        from .orders import Fulfillment
+        order = make_order()
+        f = Fulfillment.objects.create(order=order, supplier="printful", status="problem",
+                                       problem_note="Printful rejected the order: Item 0: Sync variant not found")
+        r = Client().get(f"/order/{order.track_token}/")
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertNotIn("Sync variant", html)
+        self.assertNotIn("needs attention", html)
+        self.assertIn("looking into it", html)

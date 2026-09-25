@@ -74,6 +74,52 @@ def _cached_variants(blueprint_id):
     return data
 
 
+def _regions(obj):
+    """Region codes named in a Printful availability field, whichever of its
+    shapes it arrives in: a list of {"region": ..., "status": ...} or a
+    {"US": "United States", ...} mapping."""
+    found = set()
+    if isinstance(obj, dict):
+        found.update(str(k).upper() for k in obj)
+    elif isinstance(obj, list):
+        for item in obj:
+            if isinstance(item, dict):
+                r = item.get("region") or item.get("code")
+                status = str(item.get("status", "")).lower()
+                if r and status not in ("discontinued", "not_available", "unavailable"):
+                    found.add(str(r).upper())
+            elif isinstance(item, str):
+                found.add(item.upper())
+    return found
+
+
+def us_production(blueprint_id):
+    """Whether this Printful product can be made and shipped from the US.
+
+    True / False, or None when Printful's data doesn't say (no product, an
+    error, or no availability info) -- callers should only warn on False.
+    Uses the variants already fetched for the color dropdown, so it costs no
+    extra Printful call. A product made only in the EU/UK will be produced
+    there and shipped to a US customer: slower, pricier, and subject to customs.
+    """
+    if not blueprint_id:
+        return None
+    try:
+        data = _cached_variants(blueprint_id)
+    except PrintfulError:
+        return None
+    regions = set()
+    product = data.get("product") if isinstance(data, dict) else None
+    if isinstance(product, dict):
+        regions |= _regions(product.get("availability_regions"))
+    for v in (data.get("variants", []) if isinstance(data, dict) else []):
+        regions |= _regions(v.get("availability_status"))
+        regions |= _regions(v.get("availability_regions"))
+    if not regions:
+        return None
+    return "US" in regions
+
+
 def catalog_colors(blueprint_id):
     """Real color options for a Printful catalog product, for a dropdown."""
     if not blueprint_id:
