@@ -44,6 +44,9 @@ pointing at the commit(s) that carry it.
     one variant. Fixes listings whose stored ids aren't real sync variants.
   - **Front/back per listing** (`Listing.print_placement`, migration 0009):
     overrides the template's placement; blank keeps the template's.
+  - Console order page: a note on a healthy fulfilment (e.g. "Reprint of #1")
+    now shows green (new `--good` token) instead of red; red is kept for
+    fulfilments actually in `problem`.
 - **Follow-ups:** the stuck order needs Stripe to re-send its event (below);
   the real Printful order submit is still untested against the live API.
 

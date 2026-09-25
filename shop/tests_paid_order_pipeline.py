@@ -270,3 +270,26 @@ class RefreshSizesAndPlacementTests(TestCase):
         page = self.c.get(f"/manage/listings/{listing.pk}/")
         self.assertContains(page, '<option value="back" selected>')
         self.assertContains(page, "Template default (Front)")
+
+
+@override_settings(STAFF_2FA_REQUIRED=False)
+class FulfilmentNoteColorTests(TestCase):
+    """A note on a healthy fulfilment (e.g. 'Reprint of #1') is not an error."""
+
+    def page(self, status):
+        from .orders import Fulfillment
+        order = make_order()
+        f = Fulfillment.objects.create(order=order, supplier="printful", status=status,
+                                       problem_note="Reprint of fulfilment #1: Test fix")
+        f.items.set(order.items.all())
+        c = Client()
+        c.force_login(get_user_model().objects.create_user("cur", password="x-12345-yz", is_staff=True))
+        return c.get(f"/manage/orders/{order.pk}/").content.decode()
+
+    def test_note_on_a_submitted_fulfilment_is_green(self):
+        html = self.page("submitted")
+        self.assertIn('class="form-note success">Reprint of', html)
+
+    def test_note_on_a_problem_fulfilment_stays_red(self):
+        html = self.page("problem")
+        self.assertIn('class="form-note error">Reprint of', html)

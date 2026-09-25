@@ -95,7 +95,7 @@
             {% if f.carrier %}({{ f.carrier }}){% endif %}
           </p>
         {% endif %}
-        {% if f.problem_note %}<p class="form-note error">{{ f.problem_note }}</p>{% endif %}
+        {% if f.problem_note %}<p class="form-note {% if f.status == 'problem' %}error{% else %}success{% endif %}">{{ f.problem_note }}</p>{% endif %}
         <form method="post" action="{% url 'shop:manage_fulfillment_reprint' f.pk %}" class="cluster"
               onsubmit="return confirm('Create a reprint for fulfilment #{{ f.id }}?')">
           {% csrf_token %}
