@@ -117,6 +117,11 @@ def fulfill_from_session(session):
     Idempotently promote the order for a completed checkout session.
     Called from the webhook. Returns (order, created_now).
     """
+    # A verified webhook hands us a stripe.StripeObject, which (unlike a dict)
+    # has no .get(); a plain dict (tests, replays) passes straight through.
+    if hasattr(session, "to_dict"):
+        session = session.to_dict()
+
     order_id = (session.get("client_reference_id")
                 or session.get("metadata", {}).get("order_id"))
     if not order_id:

@@ -11,6 +11,31 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-25 — First real payment never reached fulfilment (webhook crash)
+
+- **What:** a customer paid through Stripe but the order never moved past
+  `pending_payment`, so nothing reached Printful. Two bugs on the path:
+  1. **Webhook crash.** `fulfill_from_session()` called `.get()` on the
+     event's session object; the installed stripe library (15.x) returns a
+     `StripeObject`, not a dict, so every `checkout.session.completed` raised
+     `AttributeError` and returned 500. Now converts with `.to_dict()` first.
+  2. **Wrong Printful variant.** `_line()` sent the listing's Printful
+     *product* id as `sync_variant_id`. It now sends the ordered size's own
+     variant (`sync_variant_id` if the listing is synced, else the catalog
+     `variant_id` plus the artwork link) and raises a clear "match sizes"
+     error when a size has none — recorded on the order instead of a crash.
+- **Not a bug, by design:** a paid order lands in **Awaiting approval** and
+  only goes to Printful when the curator approves it in the console.
+- **Files:** `shop/payments.py`, `shop/fulfillment.py`,
+  `shop/tests_paid_order_pipeline.py` (new), `shop/tests_private_artwork.py`.
+- **Verified:** new tests post locally HMAC-signed events through the real
+  `construct_event` path (no network); with the fix disabled they fail with
+  the exact production error. Full suite green.
+- **Follow-ups:** the stuck order needs Stripe to re-send its event (below);
+  the real Printful order submit is still untested against the live API.
+
+---
+
 ## 2026-09-24 — Beta-launch cleanup; a real Stripe failure hardened
 
 - **What:** three small pre-launch items, plus one real bug caught live:

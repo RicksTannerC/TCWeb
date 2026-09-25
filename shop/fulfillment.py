@@ -41,12 +41,12 @@ def approve_and_submit(order: Order, *, note: str = "") -> Order:
         ful = Fulfillment.objects.create(order=order, supplier=supplier, status=Fulfillment.Status.PENDING)
         ful.items.set(group)
 
-        payload = {
-            "external_id": f"{order.reference}-{ful.id}",
-            "recipient": _recipient(order),
-            "items": [_line(it) for it in group],
-        }
         try:
+            payload = {
+                "external_id": f"{order.reference}-{ful.id}",
+                "recipient": _recipient(order),
+                "items": [_line(it) for it in group],
+            }
             result = client.create_order(payload, confirm=True)
         except printful.PrintfulError as exc:
             ful.status = Fulfillment.Status.PROBLEM
@@ -83,15 +83,34 @@ def _recipient(order: Order) -> dict:
 
 
 def _line(item) -> dict:
+    """One Printful order line for the size actually ordered.
+
+    ListingSize.printful_variant_id holds a *sync* variant id once the listing
+    has been sent to Printful (sync_listing overwrites the catalog id), and a
+    catalog variant id before that (match_variants). Each goes in its own field.
+    """
     listing = item.listing
-    url = listing.design.print_file_url if listing else None
-    return {
+    size = item.listing_size
+    vid = (size.printful_variant_id if size else "") or ""
+    if not listing or not vid:
+        raise printful.PrintfulError(
+            f"{item.design_title} ({item.size_label}) has no Printful variant — "
+            "open the listing and use 'Match sizes to Printful variants', then send it to Printful."
+        )
+
+    url = listing.design.print_file_url
+    line = {
         "quantity": item.quantity,
-        "sync_variant_id": (listing.printful_product_id or None) if listing else None,
         "name": item.design_title,
         "retail_price": str(item.unit_price),
-        "files": [{"url": url, **listing.print_file_payload()}] if url else [],
     }
+    if listing.is_connected:
+        line["sync_variant_id"] = int(vid)
+    else:
+        # Not synced yet: order straight off the catalog variant, with the art attached.
+        line["variant_id"] = int(vid)
+        line["files"] = [{"url": url, **listing.print_file_payload()}] if url else []
+    return line
 
 
 # ---- Printful webhook -> our state -------------------------------

@@ -210,12 +210,14 @@ class PrintfulGuardTests(PrivateBase):
         self.assertEqual(payload["sync_variants"][0]["files"], [])
 
     def test_order_fulfillment_lines_now_carry_a_working_signed_link(self):
-        item = SimpleNamespace(listing=self.listing(), quantity=1, design_title="Pillars", unit_price=Decimal("40"))
+        item = SimpleNamespace(listing=self.listing(), listing_size=SimpleNamespace(printful_variant_id="4012"), size_label="M",
+                               quantity=1, design_title="Pillars", unit_price=Decimal("40"))
         url = _line(item)["files"][0]["url"]
         r = Client().get(urlsplit(url).path)
         self.assertEqual(r.status_code, 200)
         r.close()
 
     def test_order_lines_have_no_url_when_the_design_has_no_artwork(self):
-        item = SimpleNamespace(listing=self.listing(with_art=False), quantity=1, design_title="No art", unit_price=Decimal("40"))
+        item = SimpleNamespace(listing=self.listing(with_art=False), listing_size=SimpleNamespace(printful_variant_id="4012"), size_label="M",
+                               quantity=1, design_title="No art", unit_price=Decimal("40"))
         self.assertEqual(_line(item)["files"], [])
