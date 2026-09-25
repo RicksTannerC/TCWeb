@@ -144,6 +144,58 @@ def sync_listing(listing):
     return result
 
 
+def _sync_variant_size_color(sv, slug=""):
+    """(size, color) of a Printful sync variant, from whichever fields it has:
+    our own external_id ("slug::M"), explicit size/color, or the name
+    ("Title - Khaki / M")."""
+    size = color = ""
+    ext = str(sv.get("external_id") or "")
+    if "::" in ext:
+        size = ext.split("::")[-1]
+    size = size or str(sv.get("size") or "")
+    color = str(sv.get("color") or "")
+    if not size:
+        parts = [p.strip() for p in str(sv.get("name") or "").split("/")]
+        if len(parts) >= 2:
+            size = parts[-1]
+            color = color or parts[-2].split(" - ")[-1].strip()
+    return size.strip(), color.strip()
+
+
+def refresh_sync_variants(listing):
+    """Re-read this listing's product from Printful (read-only) and store each
+    size's real *sync variant* id. Returns (matched labels, unmatched labels).
+
+    Where the product holds several colors, only the listing's own color is
+    used; a size that still matches more than one variant is left unmatched
+    rather than guessed."""
+    if not listing.printful_product_id:
+        raise PrintfulError("This listing isn't connected to a Printful product yet.")
+    result = get_client().get_sync_product(listing.printful_product_id)
+    variants = result.get("sync_variants", []) if isinstance(result, dict) else []
+
+    sizes = list(listing.sizes.all())
+    by_label = {}
+    for sv in variants:
+        size, color = _sync_variant_size_color(sv)
+        if not size or not sv.get("id"):
+            continue
+        if listing.color and color and color.lower() != listing.color.lower():
+            continue
+        by_label.setdefault(size.lower(), []).append(str(sv["id"]))
+
+    matched, unmatched = [], []
+    for s in sizes:
+        found = by_label.get(s.label.lower(), [])
+        if len(found) == 1:
+            s.printful_variant_id = found[0]
+            s.save(update_fields=["printful_variant_id"])
+            matched.append(s.label)
+        else:
+            unmatched.append(s.label)
+    return matched, unmatched
+
+
 # --------------------------------------------------------------------- real
 
 class RealPrintful:
@@ -182,6 +234,9 @@ class RealPrintful:
 
     def create_sync_product(self, payload):
         return self._post("/store/products", payload)
+
+    def get_sync_product(self, product_id):
+        return self._get(f"/store/products/{product_id}")
 
     # --- orders ---
     def create_order(self, payload, confirm=False):
@@ -231,6 +286,16 @@ class MockPrintful:
                 {"id": _fake_id(blueprint_id, color, size), "size": size, "color": color, "price": "11.00"}
                 for color in ["Black", "White", "Khaki"]
                 for size in ["S", "M", "L", "XL", "2XL"]
+            ],
+        }
+
+    def get_sync_product(self, product_id):
+        return {
+            "sync_product": {"id": product_id, "name": "Mock product"},
+            "sync_variants": [
+                {"id": _fake_id("sv", product_id, color, size), "variant_id": _fake_id(color, size),
+                 "size": size, "color": color, "name": f"Mock product - {color} / {size}"}
+                for color in ["Black", "White", "Khaki"] for size in ["S", "M", "L", "XL", "2XL"]
             ],
         }
 

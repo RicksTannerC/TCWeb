@@ -268,6 +268,12 @@ class Listing(models.Model):
     # Simple, curator-editable positioning within the template's placement
     # area (front/back/etc. — see ProductTemplate.print_placement). Not
     # Printful's raw pixel coordinates; see print_position_payload().
+    # Blank = use the template's placement. Lets one template (e.g. a tee) carry
+    # some designs on the front and others on the back.
+    print_placement = models.CharField(
+        max_length=40, choices=PrintPlacement.choices, blank=True, default="",
+        help_text="Where the print goes. Blank uses the template's placement.",
+    )
     print_scale_pct = models.PositiveSmallIntegerField(
         default=100, help_text="How large the print runs within its placement area (25-100%).",
     )
@@ -324,6 +330,10 @@ class Listing(models.Model):
         PrintPosition.RIGHT: (0.7, 0.5),
     }
 
+    @property
+    def effective_print_placement(self):
+        return self.print_placement or self.template.print_placement or PrintPlacement.FRONT
+
     def print_file_payload(self):
         """This listing's placement, scale and position, in the shape
         Printful's sync-variant `files[]` entries expect (`type`, plus a
@@ -340,7 +350,7 @@ class Listing(models.Model):
         safe, always-correct case: no positioning fields needed at all.
         """
         cx, cy = self._POSITION_OFFSETS.get(self.print_position, (0.5, 0.5))
-        placement = self.template.print_placement or PrintPlacement.FRONT
+        placement = self.effective_print_placement
         if self.print_scale_pct >= 100 and self.print_position == PrintPosition.CENTER:
             return {"type": placement}
         scale = max(25, min(100, self.print_scale_pct)) / 100

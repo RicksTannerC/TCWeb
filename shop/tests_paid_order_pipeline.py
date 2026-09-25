@@ -154,3 +154,119 @@ class SyncListingReplyShapeTests(TestCase):
         listing.refresh_from_db()
         self.assertEqual(listing.printful_product_id, "474865517")
         self.assertEqual(listing.sizes.get(label="M").printful_variant_id, "5123456789")
+
+
+from django.contrib.auth import get_user_model  # noqa: E402
+
+
+@override_settings(STAFF_2FA_REQUIRED=False)
+class RefreshSizesAndPlacementTests(TestCase):
+    def setUp(self):
+        self.staff = get_user_model().objects.create_user("curator", password="x-12345-yz", is_staff=True)
+        self.c = Client()
+        self.c.force_login(self.staff)
+
+    def connected_listing(self, color="Khaki", labels=("S", "M")):
+        tpl = ProductTemplate.objects.create(name="Tee", product_type="tee", print_placement="front")
+        listing = Listing.objects.create(design=Design.objects.create(title="Wanderer"), template=tpl,
+                                         product_type="tee", color=color, printful_product_id="474865517")
+        for i, label in enumerate(labels):
+            ListingSize.objects.create(listing=listing, label=label, printful_variant_id=str(17144 + i))
+        return listing
+
+    def fake_client(self, variants):
+        client = mock.MagicMock(is_mock=False)
+        client.get_sync_product.return_value = {"sync_product": {"id": 474865517}, "sync_variants": variants}
+        return client
+
+    def refresh(self, listing, variants):
+        with mock.patch.object(printful, "get_client", return_value=self.fake_client(variants)):
+            return self.c.post(f"/manage/listings/{listing.pk}/refresh-printful-sizes/", follow=True)
+
+    def test_refresh_stores_real_sync_variant_ids_by_name(self):
+        listing = self.connected_listing()
+        r = self.refresh(listing, [
+            {"id": 5001, "name": "Wanderer - Khaki / S"}, {"id": 5002, "name": "Wanderer - Khaki / M"},
+            {"id": 5003, "name": "Wanderer - Black / M"},
+        ])
+        self.assertContains(r, "Refreshed all 2")
+        ids = dict(listing.sizes.values_list("label", "printful_variant_id"))
+        self.assertEqual(ids, {"S": "5001", "M": "5002"})
+
+    def test_refresh_uses_size_and_color_fields_when_present(self):
+        listing = self.connected_listing(labels=("M",))
+        self.refresh(listing, [{"id": 7, "size": "M", "color": "Khaki"}, {"id": 8, "size": "M", "color": "Black"}])
+        self.assertEqual(listing.sizes.get().printful_variant_id, "7")
+
+    def test_refresh_uses_our_own_external_id_first(self):
+        listing = self.connected_listing(labels=("M",))
+        self.refresh(listing, [{"id": 9, "external_id": f"{listing.slug}::M"}])
+        self.assertEqual(listing.sizes.get().printful_variant_id, "9")
+
+    def test_ambiguous_size_is_left_alone_not_guessed(self):
+        listing = self.connected_listing(color="", labels=("M",))
+        r = self.refresh(listing, [{"id": 1, "size": "M", "color": "Khaki"}, {"id": 2, "size": "M", "color": "Black"}])
+        self.assertEqual(listing.sizes.get().printful_variant_id, "17144")
+        self.assertContains(r, "no sizes that match")
+
+    def test_partial_match_warns_and_only_updates_matched(self):
+        listing = self.connected_listing()
+        r = self.refresh(listing, [{"id": 5002, "name": "Wanderer - Khaki / M"}])
+        self.assertContains(r, "Refreshed 1 size")
+        self.assertEqual(listing.sizes.get(label="S").printful_variant_id, "17144")
+
+    def test_not_connected_listing_gets_a_clear_error(self):
+        listing = self.connected_listing()
+        listing.printful_product_id = ""
+        listing.save()
+        r = self.refresh(listing, [])
+        self.assertContains(r, "isn&#x27;t connected")
+
+    def test_refresh_button_only_shows_on_connected_listings(self):
+        listing = self.connected_listing()
+        self.assertContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Refresh sizes from Printful")
+        listing.printful_product_id = ""
+        listing.save()
+        self.assertNotContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Refresh sizes from Printful")
+
+    def test_mock_client_supports_refresh(self):
+        listing = self.connected_listing()
+        matched, unmatched = printful.refresh_sync_variants(listing)
+        self.assertEqual((matched, unmatched), (["S", "M"], []))
+
+    # --- front / back ---
+    def form(self, listing, **over):
+        data = {"title": "Wanderer", "color": "Khaki", "base_cost": "11", "shipping_est": "5", "price": "40",
+                "print_scale_pct": "100", "print_position": "center"}
+        data.update(over)
+        return self.c.post(f"/manage/listings/{listing.pk}/", data)
+
+    def test_listing_can_be_set_to_the_back(self):
+        listing = self.connected_listing()
+        self.form(listing, print_placement="back")
+        listing.refresh_from_db()
+        self.assertEqual(listing.print_placement, "back")
+        self.assertEqual(listing.print_file_payload()["type"], "back")
+
+    def test_blank_falls_back_to_the_templates_placement(self):
+        listing = self.connected_listing()
+        self.form(listing, print_placement="back")
+        self.form(listing, print_placement="")
+        listing.refresh_from_db()
+        self.assertEqual(listing.print_file_payload()["type"], "front")
+
+    def test_invalid_or_missing_placement_keeps_the_previous_value(self):
+        listing = self.connected_listing()
+        self.form(listing, print_placement="back")
+        self.form(listing, print_placement="chest_tattoo")
+        self.form(listing)
+        listing.refresh_from_db()
+        self.assertEqual(listing.print_placement, "back")
+
+    def test_edit_page_shows_the_choice(self):
+        listing = self.connected_listing()
+        listing.print_placement = "back"
+        listing.save()
+        page = self.c.get(f"/manage/listings/{listing.pk}/")
+        self.assertContains(page, '<option value="back" selected>')
+        self.assertContains(page, "Template default (Front)")

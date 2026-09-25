@@ -310,6 +310,9 @@ def listing_edit(request, pk):
             listing.print_scale_pct = 100
         if request.POST.get("print_position") in PrintPosition.values:
             listing.print_position = request.POST["print_position"]
+        # front/back (or blank = the template's default); unknown values are ignored
+        if request.POST.get("print_placement", None) in ("", *(PrintPlacement.FRONT, PrintPlacement.BACK)):
+            listing.print_placement = request.POST["print_placement"]
         listing.save()
 
         for size in listing.sizes.all():
@@ -336,6 +339,7 @@ def listing_edit(request, pk):
         "is_mock": getattr(printful.get_client(), "is_mock", False),
         "printful_colors": printful_colors,
         "print_positions": PrintPosition.choices,
+        "placement_choices": [(PrintPlacement.FRONT.value, "Front"), (PrintPlacement.BACK.value, "Back")],
     })
 
 
@@ -355,6 +359,35 @@ def listing_send_to_printful(request, pk):
         messages.success(request, f"{listing.design.title} sent to Printful.")
     except printful.PrintfulError as exc:
         messages.error(request, str(exc))
+    return redirect("shop:manage_listing_edit", pk=pk)
+
+
+@staff_member_required
+@require_POST
+def listing_refresh_printful_sizes(request, pk):
+    """Re-read this listing's Printful product and store each size's real sync
+    variant id. A real, read-only Printful call, made only on this click."""
+    listing = get_object_or_404(Listing.objects.select_related("template"), pk=pk)
+    try:
+        matched, unmatched = printful.refresh_sync_variants(listing)
+    except printful.PrintfulError as exc:
+        messages.error(request, str(exc))
+        return redirect("shop:manage_listing_edit", pk=pk)
+
+    if matched and not unmatched:
+        messages.success(request, f"Refreshed all {len(matched)} size(s) from Printful.")
+    elif matched:
+        messages.warning(
+            request,
+            f"Refreshed {len(matched)} size(s); couldn't find a single match for: {', '.join(unmatched)}. "
+            "Check the listing's color and size labels against the product in Printful.",
+        )
+    else:
+        messages.error(
+            request,
+            "Printful's product has no sizes that match this listing's sizes"
+            + (f" in color “{listing.color}”" if listing.color else "") + ".",
+        )
     return redirect("shop:manage_listing_edit", pk=pk)
 
 

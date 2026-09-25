@@ -36,6 +36,14 @@ pointing at the commit(s) that carry it.
   `sync_listing` now also reads Printful's nested `sync_product` reply shape.
   The listing's existing ids still need correcting from Printful (one
   read-only lookup, pending the curator's approval to run it).
+- **Added (same day):**
+  - **"Refresh sizes from Printful"** button on a connected listing: re-reads
+    the product from Printful (read-only, curator-clicked) and stores each
+    size's real sync-variant id, matching by our external id, size/color
+    fields, or the variant name; never guesses when a size matches more than
+    one variant. Fixes listings whose stored ids aren't real sync variants.
+  - **Front/back per listing** (`Listing.print_placement`, migration 0009):
+    overrides the template's placement; blank keeps the template's.
 - **Follow-ups:** the stuck order needs Stripe to re-send its event (below);
   the real Printful order submit is still untested against the live API.
 
