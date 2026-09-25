@@ -134,7 +134,7 @@ class ListingMatchSizesViewTests(ConsoleBase):
         listing = self.make_listing()
         r = self.c.post(f"/manage/listings/{listing.pk}/match-printful-sizes/")
         self.assertRedirects(r, f"/manage/listings/{listing.pk}/", fetch_redirect_response=False)
-        labels_with_ids = set(listing.sizes.exclude(printful_variant_id="").values_list("label", flat=True))
+        labels_with_ids = set(listing.sizes.exclude(printful_catalog_variant_id="").values_list("label", flat=True))
         self.assertEqual(labels_with_ids, {"S", "M", "L"})
 
     def test_edit_page_shows_matched_variant_ids(self):
@@ -143,13 +143,13 @@ class ListingMatchSizesViewTests(ConsoleBase):
         page = self.c.get(f"/manage/listings/{listing.pk}/")
         size = listing.sizes.first()
         size.refresh_from_db()
-        self.assertContains(page, f"Printful #{size.printful_variant_id}")
+        self.assertContains(page, f"matched #{size.printful_catalog_variant_id}")
 
     def test_no_template_blueprint_refuses_with_a_helpful_message(self):
         listing = self.make_listing(blueprint_id="")
         r = self.c.post(f"/manage/listings/{listing.pk}/match-printful-sizes/", follow=True)
         self.assertContains(r, "no Printful product chosen yet")
-        self.assertEqual(listing.sizes.exclude(printful_variant_id="").count(), 0)
+        self.assertEqual(listing.sizes.exclude(printful_catalog_variant_id="").count(), 0)
 
     def test_no_color_refuses_with_a_helpful_message(self):
         listing = self.make_listing(color="")
@@ -161,14 +161,14 @@ class ListingMatchSizesViewTests(ConsoleBase):
         r = self.c.post(f"/manage/listings/{listing.pk}/match-printful-sizes/", follow=True)
         self.assertContains(r, "Black")
         self.assertContains(r, "Khaki")
-        self.assertEqual(listing.sizes.exclude(printful_variant_id="").count(), 0)
+        self.assertEqual(listing.sizes.exclude(printful_catalog_variant_id="").count(), 0)
 
     def test_partial_match_reports_which_sizes_failed(self):
         listing = self.make_listing()
         ListingSize.objects.create(listing=listing, label="7XL")  # not a real Printful size
         r = self.c.post(f"/manage/listings/{listing.pk}/match-printful-sizes/", follow=True)
         self.assertContains(r, "7XL")
-        self.assertEqual(listing.sizes.get(label="S").printful_variant_id != "", True)
+        self.assertEqual(listing.sizes.get(label="S").printful_catalog_variant_id != "", True)
 
     def test_edit_page_prompts_to_pick_a_printful_product_first(self):
         listing = self.make_listing(blueprint_id="")

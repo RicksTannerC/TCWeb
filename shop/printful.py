@@ -150,12 +150,23 @@ def match_variants(blueprint_id, color, size_labels):
     return matches, unmatched, available_colors
 
 
-def sync_listing(listing):
+def missing_catalog_sizes(listing):
+    """Sizes with no catalogue variant matched yet (needed to build a product)."""
+    return [s.label for s in listing.sizes.all() if not s.printful_catalog_variant_id]
+
+
+def sync_listing(listing, *, replace=False):
     """
-    'Send to Printful': create the sync product from a draft listing's
-    artwork + sizes, store the returned ids, and move the listing out of
-    'draft' (it is still hidden until the curator publishes it).
+    'Send to Printful': create the sync product from a listing's artwork +
+    sizes, store the returned ids, and move the listing out of 'draft' (it is
+    still hidden until the curator publishes it).
+
+    replace=True builds a brand-new product (fresh external ids, since Printful
+    wants those unique) and points the listing at it. The old product is left
+    in the Printful store untouched, for the curator to delete by hand.
     """
+    import time
+
     from .models import Status
 
     client = get_client()
@@ -163,12 +174,13 @@ def sync_listing(listing):
     # right before the API call rather than stored anywhere.
     url = listing.design.print_file_url
     files = [{"url": url, **listing.print_file_payload()}] if url else []
+    ext = f"{listing.slug}-r{int(time.time())}" if replace else listing.slug
     payload = {
-        "sync_product": {"name": listing.design.title, "external_id": listing.slug},
+        "sync_product": {"name": listing.design.title, "external_id": ext},
         "sync_variants": [
             {
-                "external_id": f"{listing.slug}::{s.label}",
-                "variant_id": int(s.printful_variant_id) if s.printful_variant_id else 0,
+                "external_id": f"{ext}::{s.label}",
+                "variant_id": int(s.printful_catalog_variant_id) if s.printful_catalog_variant_id else 0,
                 "retail_price": str(s.price),
                 "files": files,
             }
@@ -186,7 +198,11 @@ def sync_listing(listing):
         listing.sizes.filter(label=label).update(printful_variant_id=str(sv.get("id", "")))
     if listing.status == Status.DRAFT:
         listing.status = Status.HIDDEN
-    listing.save(update_fields=["printful_product_id", "status", "updated"])
+    listing.printful_sent_blueprint_id = listing.template.printful_blueprint_id
+    listing.printful_sent_color = listing.color
+    listing.printful_sent_placement = listing.effective_print_placement
+    listing.save(update_fields=["printful_product_id", "status", "updated", "printful_sent_blueprint_id",
+                                "printful_sent_color", "printful_sent_placement"])
     return result
 
 

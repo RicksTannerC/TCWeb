@@ -91,7 +91,10 @@ def _line(item) -> dict:
     """
     listing = item.listing
     size = item.listing_size
-    vid = (size.printful_variant_id if size else "") or ""
+    if listing and listing.is_connected:
+        vid = (getattr(size, "printful_variant_id", "") or "") if size else ""
+    else:
+        vid = (getattr(size, "printful_catalog_variant_id", "") or "") if size else ""
     if not listing or not vid:
         raise printful.PrintfulError(
             f"{item.design_title} ({item.size_label}) has no Printful variant — "

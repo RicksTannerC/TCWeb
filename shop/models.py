@@ -264,6 +264,11 @@ class Listing(models.Model):
 
     # empty = not connected to Printful
     printful_product_id = models.CharField(max_length=40, blank=True)
+    # What the Printful product was built from when it was last sent, so the
+    # console can say when the listing has since changed and Printful hasn't.
+    printful_sent_blueprint_id = models.CharField(max_length=40, blank=True)
+    printful_sent_color = models.CharField(max_length=40, blank=True)
+    printful_sent_placement = models.CharField(max_length=40, blank=True)
 
     # Simple, curator-editable positioning within the template's placement
     # area (front/back/etc. — see ProductTemplate.print_placement). Not
@@ -329,6 +334,27 @@ class Listing(models.Model):
         PrintPosition.LEFT: (0.3, 0.5),
         PrintPosition.RIGHT: (0.7, 0.5),
     }
+
+    @property
+    def printful_changes_not_sent(self):
+        """What differs between this listing and the product on Printful,
+        e.g. ["color (Khaki -> Black)"]. Empty when in step, or when unknown."""
+        if not self.is_connected:
+            return []
+        out = []
+        cur_bp = self.template.printful_blueprint_id
+        if self.printful_sent_blueprint_id and cur_bp != self.printful_sent_blueprint_id:
+            out.append(f"shirt (product {self.printful_sent_blueprint_id} \u2192 {cur_bp or 'none'})")
+        if self.printful_sent_color and self.color != self.printful_sent_color:
+            out.append(f"color ({self.printful_sent_color} \u2192 {self.color or 'none'})")
+        if self.printful_sent_placement and self.effective_print_placement != self.printful_sent_placement:
+            out.append(f"placement ({self.printful_sent_placement} \u2192 {self.effective_print_placement})")
+        return out
+
+    @property
+    def printful_sent_state_unknown(self):
+        """Sent before the console started recording what was sent."""
+        return self.is_connected and not (self.printful_sent_blueprint_id or self.printful_sent_color)
 
     @property
     def effective_print_placement(self):
@@ -401,7 +427,12 @@ class ListingSize(models.Model):
     width_in = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     height_in = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     price_override = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    # The id Printful gave this size once the listing was sent (a *sync*
+    # variant id). Orders to a sent listing use this one.
     printful_variant_id = models.CharField(max_length=40, blank=True)
+    # The id of this size in Printful's catalogue (what "Match sizes" finds).
+    # Used to build the product when sending, and for listings not yet sent.
+    printful_catalog_variant_id = models.CharField(max_length=40, blank=True)
     in_stock = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
 

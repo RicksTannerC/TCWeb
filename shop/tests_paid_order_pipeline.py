@@ -51,7 +51,9 @@ def make_order(*, variant_id="777", connected=False):
     listing = Listing.objects.create(design=design, template=tpl, product_type="tee",
                                      status=Status.LIVE, price=Decimal("40"),
                                      printful_product_id="999" if connected else "")
-    size = ListingSize.objects.create(listing=listing, label="M", printful_variant_id=variant_id)
+    # a sent listing carries a sync variant id; an unsent one a catalogue id
+    ids = {"printful_variant_id": variant_id} if connected else {"printful_catalog_variant_id": variant_id}
+    size = ListingSize.objects.create(listing=listing, label="M", **ids)
     order = Order.objects.create(status=OrderStatus.PENDING_PAYMENT)
     OrderItem.objects.create(order=order, listing=listing, listing_size=size, design_title="Pillars",
                              product_type="tee", size_label="M", quantity=1, unit_price=Decimal("40"))
@@ -494,3 +496,150 @@ class OperatingEntityTests(TestCase):
     def test_legal_name_is_configurable(self):
         with override_settings(SHOP_LEGAL_NAME="Other Co LLC"):
             self.assertIn("operated by Other Co LLC", Client().get("/").content.decode())
+
+
+
+@override_settings(STAFF_2FA_REQUIRED=False)
+class ResendToPrintfulTests(TestCase):
+    """Editing the shirt/color in the console must be able to reach Printful."""
+
+    def setUp(self):
+        self.c = Client()
+        self.c.force_login(get_user_model().objects.create_user("cur", password="x-12345-yz", is_staff=True))
+
+    def sent_listing(self, color="Khaki", labels=("S", "M")):
+        tpl = ProductTemplate.objects.create(name="Tee", product_type="tee", printful_blueprint_id="456")
+        listing = Listing.objects.create(
+            design=Design.objects.create(title="Wanderer"), template=tpl, product_type="tee", color=color,
+            printful_product_id="474865517", printful_sent_blueprint_id="456", printful_sent_color=color,
+            printful_sent_placement="front")
+        for i, label in enumerate(labels):
+            ListingSize.objects.create(listing=listing, label=label, printful_variant_id=str(9000 + i),
+                                       printful_catalog_variant_id=str(4000 + i))
+        return listing
+
+    def resend(self, listing, client):
+        with mock.patch.object(printful, "get_client", return_value=client):
+            r = self.c.post(f"/manage/listings/{listing.pk}/resend-to-printful/")
+        return self.c.get(r["Location"])  # render the result page with the real (mock) client, not this stub
+
+    def new_product_client(self):
+        client = mock.MagicMock(is_mock=False)
+
+        def create(payload):
+            return {"sync_product": {"id": 999},
+                    "sync_variants": [{"id": 8000 + i, "external_id": v["external_id"]}
+                                      for i, v in enumerate(payload["sync_variants"])]}
+        client.create_sync_product.side_effect = create
+        return client
+
+    def test_resend_builds_a_new_product_from_the_current_catalogue_ids(self):
+        listing = self.sent_listing()
+        client = self.new_product_client()
+        r = self.resend(listing, client)
+        payload = client.create_sync_product.call_args[0][0]
+        self.assertEqual([v["variant_id"] for v in payload["sync_variants"]], [4000, 4001])
+        self.assertNotEqual(payload["sync_product"]["external_id"], listing.slug)  # fresh, unique
+        listing.refresh_from_db()
+        self.assertEqual(listing.printful_product_id, "999")
+        self.assertEqual(dict(listing.sizes.values_list("label", "printful_variant_id")), {"S": "8000", "M": "8001"})
+        self.assertContains(r, "old product (474865517)")
+
+    def test_resend_never_deletes_the_old_product(self):
+        listing = self.sent_listing()
+        client = self.new_product_client()
+        self.resend(listing, client)
+        self.assertFalse([c for c in client.method_calls if "delete" in c[0] or "cancel" in c[0]])
+
+    def test_resend_records_what_was_sent(self):
+        listing = self.sent_listing()
+        listing.color = "Black"
+        listing.print_placement = "back"
+        listing.save()
+        self.resend(listing, self.new_product_client())
+        listing.refresh_from_db()
+        self.assertEqual((listing.printful_sent_color, listing.printful_sent_placement), ("Black", "back"))
+        self.assertEqual(listing.printful_changes_not_sent, [])
+
+    def test_resend_refuses_until_sizes_are_matched(self):
+        listing = self.sent_listing()
+        listing.sizes.update(printful_catalog_variant_id="")
+        client = self.new_product_client()
+        r = self.resend(listing, client)
+        self.assertContains(r, "Match sizes to Printful variants first")
+        client.create_sync_product.assert_not_called()
+        listing.refresh_from_db()
+        self.assertEqual(listing.printful_product_id, "474865517")
+
+    def test_a_printful_failure_leaves_the_listing_on_its_old_product(self):
+        listing = self.sent_listing()
+        client = mock.MagicMock(is_mock=False)
+        client.create_sync_product.side_effect = printful.PrintfulError("nope")
+        r = self.resend(listing, client)
+        self.assertContains(r, "wouldn")
+        listing.refresh_from_db()
+        self.assertEqual(listing.printful_product_id, "474865517")
+        self.assertEqual(listing.sizes.get(label="S").printful_variant_id, "9000")
+
+    def test_unsent_listing_is_told_to_use_send(self):
+        listing = self.sent_listing()
+        listing.printful_product_id = ""
+        listing.save()
+        r = self.resend(listing, self.new_product_client())
+        self.assertContains(r, "on Printful yet")
+
+    # ---- matching no longer touches the id orders use ----
+    def test_matching_sizes_on_a_sent_listing_does_not_overwrite_the_sync_ids(self):
+        listing = self.sent_listing(labels=("S", "M"))
+        self.c.post(f"/manage/listings/{listing.pk}/match-printful-sizes/")
+        self.assertEqual(dict(listing.sizes.values_list("label", "printful_variant_id")), {"S": "9000", "M": "9001"})
+
+    # ---- out-of-sync banner ----
+    def test_page_warns_when_color_or_shirt_changed_since_sending(self):
+        listing = self.sent_listing()
+        listing.color = "Black"
+        listing.save()
+        listing.template.printful_blueprint_id = "71"
+        listing.template.save()
+        page = self.c.get(f"/manage/listings/{listing.pk}/")
+        self.assertContains(page, "Printful still has the old version")
+        self.assertContains(page, "color (Khaki")
+        self.assertContains(page, "shirt (product 456")
+
+    def test_no_warning_when_in_step(self):
+        listing = self.sent_listing()
+        self.assertNotContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Printful still has the old version")
+
+    def test_sent_before_tracking_gets_a_gentle_note_not_an_alarm(self):
+        listing = self.sent_listing()
+        listing.printful_sent_blueprint_id = listing.printful_sent_color = listing.printful_sent_placement = ""
+        listing.save()
+        page = self.c.get(f"/manage/listings/{listing.pk}/")
+        self.assertContains(page, "before the console tracked")
+        self.assertNotContains(page, "Printful still has the old version")
+
+    def test_resend_button_only_on_sent_listings(self):
+        listing = self.sent_listing()
+        self.assertContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Re-send to Printful")
+        listing.printful_product_id = ""
+        listing.save()
+        self.assertNotContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Re-send to Printful")
+
+
+class UnsentIdMigrationTests(TestCase):
+    def test_unsent_listings_ids_move_to_the_catalogue_field(self):
+        import importlib
+
+        from django.apps import apps
+        mig = importlib.import_module("shop.migrations.0012_move_unsent_variant_ids_to_catalog")
+        tpl = ProductTemplate.objects.create(name="Tee", product_type="tee")
+        unsent = Listing.objects.create(design=Design.objects.create(title="A"), template=tpl, product_type="tee")
+        sent = Listing.objects.create(design=Design.objects.create(title="B"), template=tpl, product_type="tee",
+                                      printful_product_id="1")
+        a = ListingSize.objects.create(listing=unsent, label="M", printful_variant_id="4012")
+        b = ListingSize.objects.create(listing=sent, label="M", printful_variant_id="9000")
+        mig.move_unsent_ids(apps, None)
+        a.refresh_from_db()
+        b.refresh_from_db()
+        self.assertEqual((a.printful_variant_id, a.printful_catalog_variant_id), ("", "4012"))
+        self.assertEqual((b.printful_variant_id, b.printful_catalog_variant_id), ("9000", ""))

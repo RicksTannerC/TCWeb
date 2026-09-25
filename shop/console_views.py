@@ -365,6 +365,36 @@ def listing_send_to_printful(request, pk):
 
 @staff_member_required
 @require_POST
+def listing_resend_to_printful(request, pk):
+    """Build a fresh Printful product from the listing as it is now (new shirt,
+    color, placement...) and point the listing at it. A real Printful write,
+    made only on this click. The old product is left in the store, untouched."""
+    listing = get_object_or_404(Listing.objects.select_related("template", "design"), pk=pk)
+    if not listing.is_connected:
+        messages.error(request, "This listing isn't on Printful yet \u2014 use Send to Printful.")
+        return redirect("shop:manage_listing_edit", pk=pk)
+    if not getattr(printful.get_client(), "is_mock", False):
+        missing = printful.missing_catalog_sizes(listing)
+        if missing:
+            messages.error(
+                request,
+                f"Match sizes to Printful variants first \u2014 no match yet for: {', '.join(missing)}.")
+            return redirect("shop:manage_listing_edit", pk=pk)
+    old = listing.printful_product_id
+    try:
+        printful.sync_listing(listing, replace=True)
+    except printful.PrintfulError as exc:
+        messages.error(request, f"Printful wouldn't create the new product: {exc}")
+        return redirect("shop:manage_listing_edit", pk=pk)
+    messages.success(
+        request,
+        f"Sent to Printful as a new product ({listing.printful_product_id}). The old product ({old}) is "
+        "still in your Printful store \u2014 delete it there once you've checked the new one.")
+    return redirect("shop:manage_listing_edit", pk=pk)
+
+
+@staff_member_required
+@require_POST
 def listing_refresh_printful_sizes(request, pk):
     """Re-read this listing's Printful product and store each size's real sync
     variant id. A real, read-only Printful call, made only on this click."""
@@ -421,8 +451,8 @@ def listing_match_printful_sizes(request, pk):
 
     for s in sizes:
         if s.label in matches:
-            s.printful_variant_id = matches[s.label]
-            s.save(update_fields=["printful_variant_id"])
+            s.printful_catalog_variant_id = matches[s.label]
+            s.save(update_fields=["printful_catalog_variant_id"])
 
     if matches and not unmatched:
         messages.success(request, f"Matched all {len(matches)} size(s) to Printful variants.")

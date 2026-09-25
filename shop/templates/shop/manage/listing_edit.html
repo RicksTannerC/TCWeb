@@ -8,6 +8,15 @@
   <span class="tag">{{ listing.get_product_type_display }} &middot; {{ listing.get_status_display }}</span>
 </div>
 
+{% if listing.printful_changes_not_sent %}
+  <p class="form-note error"><strong>Printful still has the old version.</strong> You've changed
+    {{ listing.printful_changes_not_sent|join:", " }} since this was sent. Match sizes, then use
+    <em>Re-send to Printful</em> below &mdash; editing here doesn't change the product on Printful.</p>
+{% elif listing.printful_sent_state_unknown %}
+  <p class="form-note faint">This was sent to Printful before the console tracked what it was sent as. If you've
+    changed the shirt, color or placement since, match sizes and use <em>Re-send to Printful</em> below.</p>
+{% endif %}
+
 {% if not_us_produced %}
   <p class="form-note error"><strong>Not made in the US.</strong> Printful shows this product
     ({{ listing.template.printful_blueprint_name|default:"the linked product" }}) as available outside the US only,
@@ -93,7 +102,7 @@
     {% for s in listing.sizes.all %}
       <div class="row-2">
         <span>{{ s.label }}{% if s.measurements %} &mdash; {{ s.measurements }}{% endif %}
-          <span class="faint">{% if s.printful_variant_id %}&middot; Printful #{{ s.printful_variant_id }}{% else %}&middot; not matched to Printful{% endif %}</span>
+          <span class="faint">{% if s.printful_variant_id %}&middot; on Printful #{{ s.printful_variant_id }}{% endif %}{% if s.printful_catalog_variant_id %}&middot; matched #{{ s.printful_catalog_variant_id }}{% endif %}{% if not s.printful_variant_id and not s.printful_catalog_variant_id %}&middot; not matched to Printful{% endif %}</span>
         </span>
         <input name="size_price_{{ s.id }}" type="number" step="0.01" placeholder="inherits ${{ listing.price }}"
                value="{{ s.price_override|default_if_none:'' }}" />
@@ -149,6 +158,14 @@
   {% endif %}
   {% if listing.is_connected %}
     <p class="ok-text">Connected — product {{ listing.printful_product_id }}</p>
+    <form method="post" action="{% url 'shop:manage_listing_resend_printful' listing.pk %}"
+          onsubmit="return confirm('Create a new product on Printful from this listing as it is now? The old one stays in your Printful store.')">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--sm">Re-send to Printful</button>
+    </form>
+    <p class="faint">Builds a <strong>new</strong> Printful product from this listing as it is now (shirt, color,
+      placement, art) and switches to it. The old product is left in your Printful store for you to delete.
+      Match sizes first. A real call to your Printful account, made only when you click this.</p>
     <form method="post" action="{% url 'shop:manage_listing_refresh_printful_sizes' listing.pk %}">
       {% csrf_token %}
       <button type="submit" class="btn btn--ghost btn--sm">Refresh sizes from Printful</button>

@@ -11,6 +11,37 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-25 — Changing a listing's shirt/color now reaches Printful
+
+- **What:** the curator changed a template's shirt and a listing's color in the
+  console and Printful didn't change. The console only edits the local copy;
+  the Printful product is built once, at "Send to Printful", and nothing ever
+  updated it. Also found: "Match sizes" and "Send" wrote into the same id
+  field, so matching a listing already on Printful silently replaced the sync
+  ids orders depend on (the same class of bug as the first failed order).
+  - **Two id fields now.** `ListingSize.printful_variant_id` = the sync id
+    Printful gave after sending (what orders use); new
+    `printful_catalog_variant_id` = what Match sizes finds (what building a
+    product uses). Matching no longer touches the sync ids. Migration 0012
+    moves ids on never-sent listings to the catalogue field.
+  - **Re-send to Printful** (connected listings): builds a *new* product from
+    the listing as it is now and switches to it, with fresh external ids. The
+    old product is deliberately not deleted; the console says to remove it by
+    hand. Refuses until sizes are matched; a Printful failure leaves the
+    listing on its old product.
+  - **Out-of-date warning:** the listing records what it was sent as (shirt,
+    color, placement); the page says "Printful still has the old version"
+    when it has since changed. Listings sent before this get a gentle note.
+- **Files:** `shop/models.py`, `shop/printful.py`, `shop/fulfillment.py`,
+  `shop/console_views.py`, `shop/urls.py`, `listing_edit.html`, migrations
+  0011–0012, tests (`tests_paid_order_pipeline.py` + updated older ones).
+- **Verified:** 254 tests, all mocked; nothing was sent to Printful. The new
+  external-id scheme for a second product is unverified against real Printful.
+- **Follow-ups:** old Printful product(s) must be deleted by hand after a
+  re-send. Orders already placed against an old product keep the old ids.
+
+---
+
 ## 2026-09-25 — Legal-page corrections from an outside compliance read
 
 - **What:** an outside review of the live site flagged wording that was wrong
