@@ -11,6 +11,21 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-27 — Re-send button now looks inactive until sizes are matched
+
+- **What:** the curator clicked Re-send to Printful with unmatched sizes; the
+  server correctly refused, but from the button alone it looked like nothing
+  happened. The button is now visibly muted (same look as a real `:disabled`
+  button) whenever a size has no matched catalogue id, and clicking it in
+  that state shows a small popup naming the unmatched sizes instead of
+  submitting. The server-side refusal is unchanged — this is on top of it,
+  not instead of it.
+- **Files:** `shop/console_views.py` (context), `listing_edit.html`,
+  `style.css` (`.btn--needs-match`, `.btn-popup`).
+- **Verified:** 257 tests.
+
+---
+
 ## 2026-09-25 — Changing a listing's shirt/color now reaches Printful
 
 - **What:** the curator changed a template's shirt and a listing's color in the

@@ -437,6 +437,51 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--steel); out
 }
 .btn--sm { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
 
+/* Looks inactive (like a real :disabled button) but still clickable, so
+   clicking it can explain why instead of just doing nothing. */
+.btn--needs-match {
+  background: var(--line);
+  border-color: var(--line);
+  color: var(--ink-faint);
+  box-shadow: none;
+}
+.btn--needs-match:hover {
+  background: var(--line);
+  border-color: var(--line);
+  color: var(--ink-faint);
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-popup-wrap { position: relative; display: inline-block; }
+.btn-popup {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 5;
+  max-width: 22rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--step--1);
+  line-height: 1.4;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: var(--shadow-sm);
+  animation: tts-popup-in 0.14s ease;
+}
+.btn-popup::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 1.2rem;
+  border: 6px solid transparent;
+  border-bottom-color: var(--ink);
+}
+@keyframes tts-popup-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ---- search --------------------------------------------- */
 .shop-search {
   display: flex;

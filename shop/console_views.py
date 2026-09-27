@@ -339,6 +339,7 @@ def listing_edit(request, pk):
         "is_mock": getattr(printful.get_client(), "is_mock", False),
         "printful_colors": printful_colors,
         "not_us_produced": blueprint_id and printful.us_production(blueprint_id) is False,
+        "unmatched_sizes": printful.missing_catalog_sizes(listing) if listing.is_connected else [],
         "print_positions": PrintPosition.choices,
         "placement_choices": [(PrintPlacement.FRONT.value, "Front"), (PrintPlacement.BACK.value, "Back")],
     })

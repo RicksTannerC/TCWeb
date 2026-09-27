@@ -643,3 +643,41 @@ class UnsentIdMigrationTests(TestCase):
         b.refresh_from_db()
         self.assertEqual((a.printful_variant_id, a.printful_catalog_variant_id), ("", "4012"))
         self.assertEqual((b.printful_variant_id, b.printful_catalog_variant_id), ("9000", ""))
+
+
+@override_settings(STAFF_2FA_REQUIRED=False)
+class ResendButtonLooksInactiveTests(TestCase):
+    """The button must look muted (not just word-disabled) and clicking it in
+    that state must explain why, rather than silently refusing on the server."""
+
+    def setUp(self):
+        self.c = Client()
+        self.c.force_login(get_user_model().objects.create_user("cur", password="x-12345-yz", is_staff=True))
+
+    def listing(self, matched=False):
+        tpl = ProductTemplate.objects.create(name="Tee", product_type="tee")
+        listing = Listing.objects.create(design=Design.objects.create(title="W"), template=tpl,
+                                         product_type="tee", printful_product_id="474865517")
+        ListingSize.objects.create(listing=listing, label="S",
+                                   printful_catalog_variant_id="1" if matched else "")
+        ListingSize.objects.create(listing=listing, label="M",
+                                   printful_catalog_variant_id="2" if matched else "")
+        return listing
+
+    def test_button_is_muted_and_carries_the_unmatched_sizes_when_not_matched(self):
+        listing = self.listing(matched=False)
+        page = self.c.get(f"/manage/listings/{listing.pk}/").content.decode()
+        self.assertIn("btn--needs-match", page)
+        self.assertIn('data-unmatched="S, M"', page)
+
+    def test_button_is_normal_once_sizes_are_matched(self):
+        listing = self.listing(matched=True)
+        page = self.c.get(f"/manage/listings/{listing.pk}/").content.decode()
+        self.assertNotIn("btn--needs-match", page)
+        self.assertNotIn('data-unmatched="', page)
+
+    def test_popup_element_and_handler_are_on_the_page(self):
+        listing = self.listing(matched=False)
+        page = self.c.get(f"/manage/listings/{listing.pk}/").content.decode()
+        self.assertIn('id="resend-popup"', page)
+        self.assertIn("ttsResendSubmit", page)

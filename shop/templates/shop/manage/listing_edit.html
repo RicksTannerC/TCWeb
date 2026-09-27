@@ -158,14 +158,33 @@
   {% endif %}
   {% if listing.is_connected %}
     <p class="ok-text">Connected — product {{ listing.printful_product_id }}</p>
-    <form method="post" action="{% url 'shop:manage_listing_resend_printful' listing.pk %}"
-          onsubmit="return confirm('Create a new product on Printful from this listing as it is now? The old one stays in your Printful store.')">
-      {% csrf_token %}
-      <button type="submit" class="btn btn--sm">Re-send to Printful</button>
-    </form>
+    <div class="btn-popup-wrap">
+      <form method="post" action="{% url 'shop:manage_listing_resend_printful' listing.pk %}"
+            onsubmit="return ttsResendSubmit(event, this)">
+        {% csrf_token %}
+        <button type="submit" class="btn btn--sm{% if unmatched_sizes %} btn--needs-match{% endif %}"
+                {% if unmatched_sizes %}data-unmatched="{{ unmatched_sizes|join:', ' }}"{% endif %}>Re-send to Printful</button>
+      </form>
+      <div class="btn-popup" id="resend-popup" role="status" hidden></div>
+    </div>
     <p class="faint">Builds a <strong>new</strong> Printful product from this listing as it is now (shirt, color,
       placement, art) and switches to it. The old product is left in your Printful store for you to delete.
       Match sizes first. A real call to your Printful account, made only when you click this.</p>
+    <script>
+      function ttsResendSubmit(event, form) {
+        var btn = form.querySelector('button[data-unmatched]');
+        if (btn) {
+          event.preventDefault();
+          var popup = document.getElementById('resend-popup');
+          popup.textContent = 'Match sizes to Printful variants first — no match yet for: ' + btn.dataset.unmatched + '.';
+          popup.hidden = false;
+          clearTimeout(popup._ttsTimer);
+          popup._ttsTimer = setTimeout(function () { popup.hidden = true; }, 4000);
+          return false;
+        }
+        return confirm('Create a new product on Printful from this listing as it is now? The old one stays in your Printful store.');
+      }
+    </script>
     <form method="post" action="{% url 'shop:manage_listing_refresh_printful_sizes' listing.pk %}">
       {% csrf_token %}
       <button type="submit" class="btn btn--ghost btn--sm">Refresh sizes from Printful</button>
