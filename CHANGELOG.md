@@ -11,6 +11,27 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-09-29 — The app now auto-restarts after a reboot, sleep or crash
+
+- **What:** until now, only Cloudflared (already a Windows service) survived a
+  reboot; waitress had to be started by hand every time, which meant the site
+  stayed down until someone noticed and ran the PowerShell block. Added
+  `deploy/run_server.ps1`, a supervisor loop that sets `TCWEB_ENV_FILE`, starts
+  waitress, and restarts it 5 seconds after it exits, forever; it refuses to
+  start a second copy if port 8000 is already bound. A Windows Scheduled Task
+  (`TShirtBrandWebsite`, set up by the curator with the command in README.md)
+  runs it at startup, as the curator's own account (not SYSTEM or Local
+  System), since the repo lives inside OneDrive and needs that account's sync
+  context to read the files reliably.
+- **Files:** `deploy/run_server.ps1` (new), `README.md`.
+- **Verified:** killed the waitress process under a running supervisor and
+  confirmed it noticed and relaunched the app within 5 seconds. Registering
+  the scheduled task itself needs the curator's Windows password typed
+  directly into `schtasks`, so that one step, and a real reboot test, are
+  theirs to do and confirm.
+
+---
+
 ## 2026-09-27 — Re-send button now looks inactive until sizes are matched
 
 - **What:** the curator clicked Re-send to Printful with unmatched sizes; the

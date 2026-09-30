@@ -129,6 +129,30 @@ Current setup (interim, from a Windows machine):
   except through the tunnel.
 - Static files are served by WhiteNoise (run `collectstatic` after changing them);
   media is served from local disk only in `DEBUG` for now.
+- **The app auto-restarts after a reboot, sleep, or crash.** `deploy/run_server.ps1`
+  is a small supervisor loop (sets `TCWEB_ENV_FILE`, starts waitress, and just
+  restarts it 5 seconds after it ever exits, forever); it never starts a second
+  copy if port 8000 is already in use. A Windows Scheduled Task named
+  `TShirtBrandWebsite` runs that script at startup, so the site comes back on
+  its own even if no one is around to restart it by hand. Cloudflared is
+  already a Windows service and needs nothing here.
+  - **One-time setup** (run this once, in your own terminal — it prompts for
+    your Windows account password directly, never through anything else):
+    ```
+    schtasks /create /tn "TShirtBrandWebsite" /tr "powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File \"C:\Users\trick\OneDrive\Desktop\TShirtBrand\TCWeb\deploy\run_server.ps1\"" /sc onstart /ru trick /rp * /rl highest /f
+    ```
+    (`/rp *` is what makes it prompt for the password interactively instead of
+    taking it as a plain argument; `/ru trick` runs it as your own account,
+    which matters because the repo lives inside OneDrive.)
+  - **To restart the app by hand** during development, stop the task first so
+    the supervisor and a manual run don't both grab port 8000:
+    `Stop-ScheduledTask -TaskName "TShirtBrandWebsite"`, then start it again
+    when done: `Start-ScheduledTask -TaskName "TShirtBrandWebsite"`.
+  - Logs: `waitress.supervisor.log` (start/restart events),
+    `waitress.log`/`waitress.err.log` (the app itself, as before).
+  - Verified: killed the waitress process out from under a running supervisor
+    and confirmed it noticed and relaunched the app within 5 seconds, with no
+    manual action. Not yet verified across an actual machine reboot.
 
 Still to do for launch (Milestone 6): a VPS, Postgres (add a driver such as
 `psycopg` to `requirements.txt`), Cloudflare R2 for media, live Stripe and
