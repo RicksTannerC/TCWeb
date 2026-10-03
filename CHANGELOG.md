@@ -11,6 +11,43 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-03 — Several print areas on one shirt (large back + small front)
+
+- **What:** a listing could only ever have one print. It can now carry a main
+  print plus additional print areas, each with its own artwork, size and
+  position, e.g. a large back print and a small front design.
+  - New `ListingPrint` model (migration 0013): placement (front/back), optional
+    own `Design` (blank = same artwork as the main print), size, position. The
+    extra artwork reuses the existing private-artwork system, so signed links,
+    console-only viewing and upload validation work unchanged. The main print
+    stays on the Listing fields as before.
+  - Listing page: new "Additional print areas" panel (add with an upload or an
+    existing design, edit size/position, remove). Removing a print deletes
+    artwork that was uploaded just for it, never one a listing or another
+    print still uses. Clashes (two prints on one side) are refused, and an
+    extra that ends up on the main print's side is skipped when sending.
+  - Both sync (Send / Re-send) and orders for unsent listings now send every
+    print area. The listing records a fingerprint of the layout when sent, and
+    the "Printful still has the old version" banner now also fires when a
+    print area's side, size, position or artwork changes (before, only the
+    main print's side was tracked).
+  - New "Upper left" / "Upper right" position presets for chest-style prints
+    (as you look at the shirt). Position boxes are now kept inside the print
+    area; before, e.g. "Higher" at 100% could produce negative coordinates.
+- **Files:** `shop/models.py`, `shop/printful.py`, `shop/fulfillment.py`,
+  `shop/console_views.py`, `shop/urls.py`, `listing_edit.html`, migration 0013,
+  `shop/tests_multi_print.py` (34 tests).
+- **Verified:** 291 tests, all mocked; nothing was sent to Printful.
+- **Not verified (flagged):** the position/size numbers use a normalized square
+  rather than Printful's real print-area size, and the box is square whatever
+  shape the artwork is, so a non-square design may come out stretched or
+  offset. Check the product preview on Printful after Re-send before selling
+  a non-default size/position. Reading Printful's real print-area sizes would
+  fix this (one read-only call; needs the curator's OK). Printful also bills
+  each print area, so base cost needs raising by hand.
+
+---
+
 ## 2026-09-29 — The app now auto-restarts after a reboot, sleep or crash
 
 - **What:** until now, only Cloudflared (already a Windows service) survived a

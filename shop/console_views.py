@@ -31,6 +31,7 @@ from .models import (
     Listing,
     ListingImage,
     ListingSize,
+    ListingPrint,
     PrintPlacement,
     PrintPosition,
     ProductTemplate,
@@ -283,7 +284,7 @@ def design_artwork(request, pk):
 def listing_edit(request, pk):
     listing = get_object_or_404(
         Listing.objects.select_related("design", "template", "collection").prefetch_related(
-            "sizes", "images", "design__tags"
+            "sizes", "images", "design__tags", "prints__design"
         ),
         pk=pk,
     )
@@ -312,7 +313,16 @@ def listing_edit(request, pk):
             listing.print_position = request.POST["print_position"]
         # front/back (or blank = the template's default); unknown values are ignored
         if request.POST.get("print_placement", None) in ("", *(PrintPlacement.FRONT, PrintPlacement.BACK)):
-            listing.print_placement = request.POST["print_placement"]
+            new_placement = request.POST["print_placement"]
+            effective = new_placement or listing.template.print_placement or PrintPlacement.FRONT
+            clash = listing.prints.filter(placement=effective).first()
+            if clash:
+                messages.error(
+                    request,
+                    f"The {clash.get_placement_display().lower()} already has an additional print, so the main "
+                    "print can't move there. Remove that additional print first. Everything else was saved.")
+            else:
+                listing.print_placement = new_placement
         listing.save()
 
         for size in listing.sizes.all():
@@ -340,6 +350,12 @@ def listing_edit(request, pk):
         "printful_colors": printful_colors,
         "not_us_produced": blueprint_id and printful.us_production(blueprint_id) is False,
         "unmatched_sizes": printful.missing_catalog_sizes(listing) if listing.is_connected else [],
+        "prints": list(listing.prints.all()),
+        "free_placements": [
+            (v, l) for v, l in ((PrintPlacement.FRONT.value, "Front"), (PrintPlacement.BACK.value, "Back"))
+            if v != listing.effective_print_placement and not any(p.placement == v for p in listing.prints.all())
+        ],
+        "artwork_designs": Design.objects.exclude(artwork="").exclude(artwork__isnull=True).order_by("title"),
         "print_positions": PrintPosition.choices,
         "placement_choices": [(PrintPlacement.FRONT.value, "Front"), (PrintPlacement.BACK.value, "Back")],
     })
@@ -362,6 +378,106 @@ def listing_send_to_printful(request, pk):
     except printful.PrintfulError as exc:
         messages.error(request, str(exc))
     return redirect("shop:manage_listing_edit", pk=pk)
+
+
+def _scale_from(raw):
+    try:
+        return max(25, min(100, int(raw or 100)))
+    except (TypeError, ValueError):
+        return 100
+
+
+def _drop_orphan_design(design):
+    """Delete a design (and its private file) that nothing uses any more -- the
+    artwork uploaded just for an additional print, once that print is removed."""
+    if design is None:
+        return
+    if design.listings.exists() or design.used_as_extra_print.exists():
+        return
+    name = design.artwork.name if design.artwork else None
+    design.delete()
+    if name:
+        get_private_storage().delete(name)
+
+
+@staff_member_required
+@require_POST
+def listing_print_add(request, pk):
+    """Add another print area (e.g. a small front design) to a listing."""
+    listing = get_object_or_404(Listing.objects.select_related("design", "template"), pk=pk)
+    back = redirect(reverse("shop:manage_listing_edit", args=[pk]) + "#print-areas")
+
+    placement = request.POST.get("placement", "")
+    if placement not in (PrintPlacement.FRONT, PrintPlacement.BACK):
+        messages.error(request, "Choose front or back for the additional print.")
+        return back
+    label = PrintPlacement(placement).label
+    if placement == listing.effective_print_placement:
+        messages.error(request, f"The main print is already on the {label.lower()}. Move it first, or pick the other side.")
+        return back
+    if listing.prints.filter(placement=placement).exists():
+        messages.error(request, f"There is already an additional print on the {label.lower()}.")
+        return back
+
+    scale = _scale_from(request.POST.get("scale_pct"))
+    position = request.POST.get("position")
+    if position not in PrintPosition.values:
+        position = PrintPosition.CENTER
+
+    upload = request.FILES.get("artwork")
+    design = None
+    saved_name = None
+    try:
+        with transaction.atomic():
+            if upload:
+                if not _is_artwork(upload):
+                    messages.error(request, "That file isn't a readable PNG, JPEG, WebP or SVG image.")
+                    return back
+                design = Design.objects.create(title=f"{listing.design.title} \u2014 {label.lower()}"[:120])
+                design.artwork.save(upload.name, upload, save=True)
+                saved_name = design.artwork.name
+            elif request.POST.get("design"):
+                design = (Design.objects.exclude(artwork="").exclude(artwork__isnull=True)
+                          .filter(pk=request.POST["design"]).first()) if request.POST["design"].isdigit() else None
+                if design is None:
+                    messages.error(request, "That design has no artwork to print.")
+                    return back
+            ListingPrint.objects.create(
+                listing=listing, placement=placement, design=design, scale_pct=scale, position=position,
+                sort_order=listing.prints.count(),
+            )
+    except Exception:  # noqa: BLE001 - nothing half-made, file removed
+        logger.exception("Adding a print area to listing %s failed", pk)
+        if saved_name:
+            get_private_storage().delete(saved_name)
+        messages.error(request, "Couldn't add that print area. Nothing was saved; the error is in the server log.")
+        return back
+
+    messages.success(request, f"Added a {label.lower()} print. Update the base cost if Printful charges for it.")
+    return back
+
+
+@staff_member_required
+@require_POST
+def listing_print_update(request, pk, print_pk):
+    p = get_object_or_404(ListingPrint, pk=print_pk, listing_id=pk)
+    p.scale_pct = _scale_from(request.POST.get("scale_pct"))
+    if request.POST.get("position") in PrintPosition.values:
+        p.position = request.POST["position"]
+    p.save(update_fields=["scale_pct", "position"])
+    messages.success(request, f"{p.get_placement_display()} print updated.")
+    return redirect(reverse("shop:manage_listing_edit", args=[pk]) + "#print-areas")
+
+
+@staff_member_required
+@require_POST
+def listing_print_delete(request, pk, print_pk):
+    p = get_object_or_404(ListingPrint, pk=print_pk, listing_id=pk)
+    design, label = p.design, p.get_placement_display()
+    p.delete()
+    _drop_orphan_design(design)
+    messages.success(request, f"{label} print removed.")
+    return redirect(reverse("shop:manage_listing_edit", args=[pk]) + "#print-areas")
 
 
 @staff_member_required

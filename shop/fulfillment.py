@@ -101,7 +101,6 @@ def _line(item) -> dict:
             "open the listing and use 'Match sizes to Printful variants', then send it to Printful."
         )
 
-    url = listing.design.print_file_url
     line = {
         "quantity": item.quantity,
         "name": item.design_title,
@@ -112,7 +111,7 @@ def _line(item) -> dict:
     else:
         # Not synced yet: order straight off the catalog variant, with the art attached.
         line["variant_id"] = int(vid)
-        line["files"] = [{"url": url, **listing.print_file_payload()}] if url else []
+        line["files"] = listing.print_file_entries()
     return line
 
 

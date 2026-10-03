@@ -78,7 +78,7 @@
         {% for c in collections %}<option value="{{ c.id }}" {% if listing.collection_id == c.id %}selected{% endif %}>{{ c.name }}{% if c.is_base %} (base){% endif %}</option>{% endfor %}
       </select>
     </div>
-    <div class="field"><label for="print_placement">Print goes on the</label>
+    <div class="field"><label for="print_placement">Main print goes on the</label>
       <select id="print_placement" name="print_placement">
         <option value="" {% if not listing.print_placement %}selected{% endif %}>Template default ({{ listing.template.get_print_placement_display|default:"Front" }})</option>
         {% for value, label in placement_choices %}<option value="{{ value }}" {% if listing.print_placement == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
@@ -114,6 +114,70 @@
     <button type="submit" class="btn">Save</button>
   </div>
 </form>
+
+<div class="panel stack" id="print-areas">
+  <h2>Additional print areas</h2>
+  <p class="faint">The main print above goes on the <strong>{{ listing.effective_print_placement|title }}</strong>.
+    Add another to print a second design elsewhere &mdash; for example a large back print with a small front
+    design. Printful charges for every print area, so update <em>Base cost</em> above to match. Left, right and
+    upper are as you look at the shirt, not the wearer.</p>
+  {% if listing.print_conflicts %}
+    <p class="form-note error">An additional print is on the same side as the main print, so it is not being
+      sent. Remove it, or move the main print.</p>
+  {% endif %}
+  {% for p in prints %}
+    <div class="cluster print-row">
+      <form method="post" action="{% url 'shop:manage_listing_print_update' listing.pk p.pk %}" class="cluster">
+        {% csrf_token %}
+        <strong>{{ p.get_placement_display }}</strong>
+        <span class="faint">{% if p.design %}<a href="{% url 'shop:manage_design_artwork' p.design.pk %}" target="_blank" rel="noopener">{{ p.design.title }}</a>{% else %}same artwork as the main print{% endif %}</span>
+        <label class="faint">Size % <input name="scale_pct" type="number" min="25" max="100" step="5" value="{{ p.scale_pct }}" style="width:5rem;" /></label>
+        <select name="position" aria-label="Position">
+          {% for value, label in print_positions %}<option value="{{ value }}" {% if p.position == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="btn btn--sm btn--ghost">Save</button>
+      </form>
+      <form method="post" action="{% url 'shop:manage_listing_print_delete' listing.pk p.pk %}"
+            onsubmit="return confirm('Remove the {{ p.get_placement_display|lower }} print?')">
+        {% csrf_token %}
+        <button type="submit" class="linkish">remove</button>
+      </form>
+    </div>
+  {% empty %}
+    <p class="muted">No additional print areas.</p>
+  {% endfor %}
+  {% if free_placements %}
+    <form method="post" action="{% url 'shop:manage_listing_print_add' listing.pk %}" enctype="multipart/form-data" class="stack">
+      {% csrf_token %}
+      <h3>Add a print area</h3>
+      <div class="row-2">
+        <div class="field"><label for="new_placement">Goes on the</label>
+          <select id="new_placement" name="placement">
+            {% for value, label in free_placements %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select></div>
+        <div class="field"><label for="new_position">Position</label>
+          <select id="new_position" name="position">
+            {% for value, label in print_positions %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select></div>
+      </div>
+      <div class="row-2">
+        <div class="field"><label for="new_scale">Size (% of the area)</label>
+          <input id="new_scale" name="scale_pct" type="number" min="25" max="100" step="5" value="30" /></div>
+        <div class="field"><label for="new_artwork">Artwork</label>
+          <input id="new_artwork" name="artwork" type="file" accept="image/*" /></div>
+      </div>
+      <div class="field"><label for="new_design">&hellip;or reuse artwork already uploaded</label>
+        <select id="new_design" name="design">
+          <option value="">Same artwork as the main print</option>
+          {% for d in artwork_designs %}<option value="{{ d.pk }}">{{ d.title }}</option>{% endfor %}
+        </select>
+        <span class="faint">An uploaded file wins over this choice.</span></div>
+      <button type="submit" class="btn btn--sm">Add print area</button>
+    </form>
+  {% else %}
+    <p class="faint">Both sides are in use.</p>
+  {% endif %}
+</div>
 
 <div class="panel stack">
   <h2>Imagery</h2>

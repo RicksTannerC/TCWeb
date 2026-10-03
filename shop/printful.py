@@ -170,10 +170,9 @@ def sync_listing(listing, *, replace=False):
     from .models import Status
 
     client = get_client()
-    # print_file_url signs a fresh, short-lived link each call, so it is built
-    # right before the API call rather than stored anywhere.
-    url = listing.design.print_file_url
-    files = [{"url": url, **listing.print_file_payload()}] if url else []
+    # Each artwork link is signed fresh and short-lived on every call, so the
+    # entries are built right before the API call rather than stored anywhere.
+    files = listing.print_file_entries()
     ext = f"{listing.slug}-r{int(time.time())}" if replace else listing.slug
     payload = {
         "sync_product": {"name": listing.design.title, "external_id": ext},
@@ -201,8 +200,9 @@ def sync_listing(listing, *, replace=False):
     listing.printful_sent_blueprint_id = listing.template.printful_blueprint_id
     listing.printful_sent_color = listing.color
     listing.printful_sent_placement = listing.effective_print_placement
+    listing.printful_sent_prints = listing.print_signature()
     listing.save(update_fields=["printful_product_id", "status", "updated", "printful_sent_blueprint_id",
-                                "printful_sent_color", "printful_sent_placement"])
+                                "printful_sent_color", "printful_sent_placement", "printful_sent_prints"])
     return result
 
 

@@ -68,6 +68,8 @@ class PrintPosition(models.TextChoices):
     LOWER = "lower", "Lower"
     LEFT = "left", "Toward the left"
     RIGHT = "right", "Toward the right"
+    TOP_LEFT = "top_left", "Upper left"
+    TOP_RIGHT = "top_right", "Upper right"
 
 
 class Tag(models.Model):
@@ -199,6 +201,47 @@ class ProductTemplate(models.Model):
         return raw.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
+# Where each position preset nudges a print, as a fraction of its placement
+# area (0.5, 0.5 = dead center). Left/right/upper are as you look at the shirt.
+POSITION_OFFSETS = {
+    PrintPosition.CENTER: (0.5, 0.5),
+    PrintPosition.HIGHER: (0.5, 0.3),
+    PrintPosition.LOWER: (0.5, 0.7),
+    PrintPosition.LEFT: (0.3, 0.5),
+    PrintPosition.RIGHT: (0.7, 0.5),
+    PrintPosition.TOP_LEFT: (0.3, 0.25),
+    PrintPosition.TOP_RIGHT: (0.7, 0.25),
+}
+
+
+def placement_payload(placement, scale_pct, position):
+    """One print area in the shape Printful's `files[]` entries expect: `type`,
+    plus a `position` object of area/width/height/top/left.
+
+    Best-effort: `area_width`/`area_height` are a normalized 1:1 square rather
+    than the placement's real pixel dimensions (which come from Printful's own
+    per-blueprint print-file spec and aren't fetched here), and the box is
+    square whatever shape the artwork is. Not verified against a real Printful
+    order -- check the product preview on Printful before trusting a
+    non-default scale/position for a paying customer. The default (100%,
+    centered) needs no positioning fields at all and is the safe case.
+    The box is kept inside the area (a print can't hang off the shirt).
+    """
+    if scale_pct >= 100 and position == PrintPosition.CENTER:
+        return {"type": placement}
+    cx, cy = POSITION_OFFSETS.get(position, (0.5, 0.5))
+    scale = max(25, min(100, scale_pct)) / 100
+    area = 1000
+    size = round(area * scale)
+    top = max(0, min(area - size, round(cy * area - size / 2)))
+    left = max(0, min(area - size, round(cx * area - size / 2)))
+    return {
+        "type": placement,
+        "position": {"area_width": area, "area_height": area, "width": size, "height": size,
+                     "top": top, "left": left},
+    }
+
+
 class Design(models.Model):
     """The artwork. Parent of its listings."""
 
@@ -269,6 +312,9 @@ class Listing(models.Model):
     printful_sent_blueprint_id = models.CharField(max_length=40, blank=True)
     printful_sent_color = models.CharField(max_length=40, blank=True)
     printful_sent_placement = models.CharField(max_length=40, blank=True)
+    # A fingerprint of every print area (placement, size, position, artwork) at
+    # the time it was sent -- see print_signature().
+    printful_sent_prints = models.CharField(max_length=255, blank=True)
 
     # Simple, curator-editable positioning within the template's placement
     # area (front/back/etc. — see ProductTemplate.print_placement). Not
@@ -325,15 +371,7 @@ class Listing(models.Model):
     def is_connected(self):
         return bool(self.printful_product_id)
 
-    # Where each position preset nudges the print, as a fraction of the
-    # placement area (0.5, 0.5 = dead center).
-    _POSITION_OFFSETS = {
-        PrintPosition.CENTER: (0.5, 0.5),
-        PrintPosition.HIGHER: (0.5, 0.3),
-        PrintPosition.LOWER: (0.5, 0.7),
-        PrintPosition.LEFT: (0.3, 0.5),
-        PrintPosition.RIGHT: (0.7, 0.5),
-    }
+    _POSITION_OFFSETS = POSITION_OFFSETS
 
     @property
     def printful_changes_not_sent(self):
@@ -347,7 +385,10 @@ class Listing(models.Model):
             out.append(f"shirt (product {self.printful_sent_blueprint_id} \u2192 {cur_bp or 'none'})")
         if self.printful_sent_color and self.color != self.printful_sent_color:
             out.append(f"color ({self.printful_sent_color} \u2192 {self.color or 'none'})")
-        if self.printful_sent_placement and self.effective_print_placement != self.printful_sent_placement:
+        if self.printful_sent_prints:
+            if self.print_signature() != self.printful_sent_prints:
+                out.append("print areas (placement, size, position or artwork)")
+        elif self.printful_sent_placement and self.effective_print_placement != self.printful_sent_placement:
             out.append(f"placement ({self.printful_sent_placement} \u2192 {self.effective_print_placement})")
         return out
 
@@ -361,34 +402,43 @@ class Listing(models.Model):
         return self.print_placement or self.template.print_placement or PrintPlacement.FRONT
 
     def print_file_payload(self):
-        """This listing's placement, scale and position, in the shape
-        Printful's sync-variant `files[]` entries expect (`type`, plus a
-        `position` object of area/width/height/top/left).
+        """The MAIN print's placement, scale and position (see placement_payload)."""
+        return placement_payload(self.effective_print_placement, self.print_scale_pct, self.print_position)
 
-        Best-effort: `area_width`/`area_height` are a normalized 1:1 square
-        rather than the placement's real pixel dimensions (which come from
-        Printful's own per-blueprint print-file spec and aren't fetched
-        here), so `width`/`height`/`top`/`left` are expressed proportionally
-        against that same square. This has not been verified against a real
-        Printful order — confirm it against a real API response, or a real
-        test order, before relying on a non-default scale/position for a
-        paying customer's order. The default (100% scale, centered) is the
-        safe, always-correct case: no positioning fields needed at all.
-        """
-        cx, cy = self._POSITION_OFFSETS.get(self.print_position, (0.5, 0.5))
-        placement = self.effective_print_placement
-        if self.print_scale_pct >= 100 and self.print_position == PrintPosition.CENTER:
-            return {"type": placement}
-        scale = max(25, min(100, self.print_scale_pct)) / 100
-        area = 1000
-        size = round(area * scale)
-        top = round(cy * area - size / 2)
-        left = round(cx * area - size / 2)
-        return {
-            "type": placement,
-            "position": {"area_width": area, "area_height": area, "width": size, "height": size,
-                         "top": top, "left": left},
-        }
+    @property
+    def extra_prints(self):
+        """Additional print areas that don't clash with the main one's placement."""
+        main = self.effective_print_placement
+        return [p for p in self.prints.all() if p.placement != main]
+
+    @property
+    def print_conflicts(self):
+        """Additional prints sharing the main print's placement (e.g. the template's
+        default placement was changed to match). They are not sent."""
+        main = self.effective_print_placement
+        return [p for p in self.prints.all() if p.placement == main]
+
+    def print_signature(self):
+        """A stable fingerprint of every print area, to notice when the layout
+        changed after the product was sent to Printful."""
+        parts = [f"{self.effective_print_placement}:{self.print_scale_pct}:{self.print_position}:d{self.design_id}"]
+        parts += [f"{p.placement}:{p.scale_pct}:{p.position}:d{p.design_id or self.design_id}"
+                  for p in self.extra_prints]
+        return "|".join(sorted(parts))[:255]
+
+    def print_file_entries(self):
+        """Every print area as a Printful `files[]` entry (main first), each with
+        its own freshly signed artwork link. An area whose design has no artwork
+        is skipped; so is an extra that clashes with the main placement."""
+        entries = []
+        main_url = self.design.print_file_url
+        if main_url:
+            entries.append({"url": main_url, **self.print_file_payload()})
+        for p in self.extra_prints:
+            url = (p.design or self.design).print_file_url
+            if url:
+                entries.append({"url": url, **p.file_payload()})
+        return entries
 
     @property
     def landed_cost(self):
@@ -417,6 +467,35 @@ class Listing(models.Model):
     @property
     def primary_image(self):
         return self.images.first()
+
+
+class ListingPrint(models.Model):
+    """An additional print area on a listing: e.g. a small front design on a
+    shirt whose main print (on the Listing itself) is a large back print."""
+
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="prints")
+    placement = models.CharField(max_length=40, choices=PrintPlacement.choices)
+    design = models.ForeignKey(
+        Design, on_delete=models.PROTECT, null=True, blank=True, related_name="used_as_extra_print",
+        help_text="Blank = the same artwork as the listing's main print.",
+    )
+    scale_pct = models.PositiveSmallIntegerField(
+        default=100, help_text="How large the print runs within its placement area (25-100%).",
+    )
+    position = models.CharField(max_length=12, choices=PrintPosition.choices, default=PrintPosition.CENTER)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["listing", "placement"], name="one_extra_print_per_placement"),
+        ]
+
+    def __str__(self):
+        return f"{self.listing} \u2014 {self.get_placement_display()}"
+
+    def file_payload(self):
+        return placement_payload(self.placement, self.scale_pct, self.position)
 
 
 class ListingSize(models.Model):
