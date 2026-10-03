@@ -11,6 +11,28 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-03 — Reorder a listing's images (and choose the cover)
+
+- **What:** images could be added and deleted but never reordered. Each image in
+  the editor's Imagery section now has ← / → buttons and a "make cover" link; the
+  first image is labelled Cover. The order is exactly what shoppers see in the
+  carousel, and the first image is also the picture on the shop tile, in the cart
+  and on the landing card (`Listing.primary_image`). Plain buttons rather than
+  drag-and-drop, since those work reliably on a phone.
+  - The whole set is renumbered 0..n-1 on every move, which also heals duplicate
+    sort values (the old mock button created rows that all had 0).
+  - New uploads now go to the end of the current order (they used `count()`, which
+    could collide after a delete or move; a first upload into an empty listing
+    starts at 0). Several files in one upload each get their own place.
+  - Moving, adding or deleting an image returns to the Imagery section.
+- **Files:** `shop/console_views.py` (`image_move`, `listing_add_image`,
+  `image_delete`), `shop/urls.py`, `listing_edit.html`, `style.css`,
+  `shop/tests_image_order.py` (18 tests).
+- **Verified:** 330 tests (including that the public carousel and the cover follow
+  the new order); and a real click in a browser against a scratch instance.
+
+---
+
 ## 2026-10-03 — Color picker with Printful's real swatches, photo and link
 
 - **What:** the listing editor's color field is now a dropdown whose options each

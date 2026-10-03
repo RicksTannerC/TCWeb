@@ -220,13 +220,27 @@
   {% endif %}
 </div>
 
-<div class="panel stack">
+<div class="panel stack" id="imagery">
   <h2>Imagery</h2>
+  {% if listing.images.count > 1 %}
+    <p class="faint">This is the order shoppers see in the carousel. The first image is the cover &mdash; the
+      picture on the shop tile, in the cart and on the landing page.</p>
+  {% endif %}
   <div class="image-strip">
     {% for img in listing.images.all %}
       <figure class="image-cell">
         {% if img.image %}<img src="{{ img.image.url }}" alt="{{ img.alt_text }}" />{% else %}<span class="faint">(no file)</span>{% endif %}
-        <figcaption class="faint">{{ img.get_kind_display }}</figcaption>
+        <figcaption class="faint">{{ forloop.counter }}{% if forloop.first %} &middot; <strong>Cover</strong>{% endif %} &middot; {{ img.get_kind_display }}</figcaption>
+        {% if listing.images.count > 1 %}
+          <form method="post" action="{% url 'shop:manage_image_move' img.pk %}" class="image-move">
+            {% csrf_token %}
+            <button type="submit" name="direction" value="earlier" class="btn btn--sm btn--ghost"
+                    aria-label="Move image {{ forloop.counter }} earlier" {% if forloop.first %}disabled{% endif %}>&larr;</button>
+            <button type="submit" name="direction" value="later" class="btn btn--sm btn--ghost"
+                    aria-label="Move image {{ forloop.counter }} later" {% if forloop.last %}disabled{% endif %}>&rarr;</button>
+            {% if not forloop.first %}<button type="submit" name="direction" value="first" class="linkish">make cover</button>{% endif %}
+          </form>
+        {% endif %}
         <form method="post" action="{% url 'shop:manage_image_delete' img.pk %}">{% csrf_token %}<button class="linkish" type="submit">delete</button></form>
       </figure>
     {% empty %}<p class="muted">No images yet.</p>{% endfor %}

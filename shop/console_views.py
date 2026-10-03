@@ -13,7 +13,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db import transaction
-from django.db.models import Count, Sum
+from django.db.models import Count, Max, Sum
 from django.db.models.deletion import ProtectedError
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -612,13 +612,16 @@ def listing_set_status(request, pk):
 @require_POST
 def listing_add_image(request, pk):
     listing = get_object_or_404(Listing, pk=pk)
+    highest = listing.images.aggregate(m=Max("sort_order"))["m"]
+    next_order = 0 if highest is None else highest + 1
     for f in request.FILES.getlist("image"):
         ListingImage.objects.create(
             listing=listing, image=f, kind=request.POST.get("kind", ListingImage.Kind.LIFESTYLE),
-            sort_order=listing.images.count(),
+            sort_order=next_order,
         )
+        next_order += 1
     messages.success(request, "Image added.")
-    return redirect("shop:manage_listing_edit", pk=pk)
+    return redirect(reverse("shop:manage_listing_edit", args=[pk]) + "#imagery")
 
 
 @staff_member_required
@@ -646,11 +649,39 @@ def listing_generate_mockups(request, pk):
 
 @staff_member_required
 @require_POST
+def image_move(request, pk):
+    """Reorder a listing's images: one step earlier/later, or straight to the front.
+    The first image is the shop's cover (tiles, cart, landing card) and opens the
+    carousel, so this is also how the cover is chosen. The whole set is renumbered
+    0..n-1 each time, which also heals any duplicate sort values."""
+    img = get_object_or_404(ListingImage, pk=pk)
+    back = redirect(reverse("shop:manage_listing_edit", args=[img.listing_id]) + "#imagery")
+    direction = request.POST.get("direction")
+    if direction not in ("earlier", "later", "first"):
+        messages.error(request, "Unknown way to move an image.")
+        return back
+
+    images = list(ListingImage.objects.filter(listing_id=img.listing_id))  # sort_order, id
+    i = next(n for n, x in enumerate(images) if x.pk == img.pk)
+    if direction == "first":
+        images.insert(0, images.pop(i))
+    else:
+        j = i - 1 if direction == "earlier" else i + 1
+        if 0 <= j < len(images):
+            images[i], images[j] = images[j], images[i]
+    for n, x in enumerate(images):
+        x.sort_order = n
+    ListingImage.objects.bulk_update(images, ["sort_order"])
+    return back
+
+
+@staff_member_required
+@require_POST
 def image_delete(request, pk):
     img = get_object_or_404(ListingImage, pk=pk)
     listing_pk = img.listing_id
     img.delete()
-    return redirect("shop:manage_listing_edit", pk=listing_pk)
+    return redirect(reverse("shop:manage_listing_edit", args=[listing_pk]) + "#imagery")
 
 
 # ------------------------------------------------------------------ product templates

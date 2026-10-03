@@ -1045,6 +1045,8 @@ body.console { background: var(--ground, var(--paper)); }
 .image-cell { width: 110px; display: grid; gap: 0.2rem; text-align: center; }
 .image-cell img { width: 110px; height: 130px; object-fit: cover; background: var(--black); border: 1px solid var(--line); }
 .image-cell figcaption { font-size: 0.68rem; }
+.image-move { display: flex; flex-wrap: wrap; gap: 0.3rem; justify-content: center; align-items: center; }
+.image-move .btn { padding: 0.25rem 0.7rem; min-width: 2.4rem; }
 
 .member-list { list-style: none; padding: 0; display: grid; gap: 0.3rem; max-height: 22rem; overflow-y: auto; }
 .member-list label { display: flex; gap: 0.5rem; align-items: baseline; font-size: var(--step-0); color: var(--ink); }
