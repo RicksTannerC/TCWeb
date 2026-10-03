@@ -42,15 +42,56 @@
   <div class="panel stack">
     <h2>Listing</h2>
     <div class="field"><label for="color">Color</label>
-      {% if printful_colors %}
-        <select id="color" name="color">
-          <option value="">&mdash;</option>
-          {% for c in printful_colors %}<option value="{{ c }}" {% if listing.color == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
-          {% if listing.color and listing.color not in printful_colors %}
-            <option value="{{ listing.color }}" selected>{{ listing.color }} (not a real Printful color &mdash; pick one above)</option>
-          {% endif %}
-        </select>
-        <p class="faint">From {{ listing.template.printful_blueprint_name|default:"the linked Printful product" }}'s real color options.</p>
+      {% if color_options %}
+        <div class="color-picker" x-data="ttsColorPicker()" @click.outside="open = false" @keydown.escape="open = false"
+             data-value="{{ listing.color }}" data-swatch="{{ current_color.swatch }}" data-image="{{ current_color.image }}"
+             data-product-url="{{ printful_product_url }}">
+          <input type="hidden" id="color" name="color" value="{{ listing.color }}" :value="value" />
+          <button type="button" class="color-picker__trigger" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="listbox">
+            <span class="swatch" :class="{ 'swatch--none': !swatch }" :style="swatch ? 'background:' + swatch : ''"></span>
+            <span class="color-picker__name" x-text="value || '\u2014 choose a color'"></span>
+            <span class="color-picker__caret">&#9662;</span>
+          </button>
+          <ul class="color-picker__menu" role="listbox" x-show="open" x-cloak>
+            <li><button type="button" role="option" class="color-picker__opt" data-name="" @click="pick($el)">
+              <span class="swatch swatch--none"></span><span class="color-picker__name">&mdash;</span></button></li>
+            {% for o in color_options %}
+              <li><button type="button" role="option" class="color-picker__opt" data-name="{{ o.name }}"
+                          data-swatch="{{ o.swatch }}" data-image="{{ o.image }}" @click="pick($el)">
+                <span class="swatch{% if not o.swatch %} swatch--none{% endif %}"{% if o.swatch %} style="background:{{ o.swatch }}"{% endif %}></span>
+                <span class="color-picker__name">{{ o.name }}</span></button></li>
+            {% endfor %}
+          </ul>
+          <div class="color-preview" x-show="image || link" x-cloak>
+            <img x-show="image" :src="image" alt="This color on the Printful blank" width="140" height="140"
+                 loading="lazy" referrerpolicy="no-referrer" />
+            <a x-show="link" :href="link" target="_blank" rel="noopener noreferrer">See this color on Printful &#8599;</a>
+          </div>
+        </div>
+        {% if listing.color and not current_color %}
+          <p class="form-note error"><strong>&ldquo;{{ listing.color }}&rdquo;</strong> is not a real Printful color for this
+            shirt &mdash; pick one from the list.</p>
+        {% endif %}
+        <p class="faint">From {{ listing.template.printful_blueprint_name|default:"the linked Printful product" }}'s real color options;
+          swatches are Printful's own color values.</p>
+        <script>
+          function ttsColorPicker() {
+            return {
+              open: false, value: '', swatch: '', image: '', base: '',
+              init() {
+                var d = this.$el.dataset;
+                this.value = d.value || ''; this.swatch = d.swatch || ''; this.image = d.image || ''; this.base = d.productUrl || '';
+              },
+              pick(el) {
+                this.value = el.dataset.name || ''; this.swatch = el.dataset.swatch || ''; this.image = el.dataset.image || '';
+                this.open = false;
+              },
+              get link() {
+                return this.base ? this.base + (this.value ? '?color=' + encodeURIComponent(this.value) : '') : '';
+              }
+            };
+          }
+        </script>
       {% else %}
         <input id="color" name="color" value="{{ listing.color }}" />
         {% if listing.template.printful_blueprint_id %}

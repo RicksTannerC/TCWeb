@@ -10,6 +10,7 @@ mirror the subset of Printful's v1 API this app touches.
 from __future__ import annotations
 
 import hashlib
+import re
 
 import httpx
 from django.conf import settings
@@ -118,6 +119,65 @@ def us_production(blueprint_id):
     if not regions:
         return None
     return "US" in regions
+
+
+_HEX_RE = re.compile(r"#?([0-9a-fA-F]{6})")
+
+
+def _clean_hex(value):
+    """'#RRGGBB' from whatever Printful sent, or '' -- only ever six hex digits, because
+    this ends up inside a style attribute."""
+    m = _HEX_RE.fullmatch(str(value or "").strip())
+    return f"#{m.group(1).lower()}" if m else ""
+
+
+def _clean_image_url(value):
+    """An https image URL as Printful sent it, or '' -- anything else is dropped."""
+    v = str(value or "").strip()
+    return v if v.startswith("https://") and len(v) < 500 and not re.search(r"[\s\"'<>]", v) else ""
+
+
+def _swatch_css(hex1, hex2):
+    if hex1 and hex2 and hex2 != hex1:
+        return f"linear-gradient(135deg, {hex1} 50%, {hex2} 50%)"
+    return hex1
+
+
+def catalog_color_options(blueprint_id):
+    """Each color of a Printful product, for the listing's color picker:
+    [{"name", "hex", "hex2", "swatch" (css background), "image" (https photo of
+    that color)}], sorted by name. Built from the variants already fetched for
+    the color list, so it costs no extra Printful call. hex/image are '' when
+    Printful didn't provide them."""
+    if not blueprint_id:
+        return []
+    found = {}
+    for v in _cached_variants(blueprint_id).get("variants", []):
+        name = str(v.get("color") or "").strip()
+        if not name:
+            continue
+        opt = found.setdefault(name, {"name": name, "hex": "", "hex2": "", "image": ""})
+        opt["hex"] = opt["hex"] or _clean_hex(v.get("color_code"))
+        opt["hex2"] = opt["hex2"] or _clean_hex(v.get("color_code2"))
+        opt["image"] = opt["image"] or _clean_image_url(v.get("image"))
+    options = sorted(found.values(), key=lambda o: o["name"].lower())
+    for o in options:
+        o["swatch"] = _swatch_css(o["hex"], o["hex2"])
+    return options
+
+
+def dashboard_product_url(product_name, product_type="tee"):
+    """Best-effort link to this blank's page in the Printful dashboard (where its
+    colors are shown on the real shirt), built from the pattern of a real link:
+    /dashboard/custom/mens/t-shirts/<title-slug>?color=<Color>. Returns '' for
+    anything but a tee or when the name is unknown. Printful doesn't publish this
+    URL in its API, so it is a constructed link, not a looked-up one."""
+    if product_type != "tee":
+        return ""
+    slug = re.sub(r"[^a-z0-9]+", "-", str(product_name or "").lower().replace("/", " ")).strip("-")
+    if not slug:
+        return ""
+    return f"https://www.printful.com/dashboard/custom/mens/t-shirts/{slug}"
 
 
 def catalog_colors(blueprint_id):
@@ -348,7 +408,8 @@ class MockPrintful:
         return {
             "product": product,
             "variants": [
-                {"id": _fake_id(blueprint_id, color, size), "size": size, "color": color, "price": "11.00"}
+                {"id": _fake_id(blueprint_id, color, size), "size": size, "color": color, "price": "11.00",
+                 "color_code": {"Black": "#0b0b0b", "White": "#ffffff", "Khaki": "#b8a77f"}[color]}
                 for color in ["Black", "White", "Khaki"]
                 for size in ["S", "M", "L", "XL", "2XL"]
             ],

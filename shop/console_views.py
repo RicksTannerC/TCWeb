@@ -333,13 +333,14 @@ def listing_edit(request, pk):
         messages.success(request, "Saved.")
         return redirect("shop:manage_listing_edit", pk=pk)
 
-    printful_colors = []
+    color_options = []
     blueprint_id = listing.template.printful_blueprint_id
     if blueprint_id:
         try:
-            printful_colors = printful.catalog_colors(blueprint_id)
+            color_options = printful.catalog_color_options(blueprint_id)
         except printful.PrintfulError:
             pass  # fall back to the free-text color field below; never break the page over this
+    current_color = next((o for o in color_options if o["name"] == listing.color), None)
 
     return render(request, "shop/manage/listing_edit.html", {
         "listing": listing,
@@ -347,7 +348,10 @@ def listing_edit(request, pk):
         "all_tags": Tag.objects.all(),
         "image_kinds": ListingImage.Kind.choices,
         "is_mock": getattr(printful.get_client(), "is_mock", False),
-        "printful_colors": printful_colors,
+        "color_options": color_options,
+        "current_color": current_color,
+        "printful_product_url": printful.dashboard_product_url(
+            listing.template.printful_blueprint_name, listing.product_type) if color_options else "",
         "not_us_produced": blueprint_id and printful.us_production(blueprint_id) is False,
         "unmatched_sizes": printful.missing_catalog_sizes(listing) if listing.is_connected else [],
         "prints": list(listing.prints.all()),

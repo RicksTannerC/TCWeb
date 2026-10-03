@@ -437,6 +437,38 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--steel); out
 }
 .btn--sm { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
 
+/* ---- color picker (listing editor): a dropdown whose options carry a swatch ---- */
+.swatch {
+  display: inline-block; flex: none;
+  width: 1.15rem; height: 1.15rem; border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+.swatch--none { background: repeating-linear-gradient(45deg, transparent 0 3px, var(--line) 3px 4px); }
+.color-picker { position: relative; display: grid; gap: 0.6rem; max-width: 22rem; }
+.color-picker__trigger,
+.color-picker__opt {
+  display: flex; align-items: center; gap: 0.6rem; width: 100%;
+  font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+  background: var(--paper); border: 1px solid var(--line-strong); border-radius: var(--radius);
+  padding: 0.5rem 0.7rem;
+}
+.color-picker__trigger:hover,
+.color-picker__opt:hover,
+.color-picker__opt:focus-visible { border-color: var(--ink); }
+.color-picker__name { flex: 1; }
+.color-picker__caret { color: var(--ink-faint); }
+.color-picker__menu {
+  position: absolute; top: calc(2.6rem + 2px); left: 0; right: 0; z-index: 20;
+  list-style: none; margin: 0; padding: 0.25rem; display: grid; gap: 0.15rem;
+  max-height: 18rem; overflow-y: auto;
+  background: var(--paper); border: 1px solid var(--line-strong); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.color-picker__opt { border-color: transparent; }
+.color-preview { display: grid; gap: 0.4rem; justify-items: start; }
+.color-preview img { border-radius: var(--radius); border: 1px solid var(--line); background: #fff; object-fit: contain; }
+
 /* Looks inactive (like a real :disabled button) but still clickable, so
    clicking it can explain why instead of just doing nothing. */
 .btn--needs-match {

@@ -172,7 +172,9 @@ class ColorDropdownTests(ConsoleBase):
     def test_with_a_printful_product_shows_a_dropdown_of_real_colors(self):
         listing = make_listing(blueprint_id="456")
         page = self.c.get(f"/manage/listings/{listing.pk}/")
-        self.assertContains(page, '<select id="color"')
+        self.assertContains(page, 'class="color-picker"')
+        self.assertContains(page, '<input type="hidden" id="color" name="color"')
+        self.assertNotContains(page, '<input id="color"')
         self.assertContains(page, ">Black<")
         self.assertContains(page, ">Khaki<")
 
@@ -181,12 +183,12 @@ class ColorDropdownTests(ConsoleBase):
         listing.color = "Mauve"
         listing.save()
         page = self.c.get(f"/manage/listings/{listing.pk}/")
-        self.assertContains(page, "not a real Printful color")
-        self.assertContains(page, 'value="Mauve" selected')
+        self.assertContains(page, "is not a real Printful color")
+        self.assertContains(page, 'value="Mauve"')  # kept, not silently dropped
 
     def test_printful_error_falls_back_to_free_text_without_breaking_the_page(self):
         listing = make_listing(blueprint_id="456")
-        with mock.patch.object(printful, "catalog_colors", side_effect=printful.PrintfulError("down")):
+        with mock.patch.object(printful, "catalog_color_options", side_effect=printful.PrintfulError("down")):
             page = self.c.get(f"/manage/listings/{listing.pk}/")
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, '<input id="color"')

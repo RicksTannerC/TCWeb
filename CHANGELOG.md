@@ -11,6 +11,35 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-03 — Color picker with Printful's real swatches, photo and link
+
+- **What:** the listing editor's color field is now a dropdown whose options each
+  carry a circle in Printful's own color value (a split circle for two-tone
+  colors). Picking a color shows Printful's photo of that color on the blank and a
+  "See this color on Printful" link that opens the blank's Printful page with that
+  color selected.
+  - New `printful.catalog_color_options()`, built from the variants already
+    fetched for the old color list (no extra Printful call). Hex values and image
+    URLs from the API are validated (six hex digits; https only) before they reach
+    a style attribute or `<img>`; tests cover hostile values.
+  - The link is *constructed*, not looked up (`dashboard_product_url`): Printful's
+    API doesn't publish page URLs, so it follows the pattern of a real dashboard
+    link the curator pasted (`/dashboard/custom/mens/t-shirts/<title-slug>?color=`).
+    Tees only. If a link ever 404s, the title-slug rule needs adjusting.
+  - An existing color that isn't a real Printful color is kept and flagged, as
+    before. The plain text field remains the fallback when Printful is unreachable.
+- **Files:** `shop/printful.py`, `shop/console_views.py`, `listing_edit.html`,
+  `style.css`, `shop/tests_color_swatches.py` (new), `tests_print_positioning.py`.
+- **Verified:** 312 tests; and in a real browser against a scratch instance (own
+  database, mock Printful): the menu opens with an exact-color circle per option,
+  picking updates the hidden field, trigger swatch and link, and Save stores it.
+  The same run added a front print area through the new print-areas panel.
+- **Not verified:** against real Printful data. The code expects `color_code`,
+  `color_code2` and `image` on each catalogue variant; if Printful names them
+  differently, colors show without circles/photos (nothing breaks).
+
+---
+
 ## 2026-10-03 — "Generate mockups" no longer touches the real Printful
 
 - **What:** found in the server log: someone pressed Generate mockups and it sent
