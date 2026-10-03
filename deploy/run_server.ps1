@@ -28,6 +28,11 @@ function Write-Log($msg) {
 $env:TCWEB_ENV_FILE = $EnvFile
 Set-Location $RepoDir
 
+if ($Python -match '\s') {
+    Write-Log "Python path contains a space; run_server.ps1 needs quoting added before it can start the app."
+    exit 1
+}
+
 Write-Log "Supervisor started (pid $PID)."
 
 while ($true) {
@@ -42,9 +47,10 @@ while ($true) {
     }
 
     Write-Log "Starting waitress..."
-    & $Python -m waitress --listen=127.0.0.1:8000 config.wsgi:application `
-        1>> (Join-Path $RepoDir "waitress.log") `
-        2>> (Join-Path $RepoDir "waitress.err.log")
+    # cmd.exe does the redirection: it appends the program's raw output. PowerShell 5.1's
+    # own 1>>/2>> would re-encode it as UTF-16, leaving the logs unreadable by most tools.
+    # (No quoting needed: the Python path has no spaces -- checked once at the top.)
+    cmd.exe /c "$Python -m waitress --listen=127.0.0.1:8000 config.wsgi:application 1>>waitress.log 2>>waitress.err.log"
 
     Write-Log "waitress exited (exit code $LASTEXITCODE). Restarting in 5 seconds."
     Start-Sleep -Seconds 5

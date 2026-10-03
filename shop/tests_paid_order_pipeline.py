@@ -681,3 +681,42 @@ class ResendButtonLooksInactiveTests(TestCase):
         page = self.c.get(f"/manage/listings/{listing.pk}/").content.decode()
         self.assertIn('id="resend-popup"', page)
         self.assertIn("ttsResendSubmit", page)
+
+
+@override_settings(STAFF_2FA_REQUIRED=False)
+class GenerateMockupsNeverTouchesRealPrintfulTests(TestCase):
+    """The stub used to fall through to a real create-product call with no
+    variants (rejected by Printful, and a crash page). It must never reach it."""
+
+    def setUp(self):
+        self.c = Client()
+        self.c.force_login(get_user_model().objects.create_user("cur", password="x-12345-yz", is_staff=True))
+        tpl = ProductTemplate.objects.create(name="Tee", product_type="tee")
+        self.listing = Listing.objects.create(design=Design.objects.create(title="W"), template=tpl,
+                                              product_type="tee", printful_product_id="474865517")
+
+    def test_with_a_real_client_nothing_is_sent_and_the_page_does_not_crash(self):
+        client = mock.MagicMock(is_mock=False)
+        with mock.patch.object(printful, "get_client", return_value=client):
+            r = self.c.post(f"/manage/listings/{self.listing.pk}/mockups/")
+        self.assertEqual(r.status_code, 302)
+        client.create_sync_product.assert_not_called()
+        self.assertFalse(client.method_calls)
+
+    def test_the_user_is_told_why(self):
+        client = mock.MagicMock(is_mock=False)
+        with mock.patch.object(printful, "get_client", return_value=client):
+            r = self.c.post(f"/manage/listings/{self.listing.pk}/mockups/")
+        page = self.c.get(r["Location"])
+        self.assertContains(page, "isn&#x27;t available yet")
+        self.assertContains(page, "Nothing was sent to Printful")
+
+    def test_the_button_is_hidden_with_a_real_client_and_shown_with_the_mock(self):
+        with mock.patch.object(printful, "get_client", return_value=mock.MagicMock(is_mock=False)):
+            self.assertNotContains(self.c.get(f"/manage/listings/{self.listing.pk}/"), "Generate mockups")
+        with mock.patch.object(printful, "get_client", return_value=printful.MockPrintful()):
+            self.assertContains(self.c.get(f"/manage/listings/{self.listing.pk}/"), "Generate mockups (mock)")
+
+    def test_the_mock_still_works_for_local_development(self):
+        r = self.c.post(f"/manage/listings/{self.listing.pk}/mockups/", follow=True)
+        self.assertContains(r, "Mockups requested (mock)")

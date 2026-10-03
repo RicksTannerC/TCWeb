@@ -184,7 +184,7 @@
   <div class="image-strip">
     {% for img in listing.images.all %}
       <figure class="image-cell">
-        <img src="{{ img.image.url }}" alt="{{ img.alt_text }}" />
+        {% if img.image %}<img src="{{ img.image.url }}" alt="{{ img.alt_text }}" />{% else %}<span class="faint">(no file)</span>{% endif %}
         <figcaption class="faint">{{ img.get_kind_display }}</figcaption>
         <form method="post" action="{% url 'shop:manage_image_delete' img.pk %}">{% csrf_token %}<button class="linkish" type="submit">delete</button></form>
       </figure>
@@ -199,10 +199,14 @@
       </select>
       <button type="submit" class="btn btn--sm btn--ghost">Upload</button>
     </form>
+    {% if is_mock %}
     <form method="post" action="{% url 'shop:manage_listing_mockups' listing.pk %}">
       {% csrf_token %}
-      <button type="submit" class="btn btn--sm btn--ghost">Generate mockups{% if is_mock %} (mock){% endif %}</button>
+      <button type="submit" class="btn btn--sm btn--ghost">Generate mockups (mock)</button>
     </form>
+    {% else %}
+    <p class="faint">Mockups from Printful aren't built yet &mdash; upload product photos with the Upload button.</p>
+    {% endif %}
   </div>
 </div>
 

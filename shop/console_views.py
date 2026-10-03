@@ -622,11 +622,14 @@ def listing_add_image(request, pk):
 def listing_generate_mockups(request, pk):
     listing = get_object_or_404(Listing, pk=pk)
     client = printful.get_client()
-    if not getattr(client, "is_mock", False) and not listing.is_connected:
-        messages.error(request, "Send the listing to Printful first.")
+    if not getattr(client, "is_mock", False):
+        # Real mockup generation (Printful's async mockup-generator task) isn't built.
+        # This used to fall through to create_sync_product with no variants -- a real
+        # (rejected) write to the live store and a crash page. Never reach Printful here.
+        messages.info(request, "Mockup generation from Printful isn't available yet. Upload product photos "
+                               "in the Imagery section instead. Nothing was sent to Printful.")
         return redirect("shop:manage_listing_edit", pk=pk)
-    # Mock: fabricate mockup image rows. Real Printful mockup generation is
-    # an async task — wired here, implemented when a key is present.
+    # Mock only: fabricate mockup image rows for local development.
     result = client.create_sync_product({"sync_product": {"name": listing.design.title}, "sync_variants": []})
     for m in result.get("mockups", []):
         ListingImage.objects.get_or_create(

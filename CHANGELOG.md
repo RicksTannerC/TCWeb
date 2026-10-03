@@ -11,6 +11,26 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-03 — "Generate mockups" no longer touches the real Printful
+
+- **What:** found in the server log: someone pressed Generate mockups and it sent
+  the live Printful account a create-product request with no variants (the stub
+  fell through to the real client). Printful refused it ("No product variants"),
+  so nothing was created, but it was a real write and it crashed the page.
+  Now, with the real client, the button is hidden and the endpoint refuses
+  without contacting Printful; only the local mock can fabricate mockups. Also
+  fixed an older dev-only crash where the mock's file-less image rows broke the
+  listing page.
+- **Also:** `deploy/run_server.ps1` now lets cmd.exe do the log redirection;
+  PowerShell 5.1's own redirection wrote UTF-16 into the logs. Takes effect when
+  the supervisor next starts (next boot, or stop/start the task).
+- **Files:** `shop/console_views.py`, `listing_edit.html`, `deploy/run_server.ps1`,
+  `shop/tests_paid_order_pipeline.py`.
+- **Verified:** 295 tests; the new launch line was run on a spare port and served
+  requests with a readable log.
+
+---
+
 ## 2026-10-03 — Several print areas on one shirt (large back + small front)
 
 - **What:** a listing could only ever have one print. It can now carry a main
