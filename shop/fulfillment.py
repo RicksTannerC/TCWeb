@@ -233,17 +233,25 @@ def refund_order(order: Order, *, reason: str = "") -> tuple[Order, list[str], l
 
 
 def reprint(fulfillment: Fulfillment, *, reason: str = "") -> Fulfillment:
+    """Create and submit a replacement for `fulfillment`.
+
+    Raises PrintfulError, with nothing created, if the order lines can't be built
+    (e.g. a size with no Printful variant). If Printful itself refuses the order,
+    the new fulfilment is kept in the Problem state with Printful's reason."""
     client = printful.get_client()
     order = fulfillment.order
+    items = list(fulfillment.items.all())
+    lines = [_line(it) for it in items]  # may raise: do it before creating anything
+
     new = Fulfillment.objects.create(
         order=order, supplier=fulfillment.supplier, status=Fulfillment.Status.PENDING,
         problem_note=f"Reprint of fulfilment #{fulfillment.id}: {reason}",
     )
-    new.items.set(fulfillment.items.all())
+    new.items.set(items)
     payload = {
         "external_id": f"{order.reference}-{new.id}-reprint",
         "recipient": _recipient(order),
-        "items": [_line(it) for it in fulfillment.items.all()],
+        "items": lines,
     }
     try:
         result = client.create_order(payload, confirm=True)
@@ -253,6 +261,11 @@ def reprint(fulfillment: Fulfillment, *, reason: str = "") -> Fulfillment:
         new.status = Fulfillment.Status.PROBLEM
         new.problem_note += f" — submit failed: {exc}"
     new.save()
+    # Retrying an order whose first submit failed ("approved", not yet at Printful):
+    # once a retry goes through, the order is submitted.
+    if new.status == Fulfillment.Status.SUBMITTED and order.status == OrderStatus.APPROVED:
+        order.status = OrderStatus.SUBMITTED
+        order.save(update_fields=["status", "updated"])
     return new
 
 

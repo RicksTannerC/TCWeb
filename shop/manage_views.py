@@ -116,8 +116,15 @@ def fulfillment_cancel(request, pk):
 @require_POST
 def fulfillment_reprint(request, pk):
     ful = get_object_or_404(Fulfillment, pk=pk)
-    new = fulfillment.reprint(ful, reason=request.POST.get("reason", "damage / print error"))
-    messages.success(request, f"Reprint created (fulfilment #{new.id}).")
+    try:
+        new = fulfillment.reprint(ful, reason=request.POST.get("reason", "damage / print error"))
+    except printful.PrintfulError as exc:
+        messages.error(request, f"Couldn't reprint: {exc} Nothing was sent to Printful.")
+        return redirect("shop:manage_order", pk=ful.order_id)
+    if new.status == Fulfillment.Status.PROBLEM:
+        messages.warning(request, f"Reprint #{new.id} was created but Printful didn't accept it \u2014 see the note on it.")
+    else:
+        messages.success(request, f"Reprint created and sent to Printful (fulfilment #{new.id}).")
     return redirect("shop:manage_order", pk=ful.order_id)
 
 

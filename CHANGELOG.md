@@ -11,6 +11,38 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-04 — Reprint crashed: sent listings never got Printful's size ids
+
+- **What:** the curator's reprint of order TTS-00008 (the new "Jack-o" shirt) kept
+  landing on the error page. Three defects, two of them mine:
+  1. **Sent listings had no size ids.** Printful's reply to "create product" is a
+     short summary with no per-size ids, so `sync_listing` stored none. Orders need
+     them (`_line` refuses to build a line without one), so the order failed at
+     approval. Worse, on a *re-send* the sizes kept the **previous product's** ids,
+     so an order would have been made from the old shirt (The Wanderer is in that
+     state until its ids are refreshed). `sync_listing` now clears the old ids and
+     reads the new product back (a read-only call on the product it just created)
+     to store each size's id; if that read fails the sizes stay blank, never stale.
+     Send / Re-send now warn when any size is left without an id.
+  2. **Reprint crashed instead of reporting.** `reprint()` created the new
+     fulfilment first and built the order lines after, outside its error handling.
+     It now builds the lines first (nothing is created if that fails), the view
+     shows the reason, and a reprint Printful itself refuses is reported as such
+     rather than as "created". A successful retry of an order stuck at "approved"
+     now moves it to "submitted".
+  3. **Stray rows.** Each crashed reprint left a "pending" fulfilment. Fulfilments
+     #4 and #5 on TTS-00008 were marked cancelled (backup:
+     `D:\TCData\db-before-reprint-cleanup.sqlite3`); nothing had reached Printful.
+- **Files:** `shop/printful.py`, `shop/fulfillment.py`, `shop/manage_views.py`,
+  `shop/console_views.py`, `shop/tests_reprint_and_sync_ids.py` (16 tests).
+- **Verified:** 346 tests. With the old code restored, 11 of the 16 new tests fail,
+  including the exact crash and the stale-id case.
+- **Follow-ups:** the existing listings still hold no (Jack-o) or stale (The Wanderer)
+  size ids until the curator presses "Refresh sizes from Printful" on each; the live
+  app needs a restart to pick up this fix.
+
+---
+
 ## 2026-10-03 — Reorder a listing's images (and choose the cover)
 
 - **What:** images could be added and deleted but never reordered. Each image in

@@ -372,6 +372,17 @@ def _tags_from_csv(csv):
     return out
 
 
+def _warn_if_sizes_lack_ids(request, listing):
+    """After a send, every size should hold Printful's id for it; orders can't be
+    built without it. Say so loudly rather than let the first order find out."""
+    blank = list(listing.sizes.filter(printful_variant_id="").values_list("label", flat=True))
+    if blank:
+        messages.warning(
+            request,
+            f"Sent, but Printful's size ids weren't read back for: {', '.join(blank)}. Use \u201cRefresh sizes "
+            "from Printful\u201d on this page before taking orders for this listing.")
+
+
 @staff_member_required
 @require_POST
 def listing_send_to_printful(request, pk):
@@ -379,6 +390,7 @@ def listing_send_to_printful(request, pk):
     try:
         printful.sync_listing(listing)
         messages.success(request, f"{listing.design.title} sent to Printful.")
+        _warn_if_sizes_lack_ids(request, listing)
     except printful.PrintfulError as exc:
         messages.error(request, str(exc))
     return redirect("shop:manage_listing_edit", pk=pk)
@@ -511,6 +523,7 @@ def listing_resend_to_printful(request, pk):
         request,
         f"Sent to Printful as a new product ({listing.printful_product_id}). The old product ({old}) is "
         "still in your Printful store \u2014 delete it there once you've checked the new one.")
+    _warn_if_sizes_lack_ids(request, listing)
     return redirect("shop:manage_listing_edit", pk=pk)
 
 

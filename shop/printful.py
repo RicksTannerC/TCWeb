@@ -252,9 +252,23 @@ def sync_listing(listing, *, replace=False):
     # "sync_variants": [...]}; the mock returns the id at the top level.
     product = result.get("sync_product") or result
     listing.printful_product_id = str(product.get("id", ""))
-    for sv in result.get("sync_variants", []):
+
+    # A size's variant id belongs to ONE Printful product. On a re-send the old
+    # product's ids must not survive (an order would be made from the old shirt),
+    # so clear them and fill in the new product's.
+    listing.sizes.update(printful_variant_id="")
+    reply_variants = result.get("sync_variants") or []
+    for sv in reply_variants:
         label = sv.get("external_id", "").split("::")[-1]
         listing.sizes.filter(label=label).update(printful_variant_id=str(sv.get("id", "")))
+    if not reply_variants and listing.printful_product_id:
+        # Printful's reply to "create product" is only a summary (no per-size ids), so
+        # read the product back -- a read-only call on the product just created. If it
+        # fails the sizes stay blank (never stale) and Refresh sizes from Printful fixes it.
+        try:
+            refresh_sync_variants(listing)
+        except PrintfulError:
+            pass
     if listing.status == Status.DRAFT:
         listing.status = Status.HIDDEN
     listing.printful_sent_blueprint_id = listing.template.printful_blueprint_id
