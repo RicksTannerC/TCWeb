@@ -11,6 +11,30 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-05 — Second Jack-o order also failed: its sizes still had no ids
+
+- **What:** a new paid order (TTS-00009) was approved but never reached Printful: the
+  same "no Printful variant" failure. The previous day's fix only applies to listings
+  sent *after* it; Jack-o had been sent before, and its sizes still had no Printful ids.
+  - With the curator's go-ahead, one read-only request (GET sync product 477732182)
+    showed Printful names Jack-o's variants exactly as the matching code expects
+    (`<external_id>::M`, size and color fields present), with sync ids S 5539558975,
+    M 5539558979, L 5539559080. These were written to the three sizes directly (after
+    checking each against the stored catalogue id; backup
+    `D:\TCData\db-before-jacko-ids.sqlite3`). TTS-00009's order line now builds
+    (`sync_variant_id` 5539558979); the retry is the curator's to press.
+  - **New warning:** a listing that is on Printful but has a size with no Printful id
+    now shows "Orders for this listing will fail" at the top of its editor page (and
+    suggests hiding it if it's live). Local check only. This was a silent trap: a live
+    listing could take real payments it could not fulfil.
+- **Files:** `shop/console_views.py`, `listing_edit.html`, `shop/tests_reprint_and_sync_ids.py`.
+- **Verified:** 350 tests; order line for TTS-00009 built from the real database.
+- **Known gap:** the warning only catches *blank* ids. The Wanderer still holds ids from
+  its previous Printful product (non-blank, wrong) until "Refresh sizes from Printful" is
+  pressed on it.
+
+---
+
 ## 2026-10-04 — Reprint crashed: sent listings never got Printful's size ids
 
 - **What:** the curator's reprint of order TTS-00008 (the new "Jack-o" shirt) kept

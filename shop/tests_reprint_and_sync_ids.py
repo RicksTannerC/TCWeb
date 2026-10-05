@@ -225,3 +225,33 @@ class ReprintTests(TestCase):
         with mock.patch.object(printful, "get_client", return_value=printful.MockPrintful()):
             self.c.post(f"/manage/fulfillments/{ful.pk}/reprint/", {"reason": "dev"})
         self.assertEqual(order.fulfillments.exclude(pk=ful.pk).get().status, "submitted")
+
+
+@override_settings(STAFF_2FA_REQUIRED=False)
+class MissingIdsBannerTests(TestCase):
+    """A listing on Printful whose sizes lack Printful ids must say so before an order finds out."""
+
+    def setUp(self):
+        self.c = Client()
+        self.c.force_login(get_user_model().objects.create_user("cur", password="x-12345-yz", is_staff=True))
+
+    def page(self, listing):
+        return self.c.get(f"/manage/listings/{listing.pk}/").content.decode()
+
+    def test_warns_and_names_the_sizes_when_a_connected_listing_has_no_ids(self):
+        html = self.page(make_listing(connected=True, sync_ids={}))
+        self.assertIn("Orders for this listing will fail", html)
+        self.assertIn("M, L have no Printful size id", html)
+        self.assertIn("hiding the listing", html)  # it is live
+
+    def test_names_only_the_sizes_that_are_missing(self):
+        html = self.page(make_listing(connected=True, sync_ids={"M": "1"}))
+        self.assertIn("L has no Printful size id", html)
+
+    def test_no_warning_once_every_size_has_its_id(self):
+        html = self.page(make_listing(connected=True, sync_ids={"M": "1", "L": "2"}))
+        self.assertNotIn("Orders for this listing will fail", html)
+
+    def test_no_warning_for_a_listing_that_is_not_on_printful_yet(self):
+        html = self.page(make_listing(connected=False))
+        self.assertNotIn("Orders for this listing will fail", html)

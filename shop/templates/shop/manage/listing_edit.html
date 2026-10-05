@@ -8,6 +8,13 @@
   <span class="tag">{{ listing.get_product_type_display }} &middot; {{ listing.get_status_display }}</span>
 </div>
 
+{% if sizes_without_ids %}
+  <p class="form-note error"><strong>Orders for this listing will fail.</strong> It is on Printful, but
+    {{ sizes_without_ids|join:", " }} {% if sizes_without_ids|length == 1 %}has{% else %}have{% endif %} no Printful size id yet.
+    Press <em>Refresh sizes from Printful</em> in the Printful section below{% if listing.status == 'live' %}, and consider
+    hiding the listing until you have{% endif %}.</p>
+{% endif %}
+
 {% if listing.printful_changes_not_sent %}
   <p class="form-note error"><strong>Printful still has the old version.</strong> You've changed
     {{ listing.printful_changes_not_sent|join:", " }} since this was sent. Match sizes, then use

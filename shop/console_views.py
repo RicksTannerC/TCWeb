@@ -354,6 +354,8 @@ def listing_edit(request, pk):
             listing.template.printful_blueprint_name, listing.product_type) if color_options else "",
         "not_us_produced": blueprint_id and printful.us_production(blueprint_id) is False,
         "unmatched_sizes": printful.missing_catalog_sizes(listing) if listing.is_connected else [],
+        # sent to Printful but a size has no id there yet: an order for it would fail at fulfilment
+        "sizes_without_ids": [s.label for s in listing.sizes.all() if not s.printful_variant_id] if listing.is_connected else [],
         "prints": list(listing.prints.all()),
         "free_placements": [
             (v, l) for v, l in ((PrintPlacement.FRONT.value, "Front"), (PrintPlacement.BACK.value, "Back"))
