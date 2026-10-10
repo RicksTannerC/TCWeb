@@ -11,7 +11,30 @@ pointing at the commit(s) that carry it.
 
 ---
 
-## 2026-10-11 — www.<domain> redirects to the bare domain
+## 2026-10-10 — Fonts are self-hosted: visitors' browsers no longer contact Google (sub-agent, reviewed)
+
+- **What:** every page loaded Oswald and IBM Plex from fonts.googleapis.com / fonts.gstatic.com, so
+  each visitor's browser contacted Google (and the Privacy page had to say so). The nine faces the
+  site actually uses (Oswald 400/500/600/700, IBM Plex Sans 400/500/600, IBM Plex Mono 400/500;
+  latin subset; 148 KiB in total) now live in `shop/static/shop/fonts/` with their SIL OFL licence
+  texts, declared with `@font-face` (same family names, `font-display: swap`, latin `unicode-range`)
+  and fingerprinted by the static pipeline (long-lived cache). The Google links are gone from every
+  template including the console and the 404/500 pages; the main heading face is preloaded.
+- **Source:** the only downloads were the nine woff2 files and three licence files from jsDelivr's
+  mirror of the `@fontsource` packages, as approved. Each file was checked to be a real WOFF2.
+- **Privacy page:** the "Google Fonts" bullet was removed from the seed copy and from the live page,
+  with its last-updated date refreshed.
+- **Deploy note:** a template that references a newly added static file needs `collectstatic` run
+  *before* the app restarts, or pages 500 on the missing manifest entry (21 tests showed exactly
+  this until it was run).
+- **Not verified:** the look of bold text. Plex Sans/Mono have no 700 face, so the browser picks the
+  nearest or synthesises it; the old Google request had the same weights, so it should match.
+- **Files:** `style.css`, `base.html` (public and console), `404.html`, `500.html`, `seed_pages.py`,
+  `README.md`, `shop/tests_fonts.py` (11 tests), 12 files in `shop/static/shop/fonts/`.
+
+---
+
+## 2026-10-10 — www.<domain> redirects to the bare domain
 
 - **What:** `www.shopthetshirtbrand.com` had no route, so it simply failed. `HostRoutingMiddleware`
   now answers a `www.` host with a permanent redirect (301; 308 for non-GET so a POST keeps its
@@ -24,7 +47,7 @@ pointing at the commit(s) that carry it.
 
 ---
 
-## 2026-10-11 — Rights notes per design; TTS-00009's real cost recorded
+## 2026-10-10 — Rights notes per design; TTS-00009's real cost recorded
 
 - **Rights record (private).** Each design now has: where the artwork came from (original /
   commissioned / licensed / public domain / AI / other / not recorded), the date a conflict search was
