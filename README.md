@@ -154,9 +154,70 @@ Current setup (interim, from a Windows machine):
     and confirmed it noticed and relaunched the app within 5 seconds, with no
     manual action. Not yet verified across an actual machine reboot.
 
+### Backups
+
+`deploy/backup.py` (Python standard library only) takes a real, verified backup
+of the shop's data. Run it from the project folder:
+
+```
+python deploy/backup.py                      # D:\TCData  ->  D:\TCData\backups
+python deploy/backup.py --source D:\TCData --dest E:\TCBackups --keep 14
+```
+
+- **What is backed up**, into `<dest>\<YYYY-MM-DD_HHMMSS>\`:
+  `db.sqlite3` (orders, customers' emails and addresses, listings), copied with
+  SQLite's *online* backup API so it is consistent while the app is running
+  (a plain file copy of a live database can be torn or miss recent writes);
+  `private_media\` (the print-ready artwork originals); `media\` (public
+  product images, if the folder exists); and `manifest.json` (row counts, file
+  counts, sizes and checksums).
+- **What is NOT backed up: `.env`.** It holds the Stripe/Printful/email keys and
+  `SECRET_KEY`; the script never reads it, and logs and other files in the data
+  folder are skipped too. Keep `.env` in a password manager, separately.
+- **Safety.** The copied database must pass `PRAGMA integrity_check` before a
+  backup is kept; a backup is built in a hidden staging folder and only renamed
+  into place on success, so a failed run leaves no half backup and deletes
+  nothing. The exit status is non-zero on any failure, and each run appends to
+  `<dest>\backup.log`.
+- **Retention.** The newest 14 are kept (`--keep N`); older timestamped folders
+  inside `--dest` are deleted after a successful run. Nothing else in `--dest`
+  is touched.
+- **Verify (do this now and then).** `python deploy/backup.py --verify` restores
+  the newest backup (or `--verify <backup folder>`) into a temporary folder,
+  runs `integrity_check`, compares every table's row count and every file's
+  size/checksum with the manifest, prints `PASS`/`FAIL`, and cleans up. It
+  never writes to live data.
+- **Restore.** Stop the app (`Stop-ScheduledTask -TaskName "TShirtBrandWebsite"`),
+  move the damaged `db.sqlite3` / `private_media` out of the way, then
+  `python deploy/backup.py --restore-to C:\Restore --from <backup folder>`
+  (the target must be new or empty; it refuses to overwrite an existing
+  database), copy the restored files into `D:\TCData`, put `.env` back from
+  your password manager, and start the app again.
+- **A backup on the same disk is not a safe backup.** The default destination
+  (`D:\TCData\backups`) protects against a bad migration, a deleted listing or
+  a corrupted database, but not against disk failure, theft, fire or ransomware.
+  Point `--dest` at a second drive, or at a folder that is synced somewhere
+  else. Note that the backup holds customer emails and addresses, so putting it
+  in OneDrive (or any cloud folder) uploads that personal data to the cloud --
+  that is the owner's call.
+- **Schedule it daily.** The script does not schedule itself. Run this once
+  yourself, in an administrator PowerShell; it prompts for your Windows account
+  password (`/rp *`), which is never part of the command:
+  ```
+  schtasks /create /tn "TShirtBrandBackup" /tr "C:\Users\trick\AppData\Local\Programs\Python\Python314\python.exe C:\Users\trick\OneDrive\Desktop\TShirtBrand\TCWeb\deploy\backup.py" /sc daily /st 03:00 /ru "MicrosoftAccount\tricks496@gmail.com" /rp * /rl limited /f
+  ```
+  (The full path to `python.exe` is used because a scheduled task does not
+  reliably get your shell's `PATH`; to change the destination, append
+  `--dest <folder>` inside the `/tr` string. If Windows rejects the account name,
+  use `/ru trick` as the `TShirtBrandWebsite` task does.) The task only runs
+  while the PC is on and awake at 03:00; in Task Scheduler's task Settings tab,
+  tick "Run task as soon as possible after a scheduled start is missed" so a
+  sleeping PC catches up. Check `<dest>\backup.log` after the first night.
+
 Still to do for launch (Milestone 6): a VPS, Postgres (add a driver such as
 `psycopg` to `requirements.txt`), Cloudflare R2 for media, live Stripe and
-Printful keys, an email provider, and nightly backups with a tested restore.
+Printful keys, an email provider, and a second-location copy of the
+backups (see [Backups](#backups)).
 
 ## Structure
 
