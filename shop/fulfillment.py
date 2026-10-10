@@ -6,6 +6,8 @@ nothing reaches a print partner without it.
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
 from django.utils import timezone
 
 from . import payments, printful
@@ -59,13 +61,36 @@ def approve_and_submit(order: Order, *, note: str = "") -> Order:
 
         ful.partner_order_id = str(result.get("id", ""))
         ful.status = Fulfillment.Status.SUBMITTED
-        ful.save(update_fields=["partner_order_id", "status", "updated"])
+        record_supplier_costs(ful, result)
+        ful.save(update_fields=["partner_order_id", "status", "supplier_cost_actual", "supplier_tax", "updated"])
 
     order.status = OrderStatus.SUBMITTED
     if note:
         order.curator_note = (order.curator_note + f"\n{note}").strip()
     order.save(update_fields=["status", "curator_note", "updated"])
     return order
+
+
+def _money(value):
+    try:
+        return Decimal(str(value)).quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def record_supplier_costs(ful: Fulfillment, result: dict) -> None:
+    """Store what Printful says it will charge for this order, from the reply to
+    'create order' (so no extra call). Silently does nothing if the reply has no
+    costs block (e.g. the mock, or a shape we don't recognise)."""
+    costs = result.get("costs") if isinstance(result, dict) else None
+    if not isinstance(costs, dict):
+        return
+    total = _money(costs.get("total"))
+    if total is None or total <= 0:  # an order never really costs nothing: not a recorded cost
+        return
+    ful.supplier_cost_actual = total
+    # Printful reports sales tax as `tax` and VAT as `vat`; both are tax we paid.
+    ful.supplier_tax = (_money(costs.get("tax")) or Decimal("0.00")) + (_money(costs.get("vat")) or Decimal("0.00"))
 
 
 def _recipient(order: Order) -> dict:
@@ -257,6 +282,7 @@ def reprint(fulfillment: Fulfillment, *, reason: str = "") -> Fulfillment:
         result = client.create_order(payload, confirm=True)
         new.partner_order_id = str(result.get("id", ""))
         new.status = Fulfillment.Status.SUBMITTED
+        record_supplier_costs(new, result)
     except printful.PrintfulError as exc:
         new.status = Fulfillment.Status.PROBLEM
         new.problem_note += f" — submit failed: {exc}"

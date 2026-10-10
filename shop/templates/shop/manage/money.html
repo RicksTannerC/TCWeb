@@ -45,12 +45,15 @@
 
   <div class="tile-stats">
     <div class="panel stat"><span class="stat__label">Revenue (items)</span><span class="stat__big price">${{ revenue }}</span></div>
-    <div class="panel stat"><span class="stat__label">Supplier cost</span><span class="stat__big price">${{ supplier_cost }}</span></div>
+    <div class="panel stat"><span class="stat__label">Supplier cost</span><span class="stat__big price">${{ supplier_cost }}</span>
+      <span class="faint">{% if estimated_orders %}{{ estimated_orders }} order{{ estimated_orders|pluralize }} still estimated from base cost{% else %}what Printful actually charged{% endif %}</span></div>
+    <div class="panel stat"><span class="stat__label">Sales tax Printful charged you</span><span class="stat__big price">${{ supplier_tax }}</span>
+      <span class="faint">already inside supplier cost</span></div>
     <div class="panel stat"><span class="stat__label">Overhead</span><span class="stat__big price">${{ overhead_total }}</span></div>
     <div class="panel stat"><span class="stat__label">Refunds</span><span class="stat__big price">${{ refunds }}</span></div>
     <div class="panel stat {% if net < 0 %}stat--flag{% endif %}"><span class="stat__label">Net</span><span class="stat__big price">${{ net }}</span></div>
     <div class="panel stat"><span class="stat__label">Sales tax collected</span><span class="stat__big price">${{ tax_collected }}</span>
-      <span class="faint">via Stripe Tax — for filing</span></div>
+      <span class="faint">owed to the state &mdash; not income, not in Net</span></div>
   </div>
 
   <div class="row-2" style="align-items:start;">

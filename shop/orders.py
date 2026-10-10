@@ -68,8 +68,26 @@ class Order(models.Model):
         return f"TTS-{self.pk:05d}"
 
     @property
+    def _recorded_supplier_costs(self):
+        return [f for f in self.fulfillments.all() if f.supplier_cost_actual is not None]
+
+    @property
+    def supplier_cost_is_estimate(self):
+        return not self._recorded_supplier_costs
+
+    @property
     def supplier_cost(self):
+        """What the print partner charged (all fulfilments, so a paid reprint counts
+        twice), or -- until it's recorded -- the estimate from the listings' base cost."""
+        recorded = self._recorded_supplier_costs
+        if recorded:
+            return sum((f.supplier_cost_actual for f in recorded), Decimal("0.00"))
         return sum((i.supplier_cost_total for i in self.items.all()), Decimal("0.00"))
+
+    @property
+    def supplier_tax(self):
+        """Sales tax the print partner charged us on this order (recorded fulfilments only)."""
+        return sum((f.supplier_tax or Decimal("0.00") for f in self._recorded_supplier_costs), Decimal("0.00"))
 
     @property
     def margin(self):
@@ -128,6 +146,11 @@ class Fulfillment(models.Model):
 
     problem_note = models.TextField(blank=True)
     items = models.ManyToManyField(OrderItem, blank=True, related_name="fulfillments")
+
+    # What the print partner actually billed for this fulfilment (from its order
+    # reply). Null = not recorded, e.g. submitted before this was captured.
+    supplier_cost_actual = models.DecimalField(max_digits=9, decimal_places=2, null=True, blank=True)
+    supplier_tax = models.DecimalField(max_digits=9, decimal_places=2, null=True, blank=True)
 
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)

@@ -1001,6 +1001,8 @@ def _books_context():
     tax_collected = completed.aggregate(s=Sum("tax_total"))["s"] or Decimal("0")
     refunds = refunded.aggregate(s=Sum("grand_total"))["s"] or Decimal("0")
     supplier_cost = sum((o.supplier_cost for o in completed), Decimal("0"))
+    supplier_tax = sum((o.supplier_tax for o in completed), Decimal("0"))
+    estimated_orders = sum(1 for o in completed if o.supplier_cost_is_estimate)
 
     overhead_qs = OverheadEntry.objects.all()
     overhead_total = overhead_qs.aggregate(s=Sum("amount"))["s"] or Decimal("0")
@@ -1015,6 +1017,8 @@ def _books_context():
         "overhead_by_cat": by_cat,
         "refunds": refunds,
         "tax_collected": tax_collected,
+        "supplier_tax": supplier_tax,
+        "estimated_orders": estimated_orders,
         "net": net,
         "entries": overhead_qs[:50],
         "categories": OverheadEntry.Category.choices,

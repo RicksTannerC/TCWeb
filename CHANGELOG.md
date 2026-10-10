@@ -11,6 +11,27 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-10 — Books now use Printful's real charge, and show the sales tax it billed
+
+- **What:** the owner pointed out that Printful charges *them* sales tax, and that the tax they
+  collect from customers is a separate matter. "Supplier cost" was only an estimate (the listing's
+  hand-typed base cost), so neither was visible.
+  - Each fulfilment now stores what Printful actually billed (`supplier_cost_actual`) and the tax in
+    it (`supplier_tax`, tax + VAT), read from the reply to "create order" — no extra Printful call.
+    A zero or unparseable total is ignored rather than recorded.
+  - `Order.supplier_cost` uses the recorded charges (a billed reprint counts again) and falls back to
+    the estimate; margins and the Books page follow. The Books page shows how many orders are still
+    estimated, a new "Sales tax Printful charged you" tile (already inside supplier cost), and
+    relabels collected tax "owed to the state — not income, not in Net".
+  - Listing editor: Base cost label now reminds you to include any tax Printful charges you.
+- **Not done (needs the owner):** order TTS-00009 was submitted before this existed, so its real cost
+  is not recorded (one read-only Printful lookup would fill it). Collecting tax from customers needs
+  Stripe Tax set up and registrations in place first; `STRIPE_TAX_ENABLED` stays off until then.
+- **Files:** `shop/orders.py`, `shop/fulfillment.py`, `shop/console_views.py`, `money.html`,
+  `listing_edit.html`, migration 0014, `shop/tests_supplier_costs.py` (13 tests).
+
+---
+
 ## 2026-10-10 — Exact legal name, and the Terms decisions the owner settled
 
 - **Legal name set exactly as given:** "The Tshirt Brand LLC" (previously "L.L.C."). Changed in
