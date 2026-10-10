@@ -11,6 +11,32 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-10 — Printful status webhook (secured) and Printful's mockup preview on the listing page
+
+- **Webhook was never registered.** A read-only check showed Printful has *no* webhook configured, which is
+  why TTS-00009 sat at "submitted" in the console while Printful had it in process with a shipment, and
+  why no "in production"/tracking emails could ever be sent.
+- **The receiving endpoint was open to anyone.** `/webhooks/printful/` accepted any POST with no check, and
+  Printful's v1 webhooks aren't signed, so anyone could have marked orders shipped and triggered customer
+  emails. It now lives at `/webhooks/printful/<secret>/`; the secret is an HMAC of `SECRET_KEY` (nothing
+  new to store; rotating `SECRET_KEY` means registering again). The bare URL is gone (404), a wrong secret
+  is a 404 that changes nothing.
+- **`manage.py printful_webhook`** prints the URL; `--status` reads what Printful has; `--register` makes
+  the one write. **Not yet registered** — that is a write to the Printful account and awaits approval.
+- **Mockup preview.** A connected listing now has a "How it looks on Printful" panel: Printful's own render
+  of the art on the shirt (its product thumbnail plus the `preview` file of the listing's colour), so
+  placement, size and colour can be checked before listing. It is captured from the product reads that
+  already happen (Send, Re-send, Refresh sizes) at no extra call, plus a "Refresh preview" button (one
+  read, on click). Only https images are kept; fields are defensive about Printful's reply shape.
+- **Not verified against real data:** the preview extraction follows Printful's documented sync-product
+  shape; Jack-o's real product has not been read for it yet, so the first real refresh may show only the
+  thumbnail if Printful names the preview file differently.
+- **Files:** `shop/printful.py`, `shop/views.py`, `shop/urls.py`, `shop/console_views.py`, `listing_edit.html`,
+  `style.css`, `shop/models.py`, migration 0017, `management/commands/printful_webhook.py`,
+  `shop/tests_printful_webhook.py` (13), `shop/tests_printful_preview.py` (18).
+
+---
+
 ## 2026-10-10 — Found: waitress was stripping X-Forwarded-Proto, so Django never knew about HTTPS
 
 - **What:** while checking the new `www.` redirect (it answered `http://`) a probe showed that

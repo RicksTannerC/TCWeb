@@ -286,6 +286,35 @@
   </div>
 </div>
 
+{% if listing.is_connected %}
+<div class="panel stack" id="printful-preview">
+  <h2>How it looks on Printful</h2>
+  {% if listing.printful_preview %}
+    <div class="image-strip">
+      {% for p in listing.printful_preview %}
+        <figure class="image-cell image-cell--wide">
+          <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer"><img src="{{ p.url }}" alt="Printful's render: {{ p.label }}"
+             loading="lazy" referrerpolicy="no-referrer" /></a>
+          <figcaption class="faint">{{ p.label }}</figcaption>
+        </figure>
+      {% endfor %}
+    </div>
+    <p class="faint">Printful's own render of your art on the shirt, as last read
+      {{ listing.printful_preview_checked|date:"M j, g:i a" }}. Check the placement, size and color
+      here before you list it.</p>
+  {% else %}
+    <p class="muted">No preview yet. Printful draws it a minute or so after a product is sent &mdash;
+      press <em>Refresh preview</em>.</p>
+  {% endif %}
+  <form method="post" action="{% url 'shop:manage_listing_refresh_preview' listing.pk %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn--ghost btn--sm">Refresh preview</button>
+  </form>
+  <p class="faint">A read-only call to your Printful account, made when you click this (the product is also
+    read, and the preview kept, whenever you send it or refresh its sizes).</p>
+</div>
+{% endif %}
+
 <div class="panel stack">
   <h2>Printful &amp; publishing</h2>
   {% if not listing.template.printful_blueprint_id %}

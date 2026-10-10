@@ -285,7 +285,15 @@ def stripe_webhook(request):
 
 @csrf_exempt
 @require_POST
-def printful_webhook(request):
+def printful_webhook(request, token):
+    """Printful's status events (shipped, returned, failed...). Printful doesn't sign them, so
+    the secret in the URL is the only gate: anything without it is a plain 404."""
+    import hmac
+
+    from .printful import webhook_token
+
+    if not hmac.compare_digest(str(token), webhook_token()):
+        raise Http404("Not found")
     try:
         event = json.loads(request.body or b"{}")
     except ValueError:

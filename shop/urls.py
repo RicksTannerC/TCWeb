@@ -24,7 +24,7 @@ public_patterns = [
     path("checkout/dev/", views.checkout_dev, name="checkout_dev"),
     path("checkout/dev/pay/", views.checkout_simulate, name="checkout_simulate"),
     path("webhooks/stripe/", views.stripe_webhook, name="stripe_webhook"),
-    path("webhooks/printful/", views.printful_webhook, name="printful_webhook"),
+    path("webhooks/printful/<str:token>/", views.printful_webhook, name="printful_webhook"),
 
     # Signed, expiring link so Printful's servers can fetch a private design
     # original; see shop/printful_delivery.py.
@@ -69,6 +69,7 @@ console_patterns = [
     path("listings/<int:pk>/prints/<int:print_pk>/", cv.listing_print_update, name="manage_listing_print_update"),
     path("listings/<int:pk>/prints/<int:print_pk>/delete/", cv.listing_print_delete, name="manage_listing_print_delete"),
     path("listings/<int:pk>/resend-to-printful/", cv.listing_resend_to_printful, name="manage_listing_resend_printful"),
+    path("listings/<int:pk>/refresh-preview/", cv.listing_refresh_preview, name="manage_listing_refresh_preview"),
     path("listings/<int:pk>/refresh-printful-sizes/", cv.listing_refresh_printful_sizes, name="manage_listing_refresh_printful_sizes"),
     path("listings/<int:pk>/status/", cv.listing_set_status, name="manage_listing_status"),
     path("listings/<int:pk>/image/", cv.listing_add_image, name="manage_listing_add_image"),

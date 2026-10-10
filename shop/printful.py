@@ -210,6 +210,28 @@ def match_variants(blueprint_id, color, size_labels):
     return matches, unmatched, available_colors
 
 
+WEBHOOK_TYPES = [
+    "package_shipped", "package_returned", "order_failed", "order_canceled", "order_put_hold", "order_updated",
+]
+
+
+def webhook_token():
+    """The secret that goes in the webhook URL. Printful's v1 webhooks aren't signed, so
+    the URL itself has to be unguessable. It is derived from SECRET_KEY (HMAC, so the
+    key can't be recovered from it); rotating SECRET_KEY changes it, and the webhook
+    then has to be registered again (manage.py printful_webhook --register)."""
+    import hashlib
+    import hmac
+
+    return hmac.new(settings.SECRET_KEY.encode(), b"printful-webhook-v1", hashlib.sha256).hexdigest()[:40]
+
+
+def webhook_url():
+    from django.urls import reverse
+
+    return settings.SITE_BASE_URL.rstrip("/") + reverse("shop:printful_webhook", args=[webhook_token()])
+
+
 def missing_catalog_sizes(listing):
     """Sizes with no catalogue variant matched yet (needed to build a product)."""
     return [s.label for s in listing.sizes.all() if not s.printful_catalog_variant_id]
@@ -298,6 +320,62 @@ def _sync_variant_size_color(sv, slug=""):
     return size.strip(), color.strip()
 
 
+def extract_previews(result, color=""):
+    """Printful's own renders of the art on the blank, from a sync-product reply:
+    [{"label", "url"}] (https only, at most 6). Uses the product thumbnail plus the
+    `preview` file(s) of the first variant in the listing's colour (sizes of one
+    colour look alike). Anything unexpected yields fewer images, never an error."""
+    if not isinstance(result, dict):
+        return []
+    out, seen = [], set()
+
+    def add(label, url):
+        url = _clean_image_url(url)
+        if url and url not in seen and len(out) < 6:
+            seen.add(url)
+            out.append({"label": label, "url": url})
+
+    product = result.get("sync_product")
+    if isinstance(product, dict):
+        add("Product thumbnail", product.get("thumbnail_url"))
+
+    wanted = (color or "").strip().lower()
+    chosen = None
+    for sv in result.get("sync_variants") or []:
+        if not isinstance(sv, dict):
+            continue
+        _, sv_color = _sync_variant_size_color(sv)
+        if wanted and sv_color and sv_color.lower() != wanted:
+            continue
+        previews = [f for f in (sv.get("files") or []) if isinstance(f, dict) and f.get("type") == "preview"]
+        if previews:
+            chosen = (sv_color, previews)
+            break
+    if chosen:
+        sv_color, previews = chosen
+        for n, f in enumerate(previews, 1):
+            add(f"{sv_color or 'Preview'}" + (f" ({n})" if len(previews) > 1 else ""),
+                f.get("preview_url") or f.get("thumbnail_url"))
+    return out
+
+
+def store_previews(listing, result):
+    from django.utils import timezone
+
+    listing.printful_preview = extract_previews(result, listing.color)
+    listing.printful_preview_checked = timezone.now()
+    listing.save(update_fields=["printful_preview", "printful_preview_checked"])
+    return listing.printful_preview
+
+
+def refresh_preview(listing):
+    """Re-read this listing's product from Printful (read-only) and keep its preview images.
+    Returns how many were found."""
+    if not listing.printful_product_id:
+        raise PrintfulError("This listing isn't connected to a Printful product yet.")
+    return len(store_previews(listing, get_client().get_sync_product(listing.printful_product_id)))
+
+
 def refresh_sync_variants(listing):
     """Re-read this listing's product from Printful (read-only) and store each
     size's real *sync variant* id. Returns (matched labels, unmatched labels).
@@ -309,6 +387,8 @@ def refresh_sync_variants(listing):
         raise PrintfulError("This listing isn't connected to a Printful product yet.")
     result = get_client().get_sync_product(listing.printful_product_id)
     variants = result.get("sync_variants", []) if isinstance(result, dict) else []
+    if isinstance(result, dict):
+        store_previews(listing, result)
 
     sizes = list(listing.sizes.all())
     by_label = {}

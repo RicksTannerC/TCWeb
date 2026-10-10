@@ -338,6 +338,10 @@ class Listing(models.Model):
     # A fingerprint of every print area (placement, size, position, artwork) at
     # the time it was sent -- see print_signature().
     printful_sent_prints = models.CharField(max_length=255, blank=True)
+    # Printful's own render of the art on the blank, as last read from the product:
+    # [{"label": ..., "url": "https://..."}]. For checking placement/size/colour before listing.
+    printful_preview = models.JSONField(default=list, blank=True)
+    printful_preview_checked = models.DateTimeField(null=True, blank=True)
 
     # Simple, curator-editable positioning within the template's placement
     # area (front/back/etc. — see ProductTemplate.print_placement). Not

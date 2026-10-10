@@ -542,6 +542,27 @@ def listing_resend_to_printful(request, pk):
 
 @staff_member_required
 @require_POST
+def listing_refresh_preview(request, pk):
+    """Re-read this listing's Printful product and keep Printful's render of it, so the
+    placement, size and colour can be checked before listing. A real, read-only call
+    made only on this click."""
+    listing = get_object_or_404(Listing, pk=pk)
+    back = redirect(reverse("shop:manage_listing_edit", args=[pk]) + "#printful-preview")
+    try:
+        found = printful.refresh_preview(listing)
+    except printful.PrintfulError as exc:
+        messages.error(request, str(exc))
+        return back
+    if found:
+        messages.success(request, f"Printful's preview updated ({found} image{'s' if found != 1 else ''}).")
+    else:
+        messages.info(request, "Printful hasn't produced a preview yet. It draws it a minute or so after a "
+                               "product is sent, so try again shortly.")
+    return back
+
+
+@staff_member_required
+@require_POST
 def listing_refresh_printful_sizes(request, pk):
     """Re-read this listing's Printful product and store each size's real sync
     variant id. A real, read-only Printful call, made only on this click."""

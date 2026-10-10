@@ -1131,6 +1131,8 @@ body.console { background: var(--ground, var(--paper)); }
 .image-cell { width: 110px; display: grid; gap: 0.2rem; text-align: center; }
 .image-cell img { width: 110px; height: 130px; object-fit: cover; background: var(--black); border: 1px solid var(--line); }
 .image-cell figcaption { font-size: 0.68rem; }
+.image-cell--wide { width: 220px; }
+.image-cell--wide img { width: 220px; height: auto; max-height: 300px; object-fit: contain; background: #fff; }
 .image-move { display: flex; flex-wrap: wrap; gap: 0.3rem; justify-content: center; align-items: center; }
 .image-move .btn { padding: 0.25rem 0.7rem; min-width: 2.4rem; }
 
