@@ -9,13 +9,12 @@ _Last updated: [date of publication]._
 
 ## 1. Who we are
 
-The T-Shirt Brand ("the Shop") is operated by **The Tshirt Brand L.L.C.**, a Wyoming limited
+The T-Shirt Brand ("the Shop") is operated by **The Tshirt Brand LLC**, a Wyoming limited
 liability company ("we", "us", "our"). When you place an order you are contracting with
-The Tshirt Brand L.L.C.
+The Tshirt Brand LLC
 
-You can reach us through the [contact form](/contact/) or by mail at The Tshirt Brand L.L.C.,
-PO Box 1403, Afton, WY 83110. **[CONFIRM: the LLC's exact registered name and that this PO Box is the
-address you want published.]**
+You can reach us through the [contact form](/contact/) or by mail at The Tshirt Brand LLC,
+PO Box 1403, Afton, WY 83110.
 
 By placing an order or using this site you agree to these Terms. If you don't agree, please don't
 use the Shop.
@@ -43,10 +42,9 @@ store your card details. Your card is charged when you place the order.
 
 Shipping is built into the price and is not charged separately.
 
-**[CONFIRM: sales tax. Automatic tax calculation at checkout is currently switched OFF, so no tax is
-being added. Decide whether tax applies to your sales (and register where required), turn it on in
-Stripe, then replace this sentence with: "Sales tax is calculated and added at checkout where it
-applies." Until then, do not publish the sentence.]**
+Sales tax is calculated and added at checkout where it applies.
+**[CONFIRM before publishing: the sentence above is only true once Stripe Tax is switched on and
+your registrations are in place. Today it is OFF and no tax is being added. See the owner notes.]**
 
 If we discover a price was shown wrongly, we may cancel the order and refund you in full, even
 after it's been confirmed.
@@ -60,9 +58,9 @@ suspect fraud.
 
 ## 6. Cancelling an order
 
-**[CONFIRM: your cancellation policy. Suggested: "Contact us as soon as possible. We can cancel an
-order and refund it in full only if production hasn't started — this is usually within a short time
-after you order. Once an item is in production we can't cancel it."]**
+Contact us as soon as possible. We can cancel an order and refund it in full only if production
+hasn't started — this is usually within a short time after you order. Once an item is in
+production we can't cancel it.
 
 ## 7. Shipping and delivery
 
@@ -89,8 +87,7 @@ change of mind or for a wrong size chosen at checkout.**
 
 If something is wrong with your order — a **print defect, the wrong item, or damage in transit** —
 contact us within **30 days of delivery** with your order reference (a photo helps, but isn't
-required) and we'll send a replacement or give you a full refund. **[CONFIRM: that this matches what
-you will actually do, including that 30 days runs from delivery rather than from the order date.]**
+required) and we'll send a replacement or give you a full refund.
 
 Refunds go back to the original payment method and can take several business days to appear.
 
@@ -152,15 +149,17 @@ page, are the whole agreement between you and us about the Shop.
 
 ### Notes for the owner (delete before publishing)
 
-1. **Sales tax** (section 4) is the item most likely to be wrong in practice. The live Shipping &
-   Returns page also says "Sales tax is calculated at checkout where it applies", which isn't true
-   while Stripe automatic tax is off. Fix both together.
-2. **Shipping times** (section 7): the FTC Mail, Internet or Telephone Order Merchandise Rule expects a
-   reasonable basis for any time you state, and consent or a refund if you can't meet it. I've drafted
-   the delay-and-cancel sentence to match; confirm you'll honour it.
-3. **Cancellation** (section 6) depends on Printful: an order can be cancelled there only before
-   production starts. The wording above reflects that; confirm how quickly you can act.
-4. **Warranty and liability limits** (section 12) are standard-form language, not tailored legal advice.
-   Have a lawyer review it, along with dispute resolution (section 14).
-5. The existing live "Terms" page remains in place until you tell me to replace it with a reviewed
+1. **Sales tax (section 4)** is open. The sentence is only true once Stripe Tax is enabled; the same is
+   true of the live Shipping & Returns page, which already says it. Do not turn Stripe Tax on before
+   you have registered where you must collect tax and set your origin address in Stripe, or checkout
+   can fail. Your own tax adviser (or the Wyoming Department of Revenue) should confirm where you must
+   collect and whether Printful's resale exemption applies to you.
+2. **Shipping time (section 7)** comes from one order (7–9 days). Check it against the first several
+   real deliveries and widen it if needed.
+3. **Warranty and liability limits (section 12) and dispute resolution (section 14)** are standard-form
+   language, not tailored legal advice, and the venue and arbitration question is deliberately
+   left open. Have a lawyer review both.
+4. **Artwork ownership (section 9)** claims the designs are yours. Make sure that is true for every
+   design (see the IP notes in chat) before publishing.
+5. The existing live "Terms" page stays in place until you tell me to replace it with a reviewed
    version of this.

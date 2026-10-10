@@ -30,3 +30,6 @@ Thumbs.db
 
 # One-off installer download
 get-pip.py
+
+# sub-agent working copies
+.claude/worktrees/

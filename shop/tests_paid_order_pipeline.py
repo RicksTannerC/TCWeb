@@ -473,7 +473,7 @@ class UsWarningAndTrackingPageTests(TestCase):
 class OperatingEntityTests(TestCase):
     """The contracting business is named on the footer and in every email."""
 
-    LLC = "The Tshirt Brand L.L.C."
+    LLC = "The Tshirt Brand LLC"
 
     def test_footer_names_the_llc(self):
         html = Client().get("/").content.decode()

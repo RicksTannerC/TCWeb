@@ -11,6 +11,18 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-10 — Exact legal name, and the Terms decisions the owner settled
+
+- **Legal name set exactly as given:** "The Tshirt Brand LLC" (previously "L.L.C."). Changed in
+  the `SHOP_LEGAL_NAME` default (footer, emails), the seed pages, the live Privacy and Terms pages,
+  and the Terms draft. PO Box 1403 confirmed as the published mailing address.
+- **Terms draft:** cancellation (only before production starts) and returns (30 days from delivery)
+  accepted as written, so those markers are gone. Still open: sales tax (below), dispute venue,
+  artwork ownership after IP clearance, a lawyer's review.
+- `.claude/worktrees/` added to `.gitignore` (sub-agent working copies).
+
+---
+
 ## 2026-10-10 — Terms of Service draft, a real delivery estimate, stale orders cleared
 
 - **Terms of Service draft** (`docs/terms-of-service-draft.md`, also a DRAFT page in the
