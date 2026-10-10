@@ -22,7 +22,10 @@ pointing at the commit(s) that carry it.
   new to store; rotating `SECRET_KEY` means registering again). The bare URL is gone (404), a wrong secret
   is a 404 that changes nothing.
 - **`manage.py printful_webhook`** prints the URL; `--status` reads what Printful has; `--register` makes
-  the one write. **Not yet registered** — that is a write to the Printful account and awaits approval.
+  the one write. **Registered on 2026-10-10** with the owner's approval, for package_shipped,
+  package_returned, order_failed, order_canceled, order_put_hold and order_updated, and confirmed by a
+  read-back ("Matches this site: yes"). Events only flow from now on: an order that already shipped
+  (TTS-00009) won't update until Printful sends another event for it.
 - **Mockup preview.** A connected listing now has a "How it looks on Printful" panel: Printful's own render
   of the art on the shirt (its product thumbnail plus the `preview` file of the listing's colour), so
   placement, size and colour can be checked before listing. It is captured from the product reads that
