@@ -21,9 +21,8 @@
   <meta name="twitter:card" content="summary_large_image" />
   {% block og_image %}{% endblock %}
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  {# fonts are self-hosted (see style.css); preload only the face the header and headings use #}
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="{% static 'shop/fonts/oswald-latin-600-normal.woff2' %}" />
   <link rel="stylesheet" href="{% static 'shop/css/style.css' %}" />
 
   {# theme applied before paint to avoid a flash #}
