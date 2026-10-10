@@ -80,6 +80,9 @@ class HostRoutingMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        www = self._www_redirect(request)
+        if www is not None:
+            return www
         console_host = settings.CONSOLE_HOST
         if console_host:
             host = request.get_host().split(":")[0].lower()
@@ -91,6 +94,30 @@ class HostRoutingMiddleware:
             elif host not in _LOCAL_HOSTS and request.path.startswith(("/manage/", "/admin/")):
                 return HttpResponseNotFound("Not found")
         return self.get_response(request)
+
+    @staticmethod
+    def _www_redirect(request):
+        """www.example.com -> example.com, permanently, keeping the path and query.
+
+        Runs before anything calls get_host() (which would reject a www host that
+        isn't in ALLOWED_HOSTS). It only ever redirects to a host the site is
+        configured to serve -- an exact ALLOWED_HOSTS entry -- so the Host header
+        can't be used to bounce visitors to somewhere else. The private console
+        host is never redirected, and a www host with no matching apex is left to
+        fail as it did before.
+        """
+        raw = request.META.get("HTTP_HOST", "").split(":")[0].strip().lower().rstrip(".")
+        if not raw.startswith("www."):
+            return None
+        apex = raw[4:]
+        if not apex or apex == (settings.CONSOLE_HOST or ""):
+            return None
+        if apex not in {h.strip().lower() for h in settings.ALLOWED_HOSTS}:
+            return None
+        scheme = "https" if request.is_secure() else "http"
+        response = HttpResponse(status=301 if request.method in ("GET", "HEAD") else 308)
+        response["Location"] = f"{scheme}://{apex}{request.get_full_path()}"
+        return response
 
     @staticmethod
     def _console_host(request):

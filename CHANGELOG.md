@@ -11,6 +11,19 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-11 — www.<domain> redirects to the bare domain
+
+- **What:** `www.shopthetshirtbrand.com` had no route, so it simply failed. `HostRoutingMiddleware`
+  now answers a `www.` host with a permanent redirect (301; 308 for non-GET so a POST keeps its
+  method) to the same path and query on the bare domain. It runs before host validation, so `www`
+  does not need adding to ALLOWED_HOSTS, and it only ever redirects to an exact ALLOWED_HOSTS entry
+  (a crafted Host header can't pick the destination). The private console host is never redirected.
+- **Still needs the owner:** in Cloudflare, add `www.shopthetshirtbrand.com` as a public hostname on
+  the same tunnel (service `http://127.0.0.1:8000`), which also creates its DNS record.
+- **Files:** `shop/middleware.py`, `shop/tests_www_redirect.py` (10 tests).
+
+---
+
 ## 2026-10-11 — Rights notes per design; TTS-00009's real cost recorded
 
 - **Rights record (private).** Each design now has: where the artwork came from (original /
