@@ -99,8 +99,6 @@ payment. We don't sell your data.
 - **Cloudflare** delivers this site to you. As part of that, it processes visitors'
   IP addresses and technical request data (for example, to block abuse).
 - **Our email provider** sends order emails and, if you joined the list, collection emails.
-- **Google Fonts**: the site's typefaces load from Google, so your browser
-  contacts Google's servers when a page loads.
 
 Each handles data under its own privacy policy.
 

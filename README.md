@@ -244,3 +244,16 @@ backups (see [Backups](#backups)).
   switch is a `DATABASE_URL` change with no code impact.
 - **django-otp** for the staff second factor; **WhiteNoise** for static files.
 - Media is local disk for now, Cloudflare R2 later (Milestone 6).
+- **Fonts are self-hosted**, so visitors' browsers never contact Google. The
+  latin-subset `woff2` files live in `shop/static/shop/fonts/`: Oswald 400, 500,
+  600, 700; IBM Plex Sans 400, 500, 600; IBM Plex Mono 400, 500. They come from
+  the `@fontsource` packages and are under the SIL Open Font License; the
+  licence texts (`OFL-*.txt`) sit beside them and must stay with the fonts.
+  Each file has an `@font-face` rule at the top of `shop/static/shop/css/style.css`
+  (relative `url()`, so the static manifest fingerprints it), and `base.html`
+  preloads the Oswald 600 face. To add a weight, drop the matching
+  `<family>-latin-<weight>-normal.woff2` into that folder, add its `@font-face`
+  rule, and run `shop.tests_fonts` (it fails if the CSS uses a weight with no
+  rule, or names a file that is missing). After any font or CSS change run
+  `collectstatic` and restart the app, since WhiteNoise only reads the
+  collected files at startup.
