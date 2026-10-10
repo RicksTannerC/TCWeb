@@ -11,6 +11,31 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-10 — Console login throttling and real backups (built by sub-agents, reviewed and merged)
+
+- **Login throttling.** Repeated failed staff sign-ins are locked, at both the password step and the
+  second-factor step. Defaults: 5 failures per username or 15 per client IP within 15 minutes; a lock
+  ends 15 minutes after the last real failure, so the owner can never be locked out for good. A locked
+  attempt is refused before the password is evaluated, and hammering a locked account can't extend
+  it. Unknown usernames are counted and answered identically (no user enumeration). Failures live in
+  the database (`FailedLogin`, migration 0014) so a lock survives a restart. Behind the Cloudflare
+  Tunnel the real IP is read from `CF-Connecting-IP`, only when the connection itself is loopback.
+  Owner escape hatch: `python manage.py clear_login_lockouts [--username NAME]`; off switch:
+  `LOGIN_THROTTLE_ENABLED=false`. Known limit: an attacker who knows the username can nuisance-lock
+  the owner out of *new* sign-ins (existing sessions are unaffected).
+- **Backups with a tested restore** (`deploy/backup.py`, README "Backups"). Online SQLite copy of the
+  database plus `private_media`, integrity-checked, with a manifest of row counts and file checksums;
+  keeps the newest 14; `--verify` restores to a temp folder and compares; `--restore-to` refuses to
+  overwrite anything. `.env` and logs are never copied. A first real backup was taken to
+  `D:\TCDataackups\` and independently re-verified (PASS). **Not yet scheduled** (needs the
+  owner's password) and **a copy on the same disk is not disaster-proof**.
+- Migration numbering: both branches added a 0014; the supplier-costs migration was renumbered to
+  0015 and re-parented before anything was applied to the real database.
+- **Verified:** 423 tests on the merged result; the backup re-verified by hand; the throttling code
+  read in full before merging.
+
+---
+
 ## 2026-10-10 — Books now use Printful's real charge, and show the sales tax it billed
 
 - **What:** the owner pointed out that Printful charges *them* sales tax, and that the tax they

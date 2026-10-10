@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('shop', '0013_multi_print_areas'),
+        ('shop', '0014_failedlogin'),
     ]
 
     operations = [
