@@ -8,6 +8,11 @@
   <span class="tag">{{ listing.get_product_type_display }} &middot; {{ listing.get_status_display }}</span>
 </div>
 
+{% if listing.status == 'live' and not listing.design.rights_recorded %}
+  <p class="form-note faint">Rights not fully recorded for this design (where it came from, and a dated
+    conflict search). It's live, so it's worth filling in under <em>Design</em> below.</p>
+{% endif %}
+
 {% if sizes_without_ids %}
   <p class="form-note error"><strong>Orders for this listing will fail.</strong> It is on Printful, but
     {{ sizes_without_ids|join:", " }} {% if sizes_without_ids|length == 1 %}has{% else %}have{% endif %} no Printful size id yet.
@@ -40,6 +45,15 @@
       <input id="title" name="title" value="{{ listing.design.title }}" /></div>
     <div class="field"><label for="story">Story</label>
       <textarea id="story" name="story" rows="3">{{ listing.design.story }}</textarea></div>
+    <div class="field"><label for="origin">Where this artwork came from</label>
+      <select id="origin" name="origin">
+        {% for value, label in design_origins %}<option value="{{ value }}" {% if listing.design.origin == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></div>
+    <div class="field"><label for="ip_checked_on">Conflict search done on</label>
+      <input id="ip_checked_on" name="ip_checked_on" type="date" value="{{ listing.design.ip_checked_on|date:'Y-m-d' }}" />
+      <span class="faint">Trademark and copyright. Private &mdash; never shown on the shop.</span></div>
+    <div class="field"><label for="ip_notes">Rights notes</label>
+      <textarea id="ip_notes" name="ip_notes" rows="3" placeholder="Source files, licence, receipts, what you searched and found">{{ listing.design.ip_notes }}</textarea></div>
     <div class="field"><label for="tags">Tags (comma-separated)</label>
       <input id="tags" name="tags" value="{% for t in listing.design.tags.all %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %}" />
       <span class="faint">In use: {% for t in all_tags %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>

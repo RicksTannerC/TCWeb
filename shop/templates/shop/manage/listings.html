@@ -40,6 +40,7 @@
             <a href="{% url 'shop:manage_listing_edit' l.pk %}"><strong>{{ l.design.title }}</strong></a>
             <span class="faint">{{ l.get_product_type_display }}{% if l.color %} &middot; {{ l.color }}{% endif %} &middot; ${{ l.price }}
               {% if l.is_connected %}&middot; <span class="ok-text">Printful ✓</span>{% else %}&middot; <span class="faint">not on Printful</span>{% endif %}
+              {% if not l.design.rights_recorded %}&middot; <span class="faint" title="Where the artwork came from, and a dated conflict search, aren't recorded yet">rights not recorded</span>{% endif %}
             </span>
           </span>
           <form method="post" action="{% url 'shop:manage_listing_status' l.pk %}" class="cluster">

@@ -11,6 +11,28 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-11 — Rights notes per design; TTS-00009's real cost recorded
+
+- **Rights record (private).** Each design now has: where the artwork came from (original /
+  commissioned / licensed / public domain / AI / other / not recorded), the date a conflict search was
+  done, and free-text notes (source files, licence terms, receipts, what was searched). Edited in the
+  listing editor's Design panel; never shown on the public shop (a test checks the notes can't leak).
+  A live listing without a recorded origin *and* a dated search gets a quiet nudge, and the Listings
+  list marks it "rights not recorded". This is the evidence behind the Terms' ownership promise.
+  Migration 0016. Existing designs start as "not recorded".
+- **TTS-00009's real Printful cost recorded** (one approved read-only lookup of order 179489366):
+  subtotal $21.55 + shipping $4.95 + tax $1.60 = **$28.10**. The order sold for $27.00, so it lost
+  $1.10 before Stripe's card fee. Jack-o's cost inputs ($21.55 base, $6.00 shipping est.) were already
+  accurate; the listing now sells at $30.00, which leaves roughly $1.90 before Stripe's fee and is
+  flagged below the 2.0× guardrail. Pricing is the owner's decision; nothing was changed.
+- The same lookup showed the order "in process" at Printful with a shipment already created, while
+  the console still said "submitted": Printful's status webhook is not reaching the site (or is not
+  registered). Checking/registering it is a Printful read + write and needs the owner's approval.
+- **Files:** `shop/models.py`, `shop/console_views.py`, `listing_edit.html`, `listings.html`,
+  migration 0016, `shop/tests_design_rights.py` (11 tests).
+
+---
+
 ## 2026-10-10 — Console login throttling and real backups (built by sub-agents, reviewed and merged)
 
 - **Login throttling.** Repeated failed staff sign-ins are locked, at both the password step and the

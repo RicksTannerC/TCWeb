@@ -7,7 +7,7 @@ manage_views.py; everything else is here.
 import logging
 import mimetypes
 import xml.etree.ElementTree as ET
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
@@ -292,6 +292,16 @@ def listing_edit(request, pk):
         d = listing.design
         d.title = request.POST.get("title", d.title).strip() or d.title
         d.story = request.POST.get("story", "")
+        if request.POST.get("origin") in Design.Origin.values:
+            d.origin = request.POST["origin"]
+        checked = request.POST.get("ip_checked_on", "").strip()
+        if "ip_checked_on" in request.POST:
+            try:
+                d.ip_checked_on = date.fromisoformat(checked) if checked else None
+            except ValueError:
+                messages.error(request, "That date isn't valid (use YYYY-MM-DD); the rights date was left as it was.")
+        if "ip_notes" in request.POST:
+            d.ip_notes = request.POST["ip_notes"].strip()
         d.save()
         d.tags.set(_tags_from_csv(request.POST.get("tags", "")))
 
@@ -363,6 +373,7 @@ def listing_edit(request, pk):
         ],
         "artwork_designs": Design.objects.exclude(artwork="").exclude(artwork__isnull=True).order_by("title"),
         "print_positions": PrintPosition.choices,
+        "design_origins": Design.Origin.choices,
         "placement_choices": [(PrintPlacement.FRONT.value, "Front"), (PrintPlacement.BACK.value, "Back")],
     })
 

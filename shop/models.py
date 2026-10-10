@@ -245,6 +245,15 @@ def placement_payload(placement, scale_pct, position):
 class Design(models.Model):
     """The artwork. Parent of its listings."""
 
+    class Origin(models.TextChoices):
+        UNKNOWN = "unknown", "Not recorded yet"
+        ORIGINAL = "original", "Original work (I made it)"
+        COMMISSIONED = "commissioned", "Commissioned (with a written assignment)"
+        LICENSED = "licensed", "Licensed (stock, marketplace or font licence)"
+        PUBLIC_DOMAIN = "public_domain", "Public-domain source"
+        AI = "ai", "AI-assisted or generated"
+        OTHER = "other", "Other (explain in the notes)"
+
     title = models.CharField(max_length=120)
     slug = models.SlugField(max_length=140, unique=True, blank=True)
     story = models.TextField(blank=True, help_text="The short narrative shown on the card.")
@@ -254,6 +263,15 @@ class Design(models.Model):
     )
     tags = models.ManyToManyField(Tag, blank=True, related_name="designs")
 
+    # A private record of rights: where the artwork came from and whether anyone
+    # has searched for conflicts. Never shown publicly. The Terms promise that the
+    # designs are ours or used with permission; this is the evidence behind it.
+    origin = models.CharField(max_length=16, choices=Origin.choices, default=Origin.UNKNOWN)
+    ip_checked_on = models.DateField(
+        null=True, blank=True, help_text="When trademark/copyright conflicts were last searched for.")
+    ip_notes = models.TextField(
+        blank=True, help_text="Source files, licence terms, receipts, what was searched and what turned up.")
+
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 
@@ -262,6 +280,11 @@ class Design(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def rights_recorded(self):
+        """Origin stated *and* a conflict search dated. The bar for calling it documented."""
+        return self.origin != self.Origin.UNKNOWN and self.ip_checked_on is not None
 
     def save(self, *args, **kwargs):
         if not self.slug:
