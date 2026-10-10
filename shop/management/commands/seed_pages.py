@@ -36,9 +36,11 @@ No warehouse, no overstock, no pressure. Just a good shirt when you want one.
         "body": """\
 ## Shipping
 
-Every order is **printed to order**, so give it a few days to be made before
-it ships. You'll get an email when it's in production, another when it ships
-(with tracking), and one when it's delivered.
+Every order is **printed to order**. Most orders arrive **about 7–9 days after you
+place them**, counting production and delivery together. That's an estimate, not a
+guarantee — busy periods, holidays and carrier delays can add time. You'll get an
+email when it's in production, another when it ships (with tracking), and one
+when it's delivered.
 
 Shipping is **free** — it's built into the price. Sales tax is calculated at
 checkout where it applies.

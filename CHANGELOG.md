@@ -11,6 +11,29 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-10 — Terms of Service draft, a real delivery estimate, stale orders cleared
+
+- **Terms of Service draft** (`docs/terms-of-service-draft.md`, also a DRAFT page in the
+  console titled "Terms of Service (draft)": not live, not in the footer, 404 publicly).
+  Fifteen sections written to match what the shop actually does (US-only shipping,
+  every order held for approval, made to order, 30-day defect policy). Anything that is a
+  business decision is marked `[CONFIRM]` rather than invented: cancellation policy,
+  return-window start, entity/address, dispute venue, artwork ownership after IP clearance,
+  and **sales tax**. The live "Terms" page is unchanged until a reviewed version replaces it.
+- **Sales tax gap noted, not fixed:** `STRIPE_TAX_ENABLED` is off, so no tax is added, yet the
+  live Shipping page says tax is calculated at checkout. Needs a business decision.
+- **Delivery estimate:** the curator supplied a real figure (an order placed Oct 5, estimated
+  delivery Oct 12–14 = 7–9 days). The Shipping & Returns page now says orders arrive "about
+  7–9 days" (replacing "a few days") and the seed copy matches. Stripe's checkout estimate was
+  hard-coded "3–8 business days" (earlier than reality); it now says 7–9 calendar days.
+  This rests on one order; widen it if real deliveries run longer.
+- **Cleanup:** stale unpaid test orders TTS-00005 and TTS-00006 deleted (checked: no email,
+  no payment, no fulfilments; backup `D:\TCData\db-before-terms-draft.sqlite3`).
+- **Files:** `docs/terms-of-service-draft.md`, `shop/payments.py`,
+  `shop/management/commands/seed_pages.py`, `shop/tests_shipping_estimate.py`.
+
+---
+
 ## 2026-10-05 — Second Jack-o order also failed: its sizes still had no ids
 
 - **What:** a new paid order (TTS-00009) was approved but never reached Printful: the
