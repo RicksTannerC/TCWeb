@@ -11,6 +11,25 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-10 — Found: waitress was stripping X-Forwarded-Proto, so Django never knew about HTTPS
+
+- **What:** while checking the new `www.` redirect (it answered `http://`) a probe showed that
+  waitress 3.x **drops `X-Forwarded-*` headers unless told which proxy to trust**. So the
+  `SECURE_PROXY_SSL_HEADER` setting had never had any effect on the live site: `request.is_secure()`
+  was always False. Nothing visibly broke (absolute URLs use `SITE_BASE_URL`; CSRF passes because
+  the HTTPS origin is in `CSRF_TRUSTED_ORIGINS`), but anything keyed on the request scheme was wrong.
+  `CF-Connecting-IP` is *not* stripped, so the login throttle's IP detection was unaffected.
+- **Fix:** launch waitress with `--trusted-proxy=127.0.0.1 --trusted-proxy-headers=x-forwarded-proto`
+  (in `deploy/run_server.ps1` and the README). Only the loopback connector can set it, which is the
+  same trust the project already assumed. Verified with a probe app: header kept and
+  `wsgi.url_scheme` becomes https, while a direct local request stays http.
+- **Verified live** through the public domain: `www.` now redirects to `https://`; a token-bearing
+  form POST succeeds, one without a token gets 403, and the log is clean.
+- **Guard:** `shop/tests_deploy_flags.py` fails if the supervisor script or README lose the flags.
+- **Operational note:** any hand-written launch command must include the flags too.
+
+---
+
 ## 2026-10-10 — Fonts are self-hosted: visitors' browsers no longer contact Google (sub-agent, reviewed)
 
 - **What:** every page loaded Oswald and IBM Plex from fonts.googleapis.com / fonts.gstatic.com, so

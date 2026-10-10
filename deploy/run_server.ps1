@@ -47,10 +47,14 @@ while ($true) {
     }
 
     Write-Log "Starting waitress..."
+    # --trusted-proxy*: waitress DROPS X-Forwarded-* headers unless told which proxy to trust,
+    # so without these flags Django never learns requests arrived over HTTPS (the Cloudflare
+    # connector is the only thing that can reach 127.0.0.1:8000). Keep them in step with the
+    # README's launch command.
     # cmd.exe does the redirection: it appends the program's raw output. PowerShell 5.1's
     # own 1>>/2>> would re-encode it as UTF-16, leaving the logs unreadable by most tools.
     # (No quoting needed: the Python path has no spaces -- checked once at the top.)
-    cmd.exe /c "$Python -m waitress --listen=127.0.0.1:8000 config.wsgi:application 1>>waitress.log 2>>waitress.err.log"
+    cmd.exe /c "$Python -m waitress --listen=127.0.0.1:8000 --trusted-proxy=127.0.0.1 --trusted-proxy-headers=x-forwarded-proto config.wsgi:application 1>>waitress.log 2>>waitress.err.log"
 
     Write-Log "waitress exited (exit code $LASTEXITCODE). Restarting in 5 seconds."
     Start-Sleep -Seconds 5

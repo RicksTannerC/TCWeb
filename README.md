@@ -114,7 +114,7 @@ Current setup (interim, from a Windows machine):
     `TCWEB_ENV_FILE` set, so they use the safe project-folder defaults
     (SQLite, the Printful mock) automatically.
 - The app runs under **waitress** (`gunicorn` doesn't run on Windows):
-  `python -m waitress --listen=127.0.0.1:8000 config.wsgi:application` — bound
+  `python -m waitress --listen=127.0.0.1:8000 --trusted-proxy=127.0.0.1 --trusted-proxy-headers=x-forwarded-proto config.wsgi:application` — bound
   to localhost only, so it is reachable solely through the tunnel. Run it as a
   `python -m` module rather than the `waitress-serve.exe` shim: Windows **Smart
   App Control**, if enabled, blocks that shim as an unrecognized unsigned
