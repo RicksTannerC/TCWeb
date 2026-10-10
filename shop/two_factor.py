@@ -10,6 +10,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django_otp import devices_for_user, login as otp_login
 
+from . import login_throttle
+from .console import FailedLogin
 from .middleware import SESSION_2FA_KEY, two_factor_ok
 
 
@@ -35,15 +37,24 @@ def verify(request):
     devices = list(devices_for_user(request.user, confirmed=True))
     error = ""
     if request.method == "POST" and devices:
-        # Spaces are stripped and case folded (backup codes are lowercase); the
-        # error message is deliberately generic.
-        token = "".join(request.POST.get("token", "").split()).lower()
-        for device in devices:
-            if device.verify_token(token):
-                otp_login(request, device)
-                request.session[SESSION_2FA_KEY] = time.time()
-                return redirect(next_url)
-        error = "That code didn't work. Check the code and try again."
+        username = request.user.get_username()
+        ip = login_throttle.client_ip(request)
+        locked = login_throttle.lockout_seconds(username, ip)
+        if locked:
+            # Rejected without looking at the code, even if it is the right one.
+            error = login_throttle.lock_message(locked)
+        else:
+            # Spaces are stripped and case folded (backup codes are lowercase); the
+            # error message is deliberately generic.
+            token = "".join(request.POST.get("token", "").split()).lower()
+            for device in devices:
+                if device.verify_token(token):
+                    otp_login(request, device)
+                    request.session[SESSION_2FA_KEY] = time.time()
+                    login_throttle.clear_failures(username)
+                    return redirect(next_url)
+            login_throttle.record_failure(username, ip, kind=FailedLogin.Kind.OTP)
+            error = "That code didn't work. Check the code and try again."
 
     return render(request, "shop/manage/two_factor.html", {
         "next": next_url,

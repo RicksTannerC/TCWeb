@@ -204,6 +204,16 @@ STAFF_2FA_REQUIRED = env.bool("STAFF_2FA_REQUIRED", default=True)
 STAFF_2FA_MAX_AGE = env.int("STAFF_2FA_MAX_AGE", default=60 * 60 * 12)  # re-verify after 12h
 OTP_TOTP_ISSUER = "The T-Shirt Brand"
 
+# Brute-force throttling on staff sign-in (password + second-factor steps); see
+# shop/login_throttle.py. A username locks after USER_FAILURES failures within
+# the window, an IP after IP_FAILURES; a lock ends WINDOW seconds after the most
+# recent failure, so it can never be permanent. Unlock early from the machine
+# with: manage.py clear_login_lockouts
+LOGIN_THROTTLE_ENABLED = env.bool("LOGIN_THROTTLE_ENABLED", default=True)
+LOGIN_THROTTLE_USER_FAILURES = env.int("LOGIN_THROTTLE_USER_FAILURES", default=5)
+LOGIN_THROTTLE_IP_FAILURES = env.int("LOGIN_THROTTLE_IP_FAILURES", default=15)
+LOGIN_THROTTLE_WINDOW_SECONDS = env.int("LOGIN_THROTTLE_WINDOW_SECONDS", default=15 * 60)
+
 # --- Security (production) ----------------------------------------
 
 if not DEBUG:
