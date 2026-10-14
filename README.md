@@ -145,8 +145,8 @@ Current setup (interim, from a Windows machine):
     taking it as a plain argument; `/ru trick` runs it as your own account,
     which matters because the repo lives inside OneDrive.)
   - **To restart the app** (to pick up new code, or after changing `.env`), no
-    administrator rights are needed: create the file `D:\TCDataestart.flag`
-    (`New-Item D:\TCDataestart.flag -ItemType File -Force`). Within seconds the
+    administrator rights are needed: create the file `D:\TCData\restart.flag`
+    (`New-Item D:\TCData\restart.flag -ItemType File -Force`). Within seconds the
     supervisor deletes it, stops waitress and starts a fresh copy; the event is in
     `waitress.supervisor.log`. The task runs in its own sign-in session, so killing the
     process from your own window is refused. Don't start a second copy by hand: the

@@ -29,7 +29,7 @@ pointing at the commit(s) that carry it.
   can be restarted without administrator rights.
 - **Restarting without administrator rights.** The supervised app runs in the task's own sign-in
   session, and Windows refuses a normal `Stop-Process` on it (so code could not be deployed by anyone
-  but an administrator). `deploy/run_server.ps1` now watches for `D:\TCDataestart.flag`: create the
+  but an administrator). `deploy/run_server.ps1` now watches for `D:\TCData\restart.flag`: create the
   file and it stops waitress and starts a fresh copy within seconds. Tested on a spare port against a
   throwaway database (flag consumed, new process, log entries). Takes effect when the supervisor
   itself next starts (next boot, or an administrator's Stop/Start-ScheduledTask).
@@ -161,7 +161,7 @@ pointing at the commit(s) that carry it.
   database plus `private_media`, integrity-checked, with a manifest of row counts and file checksums;
   keeps the newest 14; `--verify` restores to a temp folder and compares; `--restore-to` refuses to
   overwrite anything. `.env` and logs are never copied. A first real backup was taken to
-  `D:\TCDataackups\` and independently re-verified (PASS). **Not yet scheduled** (needs the
+  `D:\TCData\backups\` and independently re-verified (PASS). **Not yet scheduled** (needs the
   owner's password) and **a copy on the same disk is not disaster-proof**.
 - Migration numbering: both branches added a 0014; the supplier-costs migration was renumbered to
   0015 and re-parented before anything was applied to the real database.
