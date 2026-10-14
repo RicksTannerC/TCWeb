@@ -287,11 +287,20 @@ def reprint(fulfillment: Fulfillment, *, reason: str = "") -> Fulfillment:
         new.status = Fulfillment.Status.PROBLEM
         new.problem_note += f" — submit failed: {exc}"
     new.save()
-    # Retrying an order whose first submit failed ("approved", not yet at Printful):
-    # once a retry goes through, the order is submitted.
-    if new.status == Fulfillment.Status.SUBMITTED and order.status == OrderStatus.APPROVED:
-        order.status = OrderStatus.SUBMITTED
-        order.save(update_fields=["status", "updated"])
+    if new.status == Fulfillment.Status.SUBMITTED:
+        # A failed attempt that has now been replaced must stop counting as a problem: the
+        # status roll-up refuses to advance an order while any fulfilment is in Problem, so a
+        # left-behind failure would pin the order (and its shipped/delivered emails) forever.
+        if fulfillment.status == Fulfillment.Status.PROBLEM:
+            fulfillment.status = Fulfillment.Status.CANCELLED
+            fulfillment.problem_note = (fulfillment.problem_note.rstrip()
+                                        + f" | Replaced by reprint #{new.id}.")
+            fulfillment.save(update_fields=["status", "problem_note", "updated"])
+        # Retrying an order whose first submit failed ("approved", not yet at Printful):
+        # once a retry goes through, the order is submitted.
+        if order.status == OrderStatus.APPROVED:
+            order.status = OrderStatus.SUBMITTED
+            order.save(update_fields=["status", "updated"])
     return new
 
 

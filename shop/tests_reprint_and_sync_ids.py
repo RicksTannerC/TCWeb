@@ -255,3 +255,56 @@ class MissingIdsBannerTests(TestCase):
     def test_no_warning_for_a_listing_that_is_not_on_printful_yet(self):
         html = self.page(make_listing(connected=False))
         self.assertNotIn("Orders for this listing will fail", html)
+
+
+class SupersededFailureTests(TestCase):
+    """A failed attempt replaced by a good reprint must not pin the order's status forever."""
+
+    def reprint_ok(self, ful):
+        client = mock.MagicMock(is_mock=False)
+        client.create_order.return_value = {"id": 777}
+        with mock.patch.object(printful, "get_client", return_value=client):
+            return fulfillment.reprint(ful, reason="retry")
+
+    def test_the_replaced_failure_is_cancelled_with_a_note(self):
+        listing = make_listing(connected=True, sync_ids={"M": "9001", "L": "9002"})
+        order, item = make_order(listing)
+        failed = failed_fulfilment(order, item)
+        new = self.reprint_ok(failed)
+        failed.refresh_from_db()
+        self.assertEqual(failed.status, "cancelled")
+        self.assertIn(f"Replaced by reprint #{new.id}", failed.problem_note)
+        self.assertEqual(new.status, "submitted")
+
+    def test_then_a_shipped_event_moves_the_order_to_shipped_and_emails_the_customer(self):
+        from django.core import mail
+        listing = make_listing(connected=True, sync_ids={"M": "9001", "L": "9002"})
+        order, item = make_order(listing)
+        failed = failed_fulfilment(order, item)
+        new = self.reprint_ok(failed)
+        fulfillment.apply_partner_event("package_shipped", {
+            "order": {"id": 777, "external_id": f"{order.reference}-{new.id}-reprint"},
+            "shipment": {"tracking_number": "1Z1", "tracking_url": "https://t.example/1Z1", "carrier": "UPS"}})
+        order.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.SHIPPED)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_a_failed_reprint_does_not_cancel_the_original(self):
+        listing = make_listing(connected=True, sync_ids={"M": "9001", "L": "9002"})
+        order, item = make_order(listing)
+        failed = failed_fulfilment(order, item)
+        client = mock.MagicMock(is_mock=False)
+        client.create_order.side_effect = printful.PrintfulError("address invalid")
+        with mock.patch.object(printful, "get_client", return_value=client):
+            fulfillment.reprint(failed, reason="retry")
+        failed.refresh_from_db()
+        self.assertEqual(failed.status, "problem")
+
+    def test_reprinting_a_shipped_fulfilment_leaves_it_shipped(self):
+        listing = make_listing(connected=True, sync_ids={"M": "9001", "L": "9002"})
+        order, item = make_order(listing, status=OrderStatus.SHIPPED)
+        shipped = Fulfillment.objects.create(order=order, supplier="printful", status="shipped", partner_order_id="1")
+        shipped.items.set([item])
+        self.reprint_ok(shipped)
+        shipped.refresh_from_db()
+        self.assertEqual(shipped.status, "shipped")

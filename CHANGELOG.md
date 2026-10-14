@@ -11,6 +11,28 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-14 — Webhook confirmed working; a replaced failure no longer pins an order's status
+
+- **Confirmed live:** after the webhook was registered (Oct 10), Printful's `package_shipped` event for
+  TTS-00009 reached the site on Oct 13 and recorded the UPS tracking number on its fulfilment — the
+  first real status event through the secured URL.
+- **Bug found from that:** the order itself stayed "submitted". The first (failed) fulfilment, replaced by
+  a successful reprint, was still in Problem, and the status roll-up deliberately won't advance an order
+  while any fulfilment is in Problem — so the order, and its "shipped" email to the customer, would
+  never have moved. A successful reprint now marks the failed attempt it replaces as cancelled
+  ("Replaced by reprint #N"); a failed reprint, or a reprint of an already-shipped fulfilment, leaves the
+  original alone.
+- **TTS-00009 reconciled by hand:** failed fulfilment #6 cancelled, order set to Shipped. Set directly,
+  not through the roll-up, so no email was sent (backup `D:\TCData\db-before-order9-rollup.sqlite3`).
+- **Unplanned reboot test passed:** the PC restarted overnight (supervisor log 2026-10-14 00:47) and the
+  scheduled task brought the app back within seconds with no one touching it; it runs unelevated, so it
+  can be restarted without administrator rights.
+- **Not yet working:** `www.shopthetshirtbrand.com` doesn't resolve — the Cloudflare public hostname
+  hasn't been added.
+- **Files:** `shop/fulfillment.py`, `shop/tests_reprint_and_sync_ids.py` (+4 tests; suite 493).
+
+---
+
 ## 2026-10-10 — Printful status webhook (secured) and Printful's mockup preview on the listing page
 
 - **Webhook was never registered.** A read-only check showed Printful has *no* webhook configured, which is
