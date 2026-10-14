@@ -24,3 +24,10 @@ class WaitressProxyFlagsTests(SimpleTestCase):
     def test_the_proxy_header_setting_is_still_configured_for_production(self):
         settings_py = (ROOT / "config" / "settings.py").read_text(encoding="utf-8")
         self.assertIn('SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")', settings_py)
+
+    def test_the_supervisor_still_honours_the_restart_request_file(self):
+        script = (ROOT / "deploy" / "run_server.ps1").read_text(encoding="utf-8")
+        self.assertIn("restart.flag", script)
+        self.assertIn("taskkill.exe", script)
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("restart.flag", readme)

@@ -27,6 +27,12 @@ pointing at the commit(s) that carry it.
 - **Unplanned reboot test passed:** the PC restarted overnight (supervisor log 2026-10-14 00:47) and the
   scheduled task brought the app back within seconds with no one touching it; it runs unelevated, so it
   can be restarted without administrator rights.
+- **Restarting without administrator rights.** The supervised app runs in the task's own sign-in
+  session, and Windows refuses a normal `Stop-Process` on it (so code could not be deployed by anyone
+  but an administrator). `deploy/run_server.ps1` now watches for `D:\TCDataestart.flag`: create the
+  file and it stops waitress and starts a fresh copy within seconds. Tested on a spare port against a
+  throwaway database (flag consumed, new process, log entries). Takes effect when the supervisor
+  itself next starts (next boot, or an administrator's Stop/Start-ScheduledTask).
 - **Not yet working:** `www.shopthetshirtbrand.com` doesn't resolve — the Cloudflare public hostname
   hasn't been added.
 - **Files:** `shop/fulfillment.py`, `shop/tests_reprint_and_sync_ids.py` (+4 tests; suite 493).

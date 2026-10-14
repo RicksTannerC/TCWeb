@@ -144,10 +144,15 @@ Current setup (interim, from a Windows machine):
     (`/rp *` is what makes it prompt for the password interactively instead of
     taking it as a plain argument; `/ru trick` runs it as your own account,
     which matters because the repo lives inside OneDrive.)
-  - **To restart the app by hand** during development, stop the task first so
-    the supervisor and a manual run don't both grab port 8000:
-    `Stop-ScheduledTask -TaskName "TShirtBrandWebsite"`, then start it again
-    when done: `Start-ScheduledTask -TaskName "TShirtBrandWebsite"`.
+  - **To restart the app** (to pick up new code, or after changing `.env`), no
+    administrator rights are needed: create the file `D:\TCDataestart.flag`
+    (`New-Item D:\TCDataestart.flag -ItemType File -Force`). Within seconds the
+    supervisor deletes it, stops waitress and starts a fresh copy; the event is in
+    `waitress.supervisor.log`. The task runs in its own sign-in session, so killing the
+    process from your own window is refused. Don't start a second copy by hand: the
+    supervisor would wait on the busy port, and a hand-started copy dies at the next
+    reboot. (To stop the supervisor itself, from an *administrator* PowerShell:
+    `Stop-ScheduledTask -TaskName "TShirtBrandWebsite"`, then `Start-ScheduledTask`.)
   - Logs: `waitress.supervisor.log` (start/restart events),
     `waitress.log`/`waitress.err.log` (the app itself, as before).
   - Verified: killed the waitress process out from under a running supervisor
