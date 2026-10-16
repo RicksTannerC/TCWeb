@@ -67,11 +67,12 @@ production we can't cancel it.
 We currently ship **only to addresses in the United States**.
 
 Because every item is made to order, delivery takes a little longer than from a warehouse. **Most
-orders arrive about 7–9 days after you place them**, counting production and delivery together.
-That is an estimate, not a guarantee: busy periods, holidays and carrier delays can add time.
-**[CONFIRM: this 7–9 day figure comes from a single order (placed Oct 5, estimated delivery
-Oct 12–14). Check it against the first several real deliveries, and widen it if they run longer,
-before you rely on it.]**
+orders arrive about 10–14 days after you place them**: roughly a week to make and hand to the
+carrier, then a few days in transit. That is an estimate, not a guarantee: busy periods, holidays
+and carrier delays can add time.
+**[CONFIRM: this 10–14 day figure rests on a single order (placed Oct 5: handed to the carrier
+around Oct 12–14, carrier delivery window Oct 12–19). Check it against the first several real
+deliveries and adjust before you rely on it.]**
 
 You'll receive an email when your order is in production and when it ships, with tracking where
 available. Risk of loss passes to you on delivery to the address you gave us — please check your

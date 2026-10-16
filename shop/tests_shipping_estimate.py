@@ -12,7 +12,7 @@ from .orders import Order, OrderItem
 
 @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_PUBLISHABLE_KEY="pk_test_x", TESTING=False)
 class CheckoutDeliveryEstimateTests(TestCase):
-    def test_stripe_is_told_7_to_9_calendar_days(self):
+    def test_stripe_is_told_10_to_14_calendar_days(self):
         tpl = ProductTemplate.objects.create(name="Tee", product_type="tee")
         listing = Listing.objects.create(design=Design.objects.create(title="W"), template=tpl, product_type="tee")
         size = ListingSize.objects.create(listing=listing, label="M")
@@ -23,4 +23,4 @@ class CheckoutDeliveryEstimateTests(TestCase):
         with mock.patch("stripe.checkout.Session.create", return_value=mock.Mock(id="cs_x", url="https://x")) as create:
             payments.create_checkout_session(request, order)
         est = create.call_args.kwargs["shipping_options"][0]["shipping_rate_data"]["delivery_estimate"]
-        self.assertEqual(est, {"minimum": {"unit": "day", "value": 7}, "maximum": {"unit": "day", "value": 9}})
+        self.assertEqual(est, {"minimum": {"unit": "day", "value": 10}, "maximum": {"unit": "day", "value": 14}})

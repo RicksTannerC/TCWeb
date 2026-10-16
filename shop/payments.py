@@ -95,11 +95,11 @@ def create_checkout_session(request, order):
                     "type": "fixed_amount",
                     "fixed_amount": {"amount": 0, "currency": "usd"},
                     "display_name": "Standard shipping",
-                    # Keep in step with the Shipping & Returns page ("about 7-9 days"), which
-                    # comes from a real order's delivery estimate. Calendar days.
+                    # Keep in step with the Shipping & Returns page ("about 10-14 days"), from a
+                    # real order: ~a week to hand to the carrier plus the carrier's window. Calendar days.
                     "delivery_estimate": {
-                        "minimum": {"unit": "day", "value": 7},
-                        "maximum": {"unit": "day", "value": 9},
+                        "minimum": {"unit": "day", "value": 10},
+                        "maximum": {"unit": "day", "value": 14},
                     },
                 }
             }

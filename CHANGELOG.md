@@ -11,6 +11,27 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-16 — Delivery estimate corrected to about 10–14 days
+
+- **What:** the "about 7–9 days" published on Oct 10 came from Printful's estimate for TTS-00009 (Oct 12–14),
+  which the owner has since learned is only when Printful *hands the package to the carrier*. UPS's own
+  delivery window for that order is Oct 12–19, and Printful's shipped notice only arrived on Oct 13
+  (day 8), so 7–9 days was too low at both ends.
+- **Now says "about 10–14 days"** (roughly a week to make and hand to the carrier, then a few days in
+  transit; an estimate, not a guarantee) in all three places that must agree: the live Shipping & Returns
+  page (and its seed copy), Stripe's checkout delivery estimate (10–14 calendar days; was 7–9), and
+  the Terms draft, whose CONFIRM note now records exactly what the figure rests on.
+- **Judgement call, easy to change:** the lower bound is higher than the UPS window's 7 days because that
+  window can't be met when the package wasn't handed over until day 8. It rests on one order; adjust it
+  after the first several real deliveries (the number appears in `payments.py`, `seed_pages.py`, the live
+  page and the Terms draft).
+- **Files:** `shop/payments.py`, `shop/management/commands/seed_pages.py`, `shop/tests_shipping_estimate.py`,
+  `docs/terms-of-service-draft.md`. Backup: D:/TCData/db-before-delivery-10-14.sqlite3.
+- **Also confirmed today:** the new supervisor is running and the restart-request file works on the live
+  app (file consumed, app replaced within seconds, site back, no errors).
+
+---
+
 ## 2026-10-14 — Webhook confirmed working; a replaced failure no longer pins an order's status
 
 - **Confirmed live:** after the webhook was registered (Oct 10), Printful's `package_shipped` event for
