@@ -17,9 +17,15 @@ def reply(color="Ivory"):
     def variant(i, size, col, preview):
         return {"id": 9000 + i, "external_id": f"x::{size}", "name": f"Jack-o / {col} / {size}",
                 "size": size, "color": col, "variant_id": 100 + i,
+                # the real shape (read from Jack-o's product): the art for each placement, then
+                # one hidden `preview` file holding Printful's mockup
                 "files": [
-                    {"type": "default", "preview_url": f"{CDN}/art-{i}.png", "thumbnail_url": f"{CDN}/art-{i}-t.png"},
-                    {"type": "preview", "preview_url": preview, "thumbnail_url": preview + "-t"},
+                    {"type": "default", "status": "ok", "visible": True,
+                     "preview_url": f"{CDN}/art-{i}.png", "thumbnail_url": f"{CDN}/art-{i}-t.png"},
+                    {"type": "back", "status": "ok", "visible": True,
+                     "preview_url": f"{CDN}/art-back-{i}.png", "thumbnail_url": f"{CDN}/art-back-{i}-t.png"},
+                    {"type": "preview", "status": "ok", "visible": False,
+                     "preview_url": preview, "thumbnail_url": preview + "-t"},
                 ]}
     return {
         "sync_product": {"id": 477, "name": "Jack-o", "thumbnail_url": f"{CDN}/thumb.png"},
@@ -63,8 +69,8 @@ class ExtractTests(TestCase):
     def test_only_https_images_are_kept(self):
         r = reply()
         r["sync_product"]["thumbnail_url"] = "http://insecure.test/t.png"
-        r["sync_variants"][1]["files"][1]["preview_url"] = 'javascript:alert(1)'
-        r["sync_variants"][1]["files"][1]["thumbnail_url"] = 'https://x.test/a.png" onerror="alert(1)'
+        r["sync_variants"][1]["files"][2]["preview_url"] = 'javascript:alert(1)'
+        r["sync_variants"][1]["files"][2]["thumbnail_url"] = 'https://x.test/a.png" onerror="alert(1)'
         self.assertEqual(printful.extract_previews(r, "Ivory"), [])
 
     def test_at_most_six(self):

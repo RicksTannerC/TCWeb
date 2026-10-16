@@ -80,9 +80,12 @@ pointing at the commit(s) that carry it.
   placement, size and colour can be checked before listing. It is captured from the product reads that
   already happen (Send, Re-send, Refresh sizes) at no extra call, plus a "Refresh preview" button (one
   read, on click). Only https images are kept; fields are defensive about Printful's reply shape.
-- **Not verified against real data:** the preview extraction follows Printful's documented sync-product
-  shape; Jack-o's real product has not been read for it yet, so the first real refresh may show only the
-  thumbnail if Printful names the preview file differently.
+- **Verified against real data (2026-10-16, one approved read of Jack-o's product):** the reply has the
+  shape the extraction expects. `sync_product.thumbnail_url` is present, and every variant carries its
+  art files (`default` = front, `back`) plus one hidden `preview` file with a `preview_url` that is
+  Printful's mockup. Only the thumbnail and the `preview` file are used; the art files are skipped. The
+  test fixture now mirrors that structure (including the back file). Not checked: whether the single
+  `preview` image shows both print areas — look at the panel after pressing Refresh preview.
 - **Files:** `shop/printful.py`, `shop/views.py`, `shop/urls.py`, `shop/console_views.py`, `listing_edit.html`,
   `style.css`, `shop/models.py`, migration 0017, `management/commands/printful_webhook.py`,
   `shop/tests_printful_webhook.py` (13), `shop/tests_printful_preview.py` (18).
