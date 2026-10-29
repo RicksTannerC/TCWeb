@@ -11,6 +11,27 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-29 — Positioned prints use Printful's real print-area size (second design no longer lands centered)
+
+- **What:** the position of a non-default print (e.g. a small front design, "Upper left", 30%) was measured against
+  an invented 1000x1000 square, so Printful ignored the offset and centered it. It is now measured against the
+  placement's real print file, read from Printful's printfiles info (1800x2400 px for front and back on both
+  Comfort Colors 1717 and Bella + Canvas 3001; cached an hour, falling back to 1800x2400 if the lookup fails), and
+  the box keeps the artwork's own shape (read from the PNG/JPEG/WebP, or the SVG viewBox) instead of a square.
+  "Size" means how wide the art runs across the area. A centered, full-size print is unchanged (no position
+  sent). Listings sent before this with a positioned print now show "Printful still has the old version" so
+  they get re-sent.
+- **Why:** reported by the owner: the additional print always came out centered.
+- **Files:** `shop/models.py` (`placement_payload`, `Design.artwork_aspect`, `Listing.payload_for`,
+  `print_signature`), `shop/printful.py` (`print_area`, `RealPrintful.print_files`, mock),
+  `shop/tests_print_area.py`, `shop/tests_multi_print.py` (expectations moved to the real area).
+- **Verified:** the printfiles reply was read from Printful for products 586 and 71 (two approved read-only
+  calls) and used as the test fixture; 15 new tests; full suite 531 OK. NOT yet verified: that Printful's own
+  preview now shows the print where chosen. That needs a Re-send of Jack-o and a Refresh preview.
+- **Follow-ups:** Jack-o must be re-sent (Match sizes, Re-send, Refresh sizes if prompted) to take effect; the
+  old product stays in the Printful store to delete by hand. If the preview still looks off, Printful's
+  `position` may be measured differently than assumed and I will read a sent product's `position` back.
+
 ## 2026-10-28 — A listing can be deleted from its editor
 
 - **What:** a *Delete* panel at the bottom of the listing editor. Deleting removes the listing (sizes, images,

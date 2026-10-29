@@ -1,0 +1,184 @@
+"""A positioned print is measured against the placement's real print-file size and keeps the
+artwork's shape. Stub replies only (the shape is what Printful returned for products 586 and 71)."""
+
+import io
+import os
+import tempfile
+from unittest import mock
+
+from django.core.cache import cache
+from django.core.files.base import ContentFile
+from django.test import TestCase, override_settings
+
+from . import printful
+from .models import DEFAULT_PRINT_AREA, Design, Listing, ListingPrint, PrintPosition, ProductTemplate, placement_payload
+
+REAL_REPLY = {
+    "product_id": 586,
+    "printfiles": [
+        {"printfile_id": 1, "width": 1800, "height": 2400, "dpi": 150},
+        {"printfile_id": 90, "width": 450, "height": 450, "dpi": 150},
+        {"printfile_id": 130, "width": 600, "height": 525, "dpi": 150},
+    ],
+    "variant_printfiles": [
+        {"variant_id": 15114, "placements": {"front": 1, "back": 1, "sleeve_left": 130, "label_outside": 90}},
+    ],
+}
+
+
+def png(w, h):
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGBA", (w, h), (10, 100, 50, 255)).save(buf, "PNG")
+    return buf.getvalue()
+
+
+class AreaLookupTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def stub(self, reply=None, error=None):
+        c = mock.MagicMock(is_mock=False)
+        if error:
+            c.print_files.side_effect = error
+        else:
+            c.print_files.return_value = REAL_REPLY if reply is None else reply
+        return c
+
+    def area(self, placement, client, blueprint="586"):
+        with mock.patch.object(printful, "get_client", return_value=client):
+            return printful.print_area(blueprint, placement)
+
+    def test_reads_the_size_of_each_placement(self):
+        c = self.stub()
+        self.assertEqual(self.area("front", c), (1800, 2400))
+        self.assertEqual(self.area("sleeve_left", c), (600, 525))
+        self.assertEqual(self.area("label_outside", c), (450, 450))
+
+    def test_one_fetch_per_product(self):
+        c = self.stub()
+        self.area("front", c)
+        self.area("back", c)
+        self.assertEqual(c.print_files.call_count, 1)
+
+    def test_falls_back_when_printful_errors_or_replies_oddly(self):
+        for c in (self.stub(error=printful.PrintfulError("boom")), self.stub(reply={}),
+                  self.stub(reply={"printfiles": "x", "variant_printfiles": 3})):
+            cache.clear()
+            self.assertEqual(self.area("front", c), DEFAULT_PRINT_AREA)
+
+    def test_unknown_placement_and_no_product_fall_back(self):
+        self.assertEqual(self.area("nowhere", self.stub()), DEFAULT_PRINT_AREA)
+        self.assertEqual(self.area("front", self.stub(), blueprint=""), DEFAULT_PRINT_AREA)
+
+
+class PayloadShapeTests(TestCase):
+    def test_wide_art_keeps_its_shape(self):
+        p = placement_payload("front", 30, PrintPosition.TOP_LEFT, area=(1800, 2400), aspect=2.0)["position"]
+        self.assertEqual((p["width"], p["height"]), (540, 270))
+
+    def test_tall_art_is_limited_by_the_area_height_share(self):
+        p = placement_payload("front", 30, PrintPosition.CENTER, area=(1800, 2400), aspect=0.2)["position"]
+        self.assertEqual(p["height"], 720)
+        self.assertEqual(p["width"], 144)
+
+    def test_the_box_stays_inside_every_area_for_odd_art(self):
+        for aspect in (0.1, 0.5, 1.0, 3.0, 10.0):
+            for pos in PrintPosition.values:
+                for scale in (25, 50, 100):
+                    p = placement_payload("front", scale, pos, area=(600, 525), aspect=aspect)
+                    box = p.get("position")
+                    if box:
+                        self.assertGreaterEqual(box["top"], 0)
+                        self.assertGreaterEqual(box["left"], 0)
+                        self.assertLessEqual(box["top"] + box["height"], 525, (aspect, pos, scale))
+                        self.assertLessEqual(box["left"] + box["width"], 600, (aspect, pos, scale))
+
+    def test_a_corner_preset_lands_in_that_corner_of_the_real_area(self):
+        p = placement_payload("front", 30, PrintPosition.TOP_RIGHT, area=(1800, 2400))["position"]
+        self.assertGreater(p["left"] + p["width"] / 2, 900)
+        self.assertLess(p["top"] + p["height"] / 2, 1200)
+
+    def test_nonsense_aspect_is_treated_as_square(self):
+        for bad in (0, -1, None):
+            p = placement_payload("front", 30, PrintPosition.CENTER, aspect=bad)["position"]
+            self.assertEqual(p["width"], p["height"])
+
+
+class ArtworkAspectTests(TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.enterContext(override_settings(
+            MEDIA_ROOT=os.path.join(tmp.name, "public"), PRIVATE_MEDIA_ROOT=os.path.join(tmp.name, "private")))
+
+    def design(self, name, data):
+        d = Design.objects.create(title=name)
+        d.artwork.save(name, ContentFile(data), save=True)
+        return d
+
+    def test_png(self):
+        self.assertAlmostEqual(self.design("w.png", png(400, 100)).artwork_aspect(), 4.0)
+
+    def test_svg_viewbox_and_width_height(self):
+        self.assertAlmostEqual(
+            self.design("a.svg", b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"></svg>').artwork_aspect(), 1.5)
+        self.assertAlmostEqual(
+            self.design("b.svg", b'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="400"></svg>').artwork_aspect(), 0.25)
+
+    def test_unreadable_or_missing_art_is_square(self):
+        self.assertEqual(self.design("c.svg", b"not an image").artwork_aspect(), 1.0)
+        self.assertEqual(Design.objects.create(title="none").artwork_aspect(), 1.0)
+        self.assertEqual(self.design("d.svg", b'<svg viewBox="0 0 0 0"></svg>').artwork_aspect(), 1.0)
+
+
+class EndToEndTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.enterContext(override_settings(
+            MEDIA_ROOT=os.path.join(tmp.name, "public"), PRIVATE_MEDIA_ROOT=os.path.join(tmp.name, "private")))
+
+    def test_the_sent_front_print_uses_the_real_area_and_the_art_shape(self):
+        tpl = ProductTemplate.objects.create(name="Tee", product_type="tee", print_placement="back",
+                                             printful_blueprint_id="586")
+        main = Design.objects.create(title="Main")
+        main.artwork.save("m.png", ContentFile(png(300, 400)), save=True)
+        logo = Design.objects.create(title="Logo")
+        logo.artwork.save("l.png", ContentFile(png(200, 100)), save=True)
+        listing = Listing.objects.create(design=main, template=tpl, product_type="tee")
+        ListingPrint.objects.create(listing=listing, placement="front", design=logo, scale_pct=30,
+                                    position=PrintPosition.TOP_LEFT)
+        client = mock.MagicMock(is_mock=False)
+        client.print_files.return_value = REAL_REPLY
+        with mock.patch.object(printful, "get_client", return_value=client):
+            main_entry, front = listing.print_file_entries()
+        self.assertNotIn("position", main_entry)
+        box = front["position"]
+        self.assertEqual((box["area_width"], box["area_height"]), (1800, 2400))
+        self.assertEqual((box["width"], box["height"]), (540, 270))  # 2:1 logo, 30% of the width
+        self.assertLess(box["left"] + box["width"] / 2, 900)
+        self.assertLess(box["top"] + box["height"] / 2, 1200)
+
+
+class OldSendNoticedTests(TestCase):
+    def test_a_positioned_print_sent_before_the_fix_shows_as_needing_a_resend(self):
+        tpl = ProductTemplate.objects.create(name="Tee", product_type="tee", print_placement="back")
+        listing = Listing.objects.create(design=Design.objects.create(title="J"), template=tpl, product_type="tee",
+                                         printful_product_id="1")
+        ListingPrint.objects.create(listing=listing, placement="front", scale_pct=30, position=PrintPosition.TOP_LEFT)
+        listing.printful_sent_prints = f"back:100:center:d{listing.design_id}|front:30:top_left:d{listing.design_id}"
+        self.assertTrue(any("print areas" in c for c in listing.printful_changes_not_sent))
+        listing.printful_sent_prints = listing.print_signature()
+        self.assertEqual(listing.printful_changes_not_sent, [])
+
+    def test_a_plain_centered_print_is_not_flagged(self):
+        tpl = ProductTemplate.objects.create(name="Tee", product_type="tee", print_placement="back")
+        listing = Listing.objects.create(design=Design.objects.create(title="J"), template=tpl, product_type="tee",
+                                         printful_product_id="1")
+        listing.printful_sent_prints = f"back:100:center:d{listing.design_id}"
+        self.assertEqual(listing.printful_changes_not_sent, [])

@@ -75,6 +75,34 @@ def _cached_variants(blueprint_id):
     return data
 
 
+def print_area(blueprint_id, placement):
+    """The real print-file size (width, height in px) of a product's placement, from Printful's
+    printfiles info (cached). Falls back to the 1800x2400 used by the shirts in use, so a failed
+    lookup never blocks a send. A read-only call, made only while building a positioned print."""
+    from django.core.cache import cache
+
+    from .models import DEFAULT_PRINT_AREA
+
+    if not blueprint_id:
+        return DEFAULT_PRINT_AREA
+    client = get_client()
+    cache_key = f"printful:printfiles:{'mock' if getattr(client, 'is_mock', False) else 'real'}:{blueprint_id}"
+    by_placement = cache.get(cache_key)
+    try:
+        if by_placement is None:
+            data = client.print_files(blueprint_id)
+            sizes = {p["printfile_id"]: (int(p["width"]), int(p["height"])) for p in data.get("printfiles") or []}
+            by_placement = {}
+            for vp in data.get("variant_printfiles") or []:
+                for name, file_id in (vp.get("placements") or {}).items():
+                    if file_id in sizes:
+                        by_placement.setdefault(str(name), sizes[file_id])
+            cache.set(cache_key, by_placement, CATALOG_CACHE_SECONDS)
+        return by_placement.get(str(placement), DEFAULT_PRINT_AREA)
+    except Exception:  # noqa: BLE001 - an unreadable reply or an odd cache must never block a send
+        return DEFAULT_PRINT_AREA
+
+
 def _regions(obj):
     """Region codes named in a Printful availability field, whichever of its
     shapes it arrives in: a list of {"region": ..., "status": ...} or a
@@ -448,6 +476,9 @@ class RealPrintful:
     def catalog_variants(self, blueprint_id):
         return self._get(f"/products/{blueprint_id}")
 
+    def print_files(self, blueprint_id):
+        return self._get(f"/mockup-generator/printfiles/{blueprint_id}")
+
     def create_sync_product(self, payload):
         return self._post("/store/products", payload)
 
@@ -508,6 +539,10 @@ class MockPrintful:
                 for size in ["S", "M", "L", "XL", "2XL"]
             ],
         }
+
+    def print_files(self, blueprint_id):
+        return {"printfiles": [{"printfile_id": 1, "width": 1800, "height": 2400}],
+                "variant_printfiles": [{"variant_id": 1, "placements": {"front": 1, "back": 1}}]}
 
     def get_sync_product(self, product_id):
         return {

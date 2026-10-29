@@ -38,7 +38,8 @@ class PayloadMathTests(TestCase):
 
     def test_small_scale_gets_a_position_box(self):
         p = placement_payload("front", 30, PrintPosition.CENTER)["position"]
-        self.assertEqual((p["width"], p["height"]), (300, 300))
+        self.assertEqual((p["area_width"], p["area_height"]), (1800, 2400))
+        self.assertEqual((p["width"], p["height"]), (540, 540))  # 30% of the width, square art
 
     def test_the_box_never_leaves_the_print_area(self):
         for pos in PrintPosition.values:
@@ -54,8 +55,8 @@ class PayloadMathTests(TestCase):
         ur = placement_payload("front", 30, PrintPosition.TOP_RIGHT)["position"]
         self.assertLess(ul["left"], ur["left"])
         self.assertEqual(ul["top"], ur["top"])
-        self.assertLess(ul["top"] + ul["height"] / 2, 500)  # above the vertical middle
-        self.assertLess(ul["left"] + ul["width"] / 2, 500)  # left of the horizontal middle
+        self.assertLess(ul["top"] + ul["height"] / 2, ul["area_height"] / 2)  # above the vertical middle
+        self.assertLess(ul["left"] + ul["width"] / 2, ul["area_width"] / 2)  # left of the horizontal middle
 
 
 class PrivateBase(TestCase):
@@ -102,7 +103,7 @@ class EntriesTests(PrivateBase):
         main, extra = listing.print_file_entries()
         self.assertEqual((main["type"], extra["type"]), ("back", "front"))
         self.assertNotIn("position", main)
-        self.assertEqual(extra["position"]["width"], 300)
+        self.assertEqual(extra["position"]["width"], 540)
         self.assertNotEqual(main["url"], extra["url"])
         self.assertIn(f"/{logo.pk}/", extra["url"])
         self.assertIn(f"/{listing.design.pk}/", main["url"])
