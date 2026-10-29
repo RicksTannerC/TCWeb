@@ -385,4 +385,23 @@
     {% if listing.status == 'draft' %}<button name="status" value="hidden" class="btn btn--ghost btn--sm">Mark ready (hidden)</button>{% endif %}
   </form>
 </div>
+
+<div class="panel stack" id="delete-listing">
+  <h2>Delete</h2>
+  {% if listing.status == 'live' %}
+    <p class="faint">This listing is live. Unpublish it above before it can be deleted.</p>
+  {% elif has_orders %}
+    <p class="faint">This listing has been ordered, and the order history and reprints depend on it, so it can't be
+      deleted. Set it to hidden to keep it off the shop.</p>
+  {% else %}
+    <form method="post" action="{% url 'shop:manage_listing_delete' listing.pk %}"
+          onsubmit="return confirm('Delete {{ listing.design.title|escapejs }} for good? Its artwork is deleted too unless the design has other listings.')">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--ghost btn--sm">Delete this listing</button>
+    </form>
+    <p class="faint">Removes the listing, its sizes and images, and the design with its artwork if nothing else uses it.
+      {% if listing.is_connected %}The Printful product ({{ listing.printful_product_id }}) is <strong>not</strong>
+      deleted; remove it in Printful yourself.{% endif %}</p>
+  {% endif %}
+</div>
 {% endblock %}

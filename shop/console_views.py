@@ -39,7 +39,7 @@ from .models import (
     Status,
     Tag,
 )
-from .orders import Order, OrderStatus, Subscriber
+from .orders import Order, OrderItem, OrderStatus, Subscriber
 from .storage import get_private_storage
 
 logger = logging.getLogger(__name__)
@@ -392,6 +392,7 @@ def listing_edit(request, pk):
     return render(request, "shop/manage/listing_edit.html", {
         "listing": listing,
         "template_choices": ProductTemplate.objects.filter(product_type=listing.product_type),
+        "has_orders": OrderItem.objects.filter(listing=listing).exists(),
         "collections": Collection.objects.all(),
         "all_tags": Tag.objects.all(),
         "image_kinds": ListingImage.Kind.choices,
@@ -465,6 +466,42 @@ def _drop_orphan_design(design):
     design.delete()
     if name:
         get_private_storage().delete(name)
+
+
+@staff_member_required
+@require_POST
+def listing_delete(request, pk):
+    """Delete a listing, and its design too when nothing else uses it. Refused for a live
+    listing (unpublish first) and for one that has been ordered (the order history and
+    reprints need it: hide it instead). Never touches Printful: the product stays in the store."""
+    listing = get_object_or_404(Listing.objects.select_related("design"), pk=pk)
+    stay = redirect("shop:manage_listing_edit", pk=pk)
+    title = listing.design.title
+    if listing.status == Status.LIVE:
+        messages.error(request, f"“{title}” is live. Unpublish it first, then delete it.")
+        return stay
+    if OrderItem.objects.filter(listing=listing).exists():
+        messages.error(
+            request,
+            f"“{title}” has been ordered, and the order history and reprints depend on it, so it can't be "
+            "deleted. Set it to hidden to take it off the shop.")
+        return stay
+
+    design, printful_id = listing.design, listing.printful_product_id
+    extra_designs = [p.design for p in listing.prints.select_related("design") if p.design_id]
+    with transaction.atomic():
+        listing.delete()
+    for d in extra_designs:
+        _drop_orphan_design(d)
+    design_gone = not design.listings.exists() and not design.used_as_extra_print.exists()
+    _drop_orphan_design(design)
+
+    note = (f" It is still on Printful (product {printful_id}); delete it there by hand." if printful_id else "")
+    if design_gone:
+        messages.success(request, f"Deleted “{title}” and its artwork.{note}")
+    else:
+        messages.success(request, f"Deleted this listing of “{title}”. The design stays, because it has other listings.{note}")
+    return redirect("shop:manage_listings")
 
 
 @staff_member_required

@@ -11,6 +11,19 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-28 — A listing can be deleted from its editor
+
+- **What:** a *Delete* panel at the bottom of the listing editor. Deleting removes the listing (sizes, images,
+  additional prints) and, when nothing else uses it, the design and its private artwork file; artwork made only
+  for an additional print goes with it. A design that has other listings stays. Refused for a **live** listing
+  (unpublish first) and for one that has **been ordered**, because order history and reprints read the listing;
+  hide it instead. Never calls Printful: if the listing was on Printful the message gives the product id to delete
+  by hand.
+- **Why:** there was no way to remove a draft or abandoned listing (e.g. the stray upload titled with a UUID).
+- **Files:** `shop/console_views.py` (`listing_delete`), `shop/urls.py`, `shop/templates/shop/manage/listing_edit.html`,
+  `shop/tests_listing_delete.py`.
+- **Verified:** 10 new tests (artwork files confirmed removed, shared artwork kept, orders untouched); full suite 516 OK.
+
 ## 2026-10-28 — A listing can be switched to another shirt template
 
 - **What:** the listing editor has a "Shirt (template)" dropdown (templates of the same kind only). Saving a

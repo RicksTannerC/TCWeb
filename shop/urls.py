@@ -67,6 +67,7 @@ console_patterns = [
     path("listings/<int:pk>/match-printful-sizes/", cv.listing_match_printful_sizes, name="manage_listing_match_printful_sizes"),
     path("listings/<int:pk>/prints/add/", cv.listing_print_add, name="manage_listing_print_add"),
     path("listings/<int:pk>/prints/<int:print_pk>/", cv.listing_print_update, name="manage_listing_print_update"),
+    path("listings/<int:pk>/delete/", cv.listing_delete, name="manage_listing_delete"),
     path("listings/<int:pk>/prints/<int:print_pk>/delete/", cv.listing_print_delete, name="manage_listing_print_delete"),
     path("listings/<int:pk>/resend-to-printful/", cv.listing_resend_to_printful, name="manage_listing_resend_printful"),
     path("listings/<int:pk>/refresh-preview/", cv.listing_refresh_preview, name="manage_listing_refresh_preview"),
