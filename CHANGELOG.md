@@ -11,6 +11,27 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-10-28 — A listing can be switched to another shirt template
+
+- **What:** the listing editor has a "Shirt (template)" dropdown (templates of the same kind only). Saving a
+  different one points the listing at that template, sets base cost and shipping to the template's estimates
+  (the retail price is left alone), and clears each size's *catalog* variant id (it belonged to the old
+  shirt). The sizes' *order* ids are kept, so the product already on Printful keeps taking orders until the
+  listing is re-sent. The existing "Printful still has the old version" banner appears; the steps are then
+  choose color, Match sizes, Re-send to Printful. Nothing is sent to Printful by the switch itself. Refused
+  (everything else on the form still saves) if the new template's default side clashes with an additional
+  print. Also: size rows pasted from a spreadsheet (tab-separated) now parse on the template form instead of
+  becoming one label with tabs in it.
+- **Why:** the owner wanted to order a Bella + Canvas shirt and the upgraded one to compare; a listing was
+  tied to the template it was created from.
+- **Files:** `shop/console_views.py` (`_switch_template`, `listing_edit`, `parse_sizes`),
+  `shop/templates/shop/manage/listing_edit.html`, `shop/tests_template_switch.py`.
+- **Verified:** 12 new tests; full suite 506 tests, the one failure (helper text containing the Re-send
+  wording on an unsent listing) fixed and the affected modules re-run green.
+- **Follow-ups:** the "Bella Canvas tee" template's saved sizes contain stray tab characters from an earlier
+  paste (e.g. `S<tab>28<tab>18`); re-save that template's sizes once. Costs on it are estimates ($13.92 +
+  $6.00); check Printful's real price for the variant you pick.
+
 ## 2026-10-16 — Delivery estimate corrected to about 10–14 days
 
 - **What:** the "about 7–9 days" published on Oct 10 came from Printful's estimate for TTS-00009 (Oct 12–14),

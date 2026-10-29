@@ -62,6 +62,13 @@
 
   <div class="panel stack">
     <h2>Listing</h2>
+    <div class="field"><label for="template">Shirt (template)</label>
+      <select id="template" name="template">
+        {% for t in template_choices %}<option value="{{ t.pk }}" {% if t.pk == listing.template_id %}selected{% endif %}>{{ t.name }}{% if t.printful_blueprint_name %} &mdash; {{ t.printful_blueprint_name }}{% endif %}</option>{% endfor %}
+      </select>
+      <span class="faint">Changing it picks a different Printful product. Save, choose its color, match sizes, then
+        send it to Printful again. Costs reset to the template's estimates. New templates are made on the
+        <a href="{% url 'shop:manage_catalogue_setup' %}#templates">Catalogue setup page</a>.</span></div>
     <div class="field"><label for="color">Color</label>
       {% if color_options %}
         <div class="color-picker" x-data="ttsColorPicker()" @click.outside="open = false" @keydown.escape="open = false"

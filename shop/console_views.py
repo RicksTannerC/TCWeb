@@ -280,6 +280,28 @@ def design_artwork(request, pk):
     return response
 
 
+def _switch_template(listing, raw_id):
+    """Point the listing at another product template of the same kind (e.g. a different
+    shirt). Returns (switched, error). Local only: nothing is sent to Printful. The old
+    product keeps taking orders on its own ids until the listing is re-sent; the catalog
+    ids belong to the old shirt, so they are cleared for Match sizes to refill."""
+    raw_id = (raw_id or "").strip()
+    if not raw_id or raw_id == str(listing.template_id):
+        return False, None
+    new = ProductTemplate.objects.filter(pk=raw_id).first() if raw_id.isdigit() else None
+    if new is None or new.product_type != listing.product_type:
+        return False, "That isn't a template this listing can switch to. Everything else was saved."
+    effective = listing.print_placement or new.print_placement or PrintPlacement.FRONT
+    clash = listing.prints.filter(placement=effective).first()
+    if clash:
+        return False, (f"{new.name} prints on the {PrintPlacement(effective).label.lower()} by default, where this "
+                       "listing already has an additional print. Set the main print's placement or remove that print first. "
+                       "Everything else was saved.")
+    listing.template = new
+    listing.sizes.update(printful_catalog_variant_id="")
+    return True, None
+
+
 @staff_member_required
 def listing_edit(request, pk):
     listing = get_object_or_404(
@@ -305,12 +327,20 @@ def listing_edit(request, pk):
         d.save()
         d.tags.set(_tags_from_csv(request.POST.get("tags", "")))
 
+        switched, switch_error = _switch_template(listing, request.POST.get("template", ""))
+        if switch_error:
+            messages.error(request, switch_error)
         listing.color = request.POST.get("color", "")
         price = request.POST.get("price", "").strip()
         if price:
             listing.price = Decimal(price)
-        listing.base_cost = Decimal(request.POST.get("base_cost", listing.base_cost) or 0)
-        listing.shipping_est = Decimal(request.POST.get("shipping_est", listing.shipping_est) or 0)
+        if switched:
+            # a different shirt costs differently: take the new template's estimates over the form's old figures
+            listing.base_cost = listing.template.base_cost
+            listing.shipping_est = listing.template.shipping_est
+        else:
+            listing.base_cost = Decimal(request.POST.get("base_cost", listing.base_cost) or 0)
+            listing.shipping_est = Decimal(request.POST.get("shipping_est", listing.shipping_est) or 0)
         comp = request.POST.get("competitor_price", "").strip()
         listing.competitor_price = Decimal(comp) if comp else None
         cid = request.POST.get("collection", "")
@@ -340,7 +370,14 @@ def listing_edit(request, pk):
             size.price_override = Decimal(v) if v else None
             size.save(update_fields=["price_override"])
 
-        messages.success(request, "Saved.")
+        if switched:
+            messages.success(
+                request,
+                f"Changed the shirt to {listing.template.name}. Base cost and shipping were set to that template's "
+                f"estimates (${listing.base_cost} + ${listing.shipping_est}); the retail price was left alone. "
+                "Pick its color, match sizes, then Re-send to Printful — nothing has changed on Printful yet.")
+        else:
+            messages.success(request, "Saved.")
         return redirect("shop:manage_listing_edit", pk=pk)
 
     color_options = []
@@ -354,6 +391,7 @@ def listing_edit(request, pk):
 
     return render(request, "shop/manage/listing_edit.html", {
         "listing": listing,
+        "template_choices": ProductTemplate.objects.filter(product_type=listing.product_type),
         "collections": Collection.objects.all(),
         "all_tags": Tag.objects.all(),
         "image_kinds": ListingImage.Kind.choices,
@@ -747,7 +785,8 @@ def parse_sizes(text):
         line = raw.strip()
         if not line:
             continue
-        parts = [p.strip() for p in line.split(",")]
+        # a size row pasted from a spreadsheet is tab-separated; treat tabs like commas
+        parts = [p.strip() for p in line.replace("\t", ",").split(",")]
         if len(parts) > 3 or not parts[0]:
             return None, f"Size line {n} (\u201c{line}\u201d): use  label, width, height  (width and height optional)."
         label = parts[0]
