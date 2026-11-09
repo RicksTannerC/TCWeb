@@ -17,19 +17,26 @@ from django.urls import reverse
 _SALT = "shop.printful-artwork"
 
 
-def build_delivery_url(design):
+def build_delivery_url(design, layout=None):
     """Absolute URL Printful can fetch `design`'s original from, or None if
     it has no artwork. Freshly signed on every call — call this right before
-    handing the URL to Printful, not ahead of time."""
+    handing the URL to Printful, not ahead of time.
+
+    With a `layout` (a placement_payload `position` dict) the link serves the art already
+    placed on a transparent canvas of the print area's size (see shop.print_files)."""
     if not design.artwork:
         return None
-    token = signing.dumps({"id": design.pk, "name": design.artwork.name}, salt=_SALT)
+    claims = {"id": design.pk, "name": design.artwork.name}
+    if layout:
+        claims["box"] = [int(layout[k]) for k in ("area_width", "area_height", "left", "top", "width", "height")]
+    token = signing.dumps(claims, salt=_SALT)
     path = reverse("shop:printful_artwork", args=[design.pk, token])
     return settings.SITE_BASE_URL.rstrip("/") + path
 
 
-def verify_token(pk, token):
-    """The Design `token` is a live, matching link for, or None."""
+def verify_link(pk, token):
+    """(design, box) for a live, matching link, or None. `box` is None for a plain link, else
+    [area_width, area_height, left, top, width, height] to place the art in."""
     from .models import Design  # local import: models.py imports this module
 
     try:
@@ -41,4 +48,10 @@ def verify_token(pk, token):
     design = Design.objects.filter(pk=pk).first()
     if design is None or not design.artwork or design.artwork.name != data.get("name"):
         return None
-    return design
+    return design, data.get("box")
+
+
+def verify_token(pk, token):
+    """The Design `token` is a live, matching link for, or None."""
+    found = verify_link(pk, token)
+    return found[0] if found else None

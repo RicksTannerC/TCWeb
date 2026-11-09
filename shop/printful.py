@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from urllib.parse import urlsplit
 
 import httpx
 from django.conf import settings
@@ -162,7 +163,11 @@ def _clean_hex(value):
 def _clean_image_url(value):
     """An https image URL as Printful sent it, or '' -- anything else is dropped."""
     v = str(value or "").strip()
-    return v if v.startswith("https://") and len(v) < 500 and not re.search(r"[\s\"'<>]", v) else ""
+    if not (v.startswith("https://") and len(v) < 500 and not re.search(r"[\s\"'<>]", v)):
+        return ""
+    # Printful sends the bare CDN host ("https://files.cdn.printful.com/") as a product's
+    # thumbnail until it has drawn one: that is not an image
+    return v if urlsplit(v).path.strip("/") else ""
 
 
 def _swatch_css(hex1, hex2):

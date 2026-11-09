@@ -11,6 +11,36 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-09 — Positioned prints are built into the print file; replace artwork; broken preview thumbnail
+
+- **What:**
+  1. *Placement.* The 10-29 fix did not work: with the real 1800x2400 area sent, Printful still centered the
+     second print (listing 5, 60% upper right, shown centered on its own preview). Printful ignores a `position` on
+     a store product's file. A positioned print is now built into the file: the link Printful fetches serves the
+     art already placed at the chosen spot on a transparent 1800x2400 canvas (`shop/print_files.py`, served by
+     the signed artwork link, the placement is part of the signed claims), sent with no `position`, so Printful
+     fits the whole canvas to the area. Raster art only (PNG/JPEG/WebP); SVG art still goes with a `position`
+     (best effort). "Size %" is a share of the art *file's* width, transparent margin included, so a design with
+     a lot of empty canvas around it prints smaller than the number suggests.
+  2. *Replace artwork.* An Artwork panel replaces the main design's file (in place; shared designs say so),
+     and each additional print has a Replace artwork button (it gets a design of its own). The old file is removed;
+     `Design.artwork_version` (migration 0018) is part of the print fingerprint, so a replaced file shows
+     "Printful still has the old version". There was previously no way to change a design's art.
+  3. *Preview.* Printful returns the bare host `https://files.cdn.printful.com/` as a product's thumbnail until it
+     has drawn one; it showed as a broken image. Such URLs are now dropped, including from stored reads.
+- **Why:** reported by the owner with screenshots: the print stays centered and small, there was no way to update
+  the design, and the first preview image is broken.
+- **Files:** `shop/models.py`, `shop/print_files.py` (new), `shop/printful_delivery.py`, `shop/views.py`,
+  `shop/printful.py`, `shop/console_views.py`, `shop/urls.py`, `shop/admin.py`,
+  `shop/templates/shop/manage/listing_edit.html`, migration `0018_design_artwork_version`, tests
+  `tests_print_area.py`, `tests_replace_artwork.py` (+ expectations updated in `tests_multi_print.py`,
+  `tests_print_positioning.py`).
+- **Verified:** 551 tests OK, including serving the composed PNG (size, art at the chosen spot, transparent
+  elsewhere), tampered/stale links refused, SVG fallback, replace flows, bad uploads. NOT yet verified against
+  Printful: that its preview now shows the print where chosen (needs a Re-send and Refresh preview).
+- **Follow-ups:** listings 3 (Jack-o) and 5 (Relativity) need Match sizes then Re-send; the "g3" marker makes
+  both show the re-send banner. Old Printful products stay in the store to delete by hand.
+
 ## 2026-10-29 — Positioned prints use Printful's real print-area size (second design no longer lands centered)
 
 - **What:** the position of a non-default print (e.g. a small front design, "Upper left", 30%) was measured against

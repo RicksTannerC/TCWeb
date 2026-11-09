@@ -281,6 +281,9 @@ class Design(models.Model):
         null=True, blank=True, help_text="When trademark/copyright conflicts were last searched for.")
     ip_notes = models.TextField(
         blank=True, help_text="Source files, licence terms, receipts, what was searched and what turned up.")
+    # Bumped each time the artwork file is replaced in place, so a listing sent to Printful
+    # with the old file shows as needing a re-send (see Listing.print_signature).
+    artwork_version = models.PositiveIntegerField(default=0)
 
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
@@ -300,6 +303,11 @@ class Design(models.Model):
         if not self.slug:
             self.slug = unique_slug(Design, self.title, pk=self.pk, max_length=140, fallback="design")
         super().save(*args, **kwargs)
+
+    @property
+    def can_compose(self):
+        """A raster file we can place on a print-area canvas ourselves (not an SVG)."""
+        return bool(self.artwork) and self.artwork.name.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))
 
     def artwork_aspect(self):
         """The artwork's width / height, so a placed print keeps its shape. 1.0 when it
@@ -462,6 +470,15 @@ class Listing(models.Model):
         return out
 
     @property
+    def preview_images(self):
+        """The stored Printful preview, without entries that aren't really images (an old read can
+        hold the bare CDN host Printful sends as a thumbnail before it has drawn one)."""
+        from urllib.parse import urlsplit
+
+        return [p for p in self.printful_preview or []
+                if isinstance(p, dict) and urlsplit(str(p.get("url", ""))).path.strip("/")]
+
+    @property
     def printful_sent_state_unknown(self):
         """Sent before the console started recording what was sent."""
         return self.is_connected and not (self.printful_sent_blueprint_id or self.printful_sent_color)
@@ -505,12 +522,17 @@ class Listing(models.Model):
         # "g2" marks a positioned print as built with the real print-area size (before that, the
         # position was measured against a fake square and Printful centered it), so a listing
         # sent the old way shows as needing a re-send.
+        # "g3" marks a positioned print as built into the print file itself (g2 sent a position
+        # Printful ignored), and ":v<n>" a replaced artwork file.
         def geometry(scale, position):
-            return "" if scale >= 100 and position == PrintPosition.CENTER else ":g2"
+            return "" if scale >= 100 and position == PrintPosition.CENTER else ":g3"
 
-        parts = [f"{self.effective_print_placement}:{self.print_scale_pct}:{self.print_position}:d{self.design_id}"
+        def art(design):
+            return f"d{design.pk}" + (f"v{design.artwork_version}" if design.artwork_version else "")
+
+        parts = [f"{self.effective_print_placement}:{self.print_scale_pct}:{self.print_position}:{art(self.design)}"
                  + geometry(self.print_scale_pct, self.print_position)]
-        parts += [f"{p.placement}:{p.scale_pct}:{p.position}:d{p.design_id or self.design_id}"
+        parts += [f"{p.placement}:{p.scale_pct}:{p.position}:{art(p.design or self.design)}"
                   + geometry(p.scale_pct, p.position) for p in self.extra_prints]
         return "|".join(sorted(parts))[:255]
 
@@ -519,14 +541,30 @@ class Listing(models.Model):
         its own freshly signed artwork link. An area whose design has no artwork
         is skipped; so is an extra that clashes with the main placement."""
         entries = []
-        main_url = self.design.print_file_url
-        if main_url:
-            entries.append({"url": main_url, **self.print_file_payload()})
-        for p in self.extra_prints:
-            url = (p.design or self.design).print_file_url
-            if url:
-                entries.append({"url": url, **p.file_payload()})
+        for design, payload in [(self.design, self.print_file_payload())] + [
+                (p.design or self.design, p.file_payload()) for p in self.extra_prints]:
+            entry = self._entry(design, payload)
+            if entry:
+                entries.append(entry)
         return entries
+
+    @staticmethod
+    def _entry(design, payload):
+        """One `files[]` entry. A positioned print is built into the file itself: we send a
+        full-print-area image with the art already placed, because Printful ignores the
+        `position` of a store product's file and centers it. SVG art can't be composed here, so
+        it still goes with a `position` (best effort)."""
+        from .printful_delivery import build_delivery_url
+
+        position = payload.get("position")
+        composed = bool(position) and design.can_compose
+        url = build_delivery_url(design, layout=position) if composed else design.print_file_url
+        if not url:
+            return None
+        entry = {"url": url, "type": payload["type"]}
+        if position and not composed:
+            entry["position"] = position
+        return entry
 
     @property
     def landed_cost(self):

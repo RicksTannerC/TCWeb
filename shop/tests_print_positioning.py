@@ -85,7 +85,9 @@ class SyncPayloadIncludesPositioningTests(TestCase):
         payload = client.create_sync_product.call_args[0][0]
         file_entry = payload["sync_variants"][0]["files"][0]
         self.assertEqual(file_entry["type"], "back")
-        self.assertIn("position", file_entry)
+        self.assertNotIn("position", file_entry)  # a positioned print is built into the file
+        from .tests_print_area import box_of
+        self.assertEqual(box_of(file_entry)[4], round(1800 * 0.6))
 
 
 @override_settings(STAFF_2FA_REQUIRED=False)

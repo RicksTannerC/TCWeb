@@ -311,15 +311,28 @@ def printful_artwork(request, pk, token):
     """Serve a design's private original to Printful's servers via a signed,
     expiring link (see printful_delivery.py). Deliberately not staff-only:
     Printful can't sign in, so the token itself is the only gate."""
-    from .printful_delivery import verify_token
+    from .print_files import compose
+    from .printful_delivery import verify_link
 
-    design = verify_token(pk, token)
-    if design is None:
+    found = verify_link(pk, token)
+    if found is None:
         raise Http404("This link is invalid or has expired.")
+    design, box = found
     try:
         handle = design.artwork.open("rb")
     except FileNotFoundError:
         raise Http404("The artwork file is missing.")
+    if box:
+        try:
+            with handle:
+                png = compose(handle, box)
+        except (ValueError, OSError):
+            raise Http404("The artwork couldn't be placed.")
+        response = HttpResponse(png, content_type="image/png")
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Cache-Control"] = "private, no-store"
+        response["X-Robots-Tag"] = "noindex"
+        return response
     content_type = mimetypes.guess_type(design.artwork.name)[0] or "application/octet-stream"
     response = FileResponse(handle, content_type=content_type)
     response["X-Content-Type-Options"] = "nosniff"

@@ -561,6 +561,76 @@ def listing_print_add(request, pk):
     return back
 
 
+def _replace_design_artwork(design, upload):
+    """Swap a design's artwork file for `upload`, in place. The old file is removed and the
+    version bumped, so a listing sent to Printful with the old file shows as needing a re-send."""
+    storage = get_private_storage()
+    old = design.artwork.name if design.artwork else None
+    design.artwork.save(upload.name, upload, save=False)
+    design.artwork_version += 1
+    design.save()
+    if old and old != design.artwork.name:
+        storage.delete(old)
+
+
+@staff_member_required
+@require_POST
+def listing_replace_artwork(request, pk):
+    """Replace the main design's artwork file."""
+    listing = get_object_or_404(Listing.objects.select_related("design"), pk=pk)
+    back = redirect(reverse("shop:manage_listing_edit", args=[pk]) + "#artwork")
+    upload = request.FILES.get("artwork")
+    if not upload:
+        messages.error(request, "Choose an image file to replace the artwork with.")
+        return back
+    if not _is_artwork(upload):
+        messages.error(request, "That file isn't a readable PNG, JPEG, WebP or SVG image. The artwork was left as it was.")
+        return back
+    design = listing.design
+    _replace_design_artwork(design, upload)
+    others = design.listings.exclude(pk=pk).count()
+    messages.success(
+        request,
+        "Artwork replaced."
+        + (f" This design is shared with {others} other listing{'s' if others != 1 else ''}, which now use the new file too." if others else "")
+        + (" Printful still has the old file: Match sizes, then Re-send to Printful." if listing.is_connected else ""))
+    return back
+
+
+@staff_member_required
+@require_POST
+def listing_print_replace_artwork(request, pk, print_pk):
+    """Replace the artwork of an additional print. It gets a design of its own, so the main
+    print (and any other listing sharing the old artwork) is untouched."""
+    p = get_object_or_404(ListingPrint.objects.select_related("listing__design", "design"), pk=print_pk, listing_id=pk)
+    back = redirect(reverse("shop:manage_listing_edit", args=[pk]) + "#print-areas")
+    upload = request.FILES.get("artwork")
+    if not upload:
+        messages.error(request, "Choose an image file to replace the artwork with.")
+        return back
+    if not _is_artwork(upload):
+        messages.error(request, "That file isn't a readable PNG, JPEG, WebP or SVG image. The print was left as it was.")
+        return back
+    label = p.get_placement_display()
+    old_design = p.design
+    design = Design.objects.create(title=f"{p.listing.design.title} — {label.lower()}"[:120])
+    try:
+        design.artwork.save(upload.name, upload, save=True)
+    except Exception:  # noqa: BLE001 - leave nothing half-made
+        logger.exception("Replacing the artwork of print %s failed", print_pk)
+        design.delete()
+        messages.error(request, "Couldn't save that file. The print was left as it was; the error is in the server log.")
+        return back
+    p.design = design
+    p.save(update_fields=["design"])
+    _drop_orphan_design(old_design)
+    messages.success(
+        request,
+        f"{label} print artwork replaced."
+        + (" Printful still has the old file: Match sizes, then Re-send to Printful." if p.listing.is_connected else ""))
+    return back
+
+
 @staff_member_required
 @require_POST
 def listing_print_update(request, pk, print_pk):

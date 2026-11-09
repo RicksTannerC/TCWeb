@@ -103,7 +103,9 @@ class EntriesTests(PrivateBase):
         main, extra = listing.print_file_entries()
         self.assertEqual((main["type"], extra["type"]), ("back", "front"))
         self.assertNotIn("position", main)
-        self.assertEqual(extra["position"]["width"], 540)
+        self.assertNotIn("position", extra)  # placed in the print file itself
+        from .tests_print_area import box_of
+        self.assertEqual(box_of(extra)[4], 540)
         self.assertNotEqual(main["url"], extra["url"])
         self.assertIn(f"/{logo.pk}/", extra["url"])
         self.assertIn(f"/{listing.design.pk}/", main["url"])

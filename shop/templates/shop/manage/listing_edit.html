@@ -184,6 +184,20 @@
   </div>
 </form>
 
+<div class="panel stack" id="artwork">
+  <h2>Artwork</h2>
+  <p class="faint">The main print's file:
+    {% if listing.design.artwork %}<a href="{% url 'shop:manage_design_artwork' listing.design.pk %}" target="_blank" rel="noopener">view current</a>{% else %}none yet{% endif %}.
+    Replacing it keeps the size and position above.
+    {% if listing.design.listings.count > 1 %}This design is shared with other listings, which will use the new file too.{% endif %}
+    {% if listing.is_connected %}Printful keeps the old file until you match sizes and re-send.{% endif %}</p>
+  <form method="post" action="{% url 'shop:manage_listing_replace_artwork' listing.pk %}" enctype="multipart/form-data" class="cluster">
+    {% csrf_token %}
+    <input type="file" name="artwork" accept="image/*" required />
+    <button type="submit" class="btn btn--sm btn--ghost">Replace artwork</button>
+  </form>
+</div>
+
 <div class="panel stack" id="print-areas">
   <h2>Additional print areas</h2>
   <p class="faint">The main print above goes on the <strong>{{ listing.effective_print_placement|title }}</strong>.
@@ -205,6 +219,12 @@
           {% for value, label in print_positions %}<option value="{{ value }}" {% if p.position == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
         <button type="submit" class="btn btn--sm btn--ghost">Save</button>
+      </form>
+      <form method="post" action="{% url 'shop:manage_listing_print_replace_artwork' listing.pk p.pk %}"
+            enctype="multipart/form-data" class="cluster">
+        {% csrf_token %}
+        <input type="file" name="artwork" accept="image/*" required aria-label="New artwork for the {{ p.get_placement_display|lower }} print" />
+        <button type="submit" class="btn btn--sm btn--ghost">Replace artwork</button>
       </form>
       <form method="post" action="{% url 'shop:manage_listing_print_delete' listing.pk p.pk %}"
             onsubmit="return confirm('Remove the {{ p.get_placement_display|lower }} print?')">
@@ -296,9 +316,9 @@
 {% if listing.is_connected %}
 <div class="panel stack" id="printful-preview">
   <h2>How it looks on Printful</h2>
-  {% if listing.printful_preview %}
+  {% if listing.preview_images %}
     <div class="image-strip">
-      {% for p in listing.printful_preview %}
+      {% for p in listing.preview_images %}
         <figure class="image-cell image-cell--wide">
           <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer"><img src="{{ p.url }}" alt="Printful's render: {{ p.label }}"
              loading="lazy" referrerpolicy="no-referrer" /></a>

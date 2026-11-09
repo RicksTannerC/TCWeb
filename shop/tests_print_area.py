@@ -34,6 +34,14 @@ def png(w, h):
     return buf.getvalue()
 
 
+def box_of(entry):
+    """The [area_w, area_h, left, top, width, height] a composed print's link carries."""
+    from django.core import signing
+
+    token = entry["url"].rstrip("/").rsplit("/", 1)[1]
+    return signing.loads(token, salt="shop.printful-artwork")["box"]
+
+
 class AreaLookupTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -158,11 +166,12 @@ class EndToEndTests(TestCase):
         with mock.patch.object(printful, "get_client", return_value=client):
             main_entry, front = listing.print_file_entries()
         self.assertNotIn("position", main_entry)
-        box = front["position"]
-        self.assertEqual((box["area_width"], box["area_height"]), (1800, 2400))
-        self.assertEqual((box["width"], box["height"]), (540, 270))  # 2:1 logo, 30% of the width
-        self.assertLess(box["left"] + box["width"] / 2, 900)
-        self.assertLess(box["top"] + box["height"] / 2, 1200)
+        self.assertNotIn("position", front)  # built into the file, not left to Printful
+        area_w, area_h, left, top, width, height = box_of(front)
+        self.assertEqual((area_w, area_h), (1800, 2400))
+        self.assertEqual((width, height), (540, 270))  # 2:1 logo, 30% of the width
+        self.assertLess(left + width / 2, 900)
+        self.assertLess(top + height / 2, 1200)
 
 
 class OldSendNoticedTests(TestCase):
@@ -182,3 +191,74 @@ class OldSendNoticedTests(TestCase):
                                          printful_product_id="1")
         listing.printful_sent_prints = f"back:100:center:d{listing.design_id}"
         self.assertEqual(listing.printful_changes_not_sent, [])
+
+
+@override_settings(STAFF_2FA_REQUIRED=False)
+class ComposedFileTests(TestCase):
+    """The link Printful fetches serves the art already placed on a print-area canvas."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.enterContext(override_settings(
+            MEDIA_ROOT=os.path.join(tmp.name, "public"), PRIVATE_MEDIA_ROOT=os.path.join(tmp.name, "private")))
+        self.tpl = ProductTemplate.objects.create(name="Tee", product_type="tee", print_placement="back")
+
+    def listing_with_front(self, art, **kw):
+        design = Design.objects.create(title="Logo")
+        design.artwork.save(art[0], ContentFile(art[1]), save=True)
+        main = Design.objects.create(title="Main")
+        main.artwork.save("m.png", ContentFile(png(30, 40)), save=True)
+        listing = Listing.objects.create(design=main, template=self.tpl, product_type="tee")
+        ListingPrint.objects.create(listing=listing, placement="front", design=design, **kw)
+        return listing
+
+    def fetch(self, entry):
+        from urllib.parse import urlsplit
+        return self.client.get(urlsplit(entry["url"]).path)
+
+    def test_the_link_serves_a_print_area_sized_png_with_the_art_where_chosen(self):
+        from PIL import Image
+
+        listing = self.listing_with_front(("l.png", png(100, 100)), scale_pct=30, position=PrintPosition.TOP_RIGHT)
+        client = mock.MagicMock(is_mock=False)
+        client.print_files.return_value = REAL_REPLY
+        with mock.patch.object(printful, "get_client", return_value=client):
+            _, front = listing.print_file_entries()
+        r = self.fetch(front)
+        self.assertEqual((r.status_code, r["Content-Type"]), (200, "image/png"))
+        img = Image.open(io.BytesIO(b"".join(r.streaming_content) if r.streaming else r.content)).convert("RGBA")
+        self.assertEqual(img.size, (1800, 2400))
+        solid = img.getchannel("A").getbbox()
+        self.assertEqual(solid[2] - solid[0], 540)             # 30% of the width
+        self.assertGreater((solid[0] + solid[2]) / 2, 900)      # right of center
+        self.assertLess((solid[1] + solid[3]) / 2, 1200)        # above center
+        self.assertEqual(img.getpixel((10, 10))[3], 0)          # the rest stays transparent
+
+    def test_an_unpositioned_print_is_the_plain_file(self):
+        listing = self.listing_with_front(("l.png", png(100, 100)), scale_pct=100)
+        _, front = listing.print_file_entries()
+        r = self.fetch(front)
+        self.assertEqual(r.status_code, 200)
+        r.close()  # a streamed file stays open (and locked on Windows) until closed
+        self.assertNotIn("box", __import__("django.core.signing", fromlist=["x"]).loads(
+            front["url"].rstrip("/").rsplit("/", 1)[1], salt="shop.printful-artwork"))
+
+    def test_svg_art_falls_back_to_a_position(self):
+        svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>'
+        listing = self.listing_with_front(("l.svg", svg), scale_pct=30, position=PrintPosition.TOP_LEFT)
+        client = mock.MagicMock(is_mock=False)
+        client.print_files.return_value = REAL_REPLY
+        with mock.patch.object(printful, "get_client", return_value=client):
+            _, front = listing.print_file_entries()
+        self.assertIn("position", front)
+
+    def test_a_tampered_or_stale_link_is_refused(self):
+        listing = self.listing_with_front(("l.png", png(100, 100)), scale_pct=30, position=PrintPosition.TOP_LEFT)
+        _, front = listing.print_file_entries()
+        from urllib.parse import urlsplit
+        path = urlsplit(front["url"]).path
+        self.assertEqual(self.client.get(path[:-6] + "xxxxx/").status_code, 404)
+        design = listing.prints.get().design
+        design.artwork.save("new.png", ContentFile(png(50, 50)), save=True)  # replaced since the link was made
+        self.assertEqual(self.client.get(path).status_code, 404)
