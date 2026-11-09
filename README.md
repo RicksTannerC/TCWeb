@@ -144,6 +144,15 @@ Current setup (interim, from a Windows machine):
     (`/rp *` is what makes it prompt for the password interactively instead of
     taking it as a plain argument; `/ru trick` runs it as your own account,
     which matters because the repo lives inside OneDrive.)
+  - **Then remove the 72-hour limit** (administrator PowerShell, once). A task made by
+    `schtasks /create` is killed after 72 hours by default, which stops the *supervisor* (the site
+    keeps running orphaned, but nothing restarts it and `restart.flag` does nothing). This is what
+    happened on Oct 19 and Oct 31:
+    ```
+    $t = Get-ScheduledTask -TaskName TShirtBrandWebsite; $t.Settings.ExecutionTimeLimit = 'PT0S'; Set-ScheduledTask -TaskName TShirtBrandWebsite -Settings $t.Settings
+    ```
+    A healthy task shows `State: Running` in `Get-ScheduledTask -TaskName TShirtBrandWebsite`; `Ready`
+    means the supervisor is not running.
   - **To restart the app** (to pick up new code, or after changing `.env`), no
     administrator rights are needed: create the file `D:\TCData\restart.flag`
     (`New-Item D:\TCData\restart.flag -ItemType File -Force`). Within seconds the

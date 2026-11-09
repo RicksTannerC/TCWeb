@@ -40,6 +40,11 @@ pointing at the commit(s) that carry it.
   Printful: that its preview now shows the print where chosen (needs a Re-send and Refresh preview).
 - **Follow-ups:** listings 3 (Jack-o) and 5 (Relativity) need Match sizes then Re-send; the "g3" marker makes
   both show the re-send banner. Old Printful products stay in the store to delete by hand.
+- **Found, same day: the restart supervisor dies after 72 hours.** The scheduled task (made by
+  `schtasks /create`) has Windows' default 72-hour execution limit, so it was killed (last result 267014) about
+  Oct 19 and again about Oct 31. The site itself kept running, orphaned, which hid it, but nothing restarts it
+  and `restart.flag` is ignored (the Nov 9 deploy was not picked up until the owner restarts the task).
+  Fix is one administrator command setting the limit to none; recorded in README (Deployment). Not yet applied.
 
 ## 2026-10-29 — Positioned prints use Printful's real print-area size (second design no longer lands centered)
 
