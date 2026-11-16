@@ -262,3 +262,55 @@ class ComposedFileTests(TestCase):
         design = listing.prints.get().design
         design.artwork.save("new.png", ContentFile(png(50, 50)), save=True)  # replaced since the link was made
         self.assertEqual(self.client.get(path).status_code, 404)
+
+
+class VisibleDesignTests(TestCase):
+    """Size and position refer to the visible design, not the file's empty margin."""
+
+    def padded(self, canvas=(400, 400), inner=(100, 50, 300, 150)):
+        from PIL import Image, ImageDraw
+
+        im = Image.new("RGBA", canvas, (0, 0, 0, 0))
+        ImageDraw.Draw(im).rectangle(inner, fill=(200, 30, 30, 255))
+        buf = io.BytesIO()
+        im.save(buf, "PNG")
+        return buf.getvalue()
+
+    def test_visible_size_ignores_the_transparent_margin(self):
+        from PIL import Image
+
+        from .print_files import visible_box, visible_size
+
+        im = Image.open(io.BytesIO(self.padded()))
+        self.assertEqual(visible_box(im), (100, 50, 301, 151))
+        self.assertEqual(visible_size(im), (201, 101))
+        self.assertEqual(visible_size(Image.new("RGB", (30, 20))), (30, 20))
+        self.assertEqual(visible_size(Image.new("RGBA", (30, 20), (0, 0, 0, 0))), (30, 20))
+
+    def test_a_faint_fringe_is_not_counted(self):
+        from PIL import Image
+
+        from .print_files import visible_box
+
+        im = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
+        im.putpixel((2, 2), (0, 0, 0, 3))      # near invisible
+        im.putpixel((50, 50), (0, 0, 0, 255))
+        self.assertEqual(visible_box(im), (50, 50, 51, 51))
+
+    def test_the_composed_print_places_the_visible_design_not_the_canvas(self):
+        from PIL import Image
+
+        from .print_files import compose
+
+        box = [1800, 2400, 1260, 0, 540, 270]   # a 2:1 slot in the upper right
+        out = Image.open(io.BytesIO(compose(io.BytesIO(self.padded()), box))).convert("RGBA")
+        solid = out.getchannel("A").getbbox()
+        self.assertEqual(solid, (1260, 0, 1800, 270))   # the design fills its slot to the edge
+
+    def test_artwork_aspect_is_the_visible_designs(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        with override_settings(MEDIA_ROOT=os.path.join(tmp.name, "p"), PRIVATE_MEDIA_ROOT=os.path.join(tmp.name, "q")):
+            d = Design.objects.create(title="Padded")
+            d.artwork.save("p.png", ContentFile(self.padded()), save=True)
+            self.assertAlmostEqual(d.artwork_aspect(), 201 / 101, places=3)

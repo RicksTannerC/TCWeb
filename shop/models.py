@@ -310,8 +310,8 @@ class Design(models.Model):
         return bool(self.artwork) and self.artwork.name.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))
 
     def artwork_aspect(self):
-        """The artwork's width / height, so a placed print keeps its shape. 1.0 when it
-        can't be read (no file, an odd format)."""
+        """The visible design's width / height (transparent margin excluded), so a placed print keeps
+        its shape. 1.0 when it can't be read (no file, an odd format)."""
         if not self.artwork:
             return 1.0
         try:
@@ -325,8 +325,10 @@ class Design(models.Model):
         try:
             from PIL import Image
 
+            from .print_files import visible_size
+
             with Image.open(io.BytesIO(head)) as im:
-                w, h = im.size
+                w, h = visible_size(im.convert("RGBA") if im.mode in ("P", "LA", "RGBa") else im)
             return w / h if w and h else 1.0
         except Exception:  # noqa: BLE001 - not a raster image; try SVG
             pass

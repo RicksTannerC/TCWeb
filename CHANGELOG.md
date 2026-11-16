@@ -11,6 +11,23 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-16 — Print size and position now refer to the visible design, not the file's empty margin
+
+- **What:** the owner replaced listing 5's front art (the TTB crest) and set it to 100%, "Upper right"; the
+  preview showed it sized right but horizontally centered. Two causes, both in the layout maths and not in
+  Printful: (1) at 100% the art spans the print area's full width, so left/right can't move it; (2) the file is
+  a 1350 px canvas with the crest filling about a third of it, so even a smaller size parked the *canvas* in the
+  corner and left the crest short of it. A composed print now crops the transparent margin (alpha >= 8) first,
+  so "Size %" is the visible design's share of the print width and the position presets place the design itself.
+  Art without transparency is unaffected. The plain 100%-centered case still sends the file as is.
+- **Files:** `shop/print_files.py` (`visible_box`, `visible_size`, `compose`), `shop/models.py`
+  (`Design.artwork_aspect` uses the visible size), `shop/tests_print_area.py`.
+- **Verified:** 555 tests OK, including a padded PNG whose visible design lands exactly in its slot. NOT yet seen in
+  Printful's preview.
+- **Follow-ups:** try a size like 25-30% (the crest is then about 3-4 in wide) and re-send. This corrects the
+  note in the 11-09 entry that margins count toward the size. The site restart supervisor is still stopped
+  (see below), so this is not live until it is restarted.
+
 ## 2026-11-09 — Positioned prints are built into the print file; replace artwork; broken preview thumbnail
 
 - **What:**
