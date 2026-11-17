@@ -11,6 +11,24 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-17 — Ports-and-adapters plan, package skeleton and boundary test
+
+- **What:** the owner wants the app restructured so parts are independent and swappable (another printer, other
+  product lines, more servers, a redesigned console) without rewriting the rest. Chosen shape: a strict core of
+  pure Python per context, ports for everything external, adapters that implement them, thin entry points, and one
+  composition root. Added `docs/ARCHITECTURE.md` (layout, the six rules, the per-slice recipe, migration order),
+  the empty `tshirtbrand/` skeleton (`core`, `core/shared`, `adapters`, `entrypoints`) and
+  `tshirtbrand/tests_architecture.py`, which reads the source and fails on any import that breaks the rules
+  (core importing Django or a vendor SDK, contexts reaching past each other's `api`, adapters importing each other or
+  entry points, entry points importing adapters). No behaviour changed; no existing code moved yet.
+- **Files:** `docs/ARCHITECTURE.md`, `tshirtbrand/` (skeleton), `tshirtbrand/tests_architecture.py`.
+- **Verified:** 567 tests OK (12 new: the real tree is clean, and each rule is shown to trip on throwaway code).
+- **Follow-ups:** step 1 is the fulfilment supplier port (neutral inputs and outputs; Printful and the mock become
+  adapters). Also noted: the GitHub repo is public (confirmed by an unauthenticated API call); the six commits through
+  22b2874 were pushed on the owner's yes.
+
+---
+
 ## 2026-11-16 — Print size and position now refer to the visible design, not the file's empty margin
 
 - **What:** the owner replaced listing 5's front art (the TTB crest) and set it to 100%, "Upper right"; the

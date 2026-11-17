@@ -1,0 +1,204 @@
+"""Boundary test for the ports-and-adapters layout (docs/ARCHITECTURE.md).
+
+`violations(root)` reads every module under `<root>/tshirtbrand` and reports imports that break the rules.
+It only reads source (no importing), so it runs fast and cannot be fooled by import side effects. The test
+cases at the bottom prove the checker catches each rule on throwaway code, so a clean real tree means
+something."""
+
+import ast
+import sys
+import tempfile
+from pathlib import Path
+
+from django.test import SimpleTestCase
+
+ROOT_PKG = "tshirtbrand"
+STDLIB = set(sys.stdlib_module_names)
+REPO = Path(__file__).resolve().parent.parent
+
+
+def _module_parts(path, root):
+    parts = list(path.relative_to(root).with_suffix("").parts)
+    is_package = parts[-1] == "__init__"
+    if is_package:
+        parts = parts[:-1]
+    return parts, is_package
+
+
+def _targets(node, parts, is_package):
+    """Dotted names a statement imports. `from a import b` yields `a.b` (b may be a module)."""
+    if isinstance(node, ast.Import):
+        return [alias.name for alias in node.names]
+    base = node.module or ""
+    if node.level:
+        pkg = parts if is_package else parts[:-1]
+        keep = len(pkg) - (node.level - 1)
+        base = ".".join([*pkg[: max(keep, 0)], *([base] if base else [])])
+    if base == ROOT_PKG or base.startswith(ROOT_PKG + "."):
+        return [f"{base}.{alias.name}" for alias in node.names if alias.name != "*"] or [base]
+    return [base]
+
+
+def _check(layer, context, parts, target):
+    """Reason string if `parts` (in layer/context) may not import `target`, else None."""
+    top = target.split(".")[0]
+    inside = top == ROOT_PKG
+    t = target.split(".")
+
+    if parts == [ROOT_PKG, "bootstrap"]:
+        return None  # the composition root may name anything
+
+    if layer == "core":
+        if not inside:
+            if top in STDLIB:
+                return None
+            return f"core must be pure Python (imports {top!r})"
+        if t[1:2] != ["core"]:
+            return f"core may only import core (imports {target})"
+        return _core_to_core(context, t, "core")
+
+    if layer == "adapters":
+        if not inside:
+            return None  # vendor SDKs, Django, PIL: that is what adapters are for
+        if t[1:2] == ["core"]:
+            return _core_to_core(None, t, "adapters")
+        if t[1:3] == ["adapters", parts[2] if len(parts) > 2 else ""]:
+            return None  # inside its own adapter family (suppliers/..., payments/...)
+        return f"an adapter may not import {target}"
+
+    if layer == "entrypoints":
+        if not inside:
+            if top in ("stripe", "requests", "PIL"):
+                return f"entry points must not use vendor SDK {top!r}; call a use case"
+            return None
+        if t[1:2] == ["core"]:
+            return _core_to_core(None, t, "entrypoints")
+        if t[1:2] == ["entrypoints"] or t[1:2] == ["bootstrap"]:
+            return None
+        return f"an entry point may not import {target}"
+
+    return None  # bootstrap itself, tests, and anything else at the package root
+
+
+def _core_to_core(own_context, t, from_layer):
+    ctx = t[2] if len(t) > 2 else ""
+    sub = t[3] if len(t) > 3 else ""
+    if ctx == "shared":
+        return None
+    if from_layer == "core" and ctx == own_context:
+        return None
+    allowed = {"core": ("api",), "adapters": ("api", "ports"), "entrypoints": ("api",)}[from_layer]
+    if sub in allowed:
+        return None
+    where = "another context" if from_layer == "core" else "the core"
+    return f"imports {'.'.join(t)}: {where} is reachable only through {' / '.join(allowed)}"
+
+
+def violations(root):
+    root = Path(root)
+    pkg = root / ROOT_PKG
+    found = []
+    for path in sorted(pkg.rglob("*.py")):
+        if path.name.startswith("tests_") or path.name == "tests.py":
+            continue
+        parts, is_package = _module_parts(path, root)
+        layer = parts[1] if len(parts) > 1 else ""
+        context = parts[2] if len(parts) > 2 else None
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            for target in _targets(node, parts, is_package):
+                if not target:
+                    continue
+                reason = _check(layer, context, parts, target)
+                if reason:
+                    found.append(f"{'/'.join(parts)}:{node.lineno}: {reason}")
+    return found
+
+
+class RealTreeTests(SimpleTestCase):
+    def test_the_real_tree_obeys_the_boundaries(self):
+        self.assertEqual(violations(REPO), [])
+
+    def test_skeleton_present(self):
+        for sub in ("core", "core/shared", "adapters", "entrypoints"):
+            self.assertTrue((REPO / ROOT_PKG / sub / "__init__.py").exists(), sub)
+
+
+class CheckerCatchesEachRule(SimpleTestCase):
+    """The rules are only worth something if the checker really trips on them."""
+
+    def run_tree(self, files):
+        with tempfile.TemporaryDirectory() as tmp:
+            for rel, text in files.items():
+                p = Path(tmp) / ROOT_PKG / rel
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(text, encoding="utf-8")
+            return violations(tmp)
+
+    def test_clean_layout_passes(self):
+        self.assertEqual(
+            self.run_tree(
+                {
+                    "core/catalogue/model.py": "import dataclasses\nfrom decimal import Decimal\n",
+                    "core/catalogue/api.py": "from . import model\nfrom tshirtbrand.core.shared import money\n",
+                    "core/ordering/usecases.py": "from tshirtbrand.core.catalogue import api\n",
+                    "adapters/suppliers/printful/client.py": "import requests\nfrom tshirtbrand.core.fulfilment import ports\n",
+                    "entrypoints/console/views.py": "import django\nfrom tshirtbrand.core.ordering import api\n",
+                    "bootstrap.py": "from tshirtbrand.adapters.suppliers.printful import client\n",
+                }
+            ),
+            [],
+        )
+
+    def test_core_must_not_import_frameworks_or_vendors(self):
+        for line in ("import django", "from django.db import models", "import stripe", "import requests", "from PIL import Image"):
+            self.assertEqual(len(self.run_tree({"core/catalogue/model.py": line + "\n"})), 1, line)
+
+    def test_core_must_not_import_shop_adapters_or_entrypoints(self):
+        for line in ("import shop.models", "from tshirtbrand.adapters import x", "from tshirtbrand.entrypoints import x"):
+            self.assertEqual(len(self.run_tree({"core/catalogue/model.py": line + "\n"})), 1, line)
+
+    def test_context_may_only_use_another_through_api(self):
+        bad = self.run_tree({"core/ordering/usecases.py": "from tshirtbrand.core.catalogue.model import Listing\n"})
+        self.assertEqual(len(bad), 1)
+        bad = self.run_tree({"core/ordering/usecases.py": "from tshirtbrand.core.catalogue import usecases\n"})
+        self.assertEqual(len(bad), 1)
+        ok = self.run_tree({"core/ordering/usecases.py": "from tshirtbrand.core.catalogue.api import find\n"})
+        self.assertEqual(ok, [])
+
+    def test_a_context_may_use_its_own_internals_relatively(self):
+        self.assertEqual(self.run_tree({"core/catalogue/usecases.py": "from .model import X\nfrom . import ports\n"}), [])
+        self.assertEqual(len(self.run_tree({"core/catalogue/usecases.py": "from ..ordering import model\n"})), 1)
+
+    def test_adapters_see_the_core_only_through_ports_and_api(self):
+        bad = self.run_tree({"adapters/payments/stripe/gateway.py": "from tshirtbrand.core.payments.model import X\n"})
+        self.assertEqual(len(bad), 1)
+        ok = self.run_tree({"adapters/payments/stripe/gateway.py": "from tshirtbrand.core.payments.ports import Gateway\n"})
+        self.assertEqual(ok, [])
+
+    def test_adapters_do_not_use_each_other_or_entrypoints(self):
+        files = {"adapters/suppliers/printful/a.py": "from tshirtbrand.adapters.payments.stripe import gateway\n"}
+        self.assertEqual(len(self.run_tree(files)), 1)
+        files = {"adapters/suppliers/printful/a.py": "from tshirtbrand.entrypoints.console import views\n"}
+        self.assertEqual(len(self.run_tree(files)), 1)
+        files = {"adapters/suppliers/printful/a.py": "from tshirtbrand.adapters.suppliers.printful import b\n"}
+        self.assertEqual(self.run_tree(files), [])
+
+    def test_entrypoints_use_api_only_and_never_adapters_or_vendor_sdks(self):
+        for line in (
+            "from tshirtbrand.adapters.suppliers.printful import client",
+            "from tshirtbrand.core.ordering.usecases import place",
+            "from tshirtbrand.core.ordering.model import Order",
+            "import stripe",
+        ):
+            self.assertEqual(len(self.run_tree({"entrypoints/console/v.py": line + "\n"})), 1, line)
+
+    def test_function_level_imports_are_checked_too(self):
+        text = "def f():\n    import stripe\n"
+        self.assertEqual(len(self.run_tree({"core/payments/model.py": text})), 1)
+
+    def test_bootstrap_may_wire_anything(self):
+        text = "from tshirtbrand.adapters.suppliers.mock import m\nfrom tshirtbrand.core.fulfilment import usecases\nimport django\n"
+        self.assertEqual(self.run_tree({"bootstrap.py": text}), [])
