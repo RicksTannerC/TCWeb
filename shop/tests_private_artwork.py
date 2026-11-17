@@ -14,7 +14,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 
 from . import printful
-from .fulfillment import _line
+from .supplier_bridge import line_for
 from .models import Design, Listing, ListingSize, ProductTemplate, ProductType
 from .storage import get_private_storage
 from .tests_2fa import totp_now
@@ -212,7 +212,7 @@ class PrintfulGuardTests(PrivateBase):
     def test_order_fulfillment_lines_now_carry_a_working_signed_link(self):
         item = SimpleNamespace(listing=self.listing(), listing_size=SimpleNamespace(printful_catalog_variant_id="4012"), size_label="M",
                                quantity=1, design_title="Pillars", unit_price=Decimal("40"))
-        url = _line(item)["files"][0]["url"]
+        url = line_for(item).files[0].url
         r = Client().get(urlsplit(url).path)
         self.assertEqual(r.status_code, 200)
         r.close()
@@ -220,4 +220,4 @@ class PrintfulGuardTests(PrivateBase):
     def test_order_lines_have_no_url_when_the_design_has_no_artwork(self):
         item = SimpleNamespace(listing=self.listing(with_art=False), listing_size=SimpleNamespace(printful_catalog_variant_id="4012"), size_label="M",
                                quantity=1, design_title="No art", unit_price=Decimal("40"))
-        self.assertEqual(_line(item)["files"], [])
+        self.assertEqual(line_for(item).files, ())

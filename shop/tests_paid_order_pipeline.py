@@ -15,7 +15,10 @@ from unittest import mock
 
 from django.test import Client, TestCase, override_settings
 
+from tshirtbrand.core.fulfilment.api import SupplierError
+
 from . import fulfillment, printful
+from .supplier_bridge import line_for
 from .models import Design, Listing, ListingSize, ProductTemplate, Status
 from .orders import Order, OrderItem, OrderStatus
 
@@ -94,22 +97,22 @@ class StripeWebhookTests(TestCase):
 class LineTests(TestCase):
     def test_synced_listing_sends_the_ordered_sizes_sync_variant(self):
         order = make_order(variant_id="555", connected=True)
-        line = fulfillment._line(order.items.get())
-        self.assertEqual(line["sync_variant_id"], 555)
-        self.assertNotIn("variant_id", line)
+        line = line_for(order.items.get())
+        self.assertEqual(line.product_variant_id, "555")
+        self.assertEqual(line.catalog_variant_id, "")
 
     def test_unsynced_listing_orders_from_the_catalog_variant_with_art(self):
         order = make_order(variant_id="4012", connected=False)
         with mock.patch.object(Design, "print_file_url", "https://example.test/art.png"):
-            line = fulfillment._line(order.items.get())
-        self.assertEqual(line["variant_id"], 4012)
-        self.assertNotIn("sync_variant_id", line)
-        self.assertEqual(line["files"][0]["url"], "https://example.test/art.png")
+            line = line_for(order.items.get())
+        self.assertEqual(line.catalog_variant_id, "4012")
+        self.assertEqual(line.product_variant_id, "")
+        self.assertEqual(line.files[0].url, "https://example.test/art.png")
 
     def test_no_variant_id_raises_a_clear_error(self):
         order = make_order(variant_id="")
-        with self.assertRaisesMessage(printful.PrintfulError, "Match sizes"):
-            fulfillment._line(order.items.get())
+        with self.assertRaisesMessage(SupplierError, "Match sizes"):
+            line_for(order.items.get())
 
 
 class ApproveTests(TestCase):

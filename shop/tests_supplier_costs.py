@@ -7,6 +7,8 @@ from unittest import mock
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 
+from tshirtbrand.core.fulfilment.api import SubmittedOrder
+
 from . import fulfillment, printful
 from .models import Design, Listing, ListingSize, ProductTemplate
 from .orders import Fulfillment, Order, OrderItem, OrderStatus
@@ -41,21 +43,35 @@ class RecordTests(TestCase):
     def test_the_real_reply_shape_is_stored_total_and_tax(self):
         order, item = make_order()
         f = ful(order, item)
-        fulfillment.record_supplier_costs(f, REAL_REPLY)
+        fulfillment.record_supplier_costs(f, SubmittedOrder("179489366", "pending", Decimal("19.09"), Decimal("1.15")))
         self.assertEqual((f.supplier_cost_actual, f.supplier_tax), (Decimal("19.09"), Decimal("1.15")))
 
     def test_vat_counts_as_tax_paid_too(self):
         order, item = make_order()
         f = ful(order, item)
-        fulfillment.record_supplier_costs(f, {"costs": {"total": "20.00", "tax": "0.00", "vat": "2.50"}})
-        self.assertEqual(f.supplier_tax, Decimal("2.50"))
+        # Printful reports VAT apart from sales tax; its adapter adds them (see PrintfulWireFormat)
+        client = mock.MagicMock(is_mock=False)
+        client.create_order.return_value = {"id": 1, "costs": {"total": "20.00", "tax": "0.00", "vat": "2.50"}}
+        order.status = OrderStatus.PENDING_APPROVAL
+        order.save()
+        with mock.patch.object(printful, "get_client", return_value=client):
+            fulfillment.approve_and_submit(order)
+        self.assertEqual(order.fulfillments.order_by("-id").first().supplier_tax, Decimal("2.50"))
 
     def test_no_costs_block_or_nonsense_records_nothing(self):
         order, item = make_order()
-        for reply in ({}, {"costs": None}, {"costs": {"total": "n/a"}}, {"costs": {"total": "0.00"}}, "oops"):
-            f = ful(order, item)
-            fulfillment.record_supplier_costs(f, reply)
-            self.assertIsNone(f.supplier_cost_actual, reply)
+        f = ful(order, item)
+        fulfillment.record_supplier_costs(f, SubmittedOrder("1", "pending", None))
+        self.assertIsNone(f.supplier_cost_actual)
+        # what the adapter makes of nonsense replies is covered by the supplier contract tests
+        for reply in ({}, {"costs": None}, {"costs": {"total": "n/a"}}, {"costs": {"total": "0.00"}}):
+            client = mock.MagicMock(is_mock=False)
+            client.create_order.return_value = {"id": 1, **reply}
+            from tshirtbrand.adapters.suppliers.printful.supplier import PrintfulSupplier
+            from tshirtbrand.core.fulfilment.api import OrderLine, OrderRequest, Recipient
+            sub = PrintfulSupplier(client).submit_order(
+                OrderRequest("R", Recipient("A"), (OrderLine(1, "S", Decimal("1"), catalog_variant_id="1"),)))
+            self.assertIsNone(sub.cost_total, reply)
 
     def test_approve_and_submit_records_what_printful_reports(self):
         order, item = make_order(status=OrderStatus.PENDING_APPROVAL)

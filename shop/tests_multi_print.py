@@ -14,7 +14,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 
 from . import printful
-from .fulfillment import _line
+from .supplier_bridge import line_for
 from .models import (
     Design, Listing, ListingPrint, ListingSize, PrintPlacement, PrintPosition, ProductTemplate, placement_payload,
 )
@@ -180,8 +180,8 @@ class SendAndOrderTests(PrivateBase):
         size = listing.sizes.get()
         item = SimpleNamespace(listing=listing, listing_size=size, size_label="M", quantity=1,
                                design_title="Wanderer", unit_price=Decimal("40"))
-        line = _line(item)
-        self.assertEqual(sorted(f["type"] for f in line["files"]), ["back", "front"])
+        line = line_for(item)
+        self.assertEqual(sorted(f.placement for f in line.files), ["back", "front"])
 
 
 class AddEditRemoveViewTests(PrivateBase):

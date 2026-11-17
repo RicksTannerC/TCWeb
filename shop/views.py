@@ -298,10 +298,8 @@ def printful_webhook(request, token):
         event = json.loads(request.body or b"{}")
     except ValueError:
         return HttpResponseBadRequest("invalid payload")
-    etype = event.get("type", "")
-    data = event.get("data", {})
-    if etype:
-        fulfillment.apply_partner_event(etype, data)
+    if isinstance(event, dict):
+        fulfillment.handle_supplier_payload(event)
     return HttpResponse(status=200)
 
 

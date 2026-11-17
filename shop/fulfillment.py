@@ -1,18 +1,24 @@
 """
-Order pipeline services: approve -> submit to Printful -> status/tracking
+Order pipeline services: approve -> submit to the print supplier -> status/tracking
 updates -> refunds & reprints. The curator's one-click approval is the gate;
 nothing reaches a print partner without it.
+
+Talks to the supplier only through the neutral port (tshirtbrand.core.fulfilment): this module builds
+neutral requests from orders and applies neutral results and events to them. What a particular supplier's
+API looks like is that supplier's adapter's business.
 """
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
-
 from django.utils import timezone
 
-from . import payments, printful
+from tshirtbrand.bootstrap import get_supplier
+from tshirtbrand.core.fulfilment.api import EventKind, OrderRequest, SupplierError
+
+from . import payments
 from .emails import send_order_status_update
 from .orders import Fulfillment, Order, OrderStatus
+from .supplier_bridge import line_for, recipient_for
 
 
 # ---- hold rules -----------------------------------------------------
@@ -26,42 +32,38 @@ def should_hold(order: Order) -> bool:
 # ---- approve & submit ---------------------------------------------
 
 def approve_and_submit(order: Order, *, note: str = "") -> Order:
-    """Curator approved the order — create fulfillment(s) and send to Printful."""
+    """Curator approved the order — create fulfillment(s) and send to the supplier."""
     if order.status != OrderStatus.PENDING_APPROVAL:
         raise ValueError(f"Order {order.reference} is not awaiting approval.")
 
-    client = printful.get_client()
+    supplier = get_supplier()
     items = list(order.items.all())
 
-    # One fulfilment per supplier. Launch is Printful-only, so one group.
-    by_supplier: dict[str, list] = {}
-    for it in items:
-        supplier = (it.listing.template.printful_provider_id or "printful") if it.listing else "printful"
-        by_supplier.setdefault("printful", []).append(it)
+    # One fulfilment per supplier. Launch is single-supplier, so one group.
+    by_supplier: dict[str, list] = {supplier.name.lower(): items}
 
-    for supplier, group in by_supplier.items():
-        ful = Fulfillment.objects.create(order=order, supplier=supplier, status=Fulfillment.Status.PENDING)
+    for key, group in by_supplier.items():
+        ful = Fulfillment.objects.create(order=order, supplier=key, status=Fulfillment.Status.PENDING)
         ful.items.set(group)
 
         try:
-            payload = {
-                "external_id": f"{order.reference}-{ful.id}",
-                "recipient": _recipient(order),
-                "items": [_line(it) for it in group],
-            }
-            result = client.create_order(payload, confirm=True)
-        except printful.PrintfulError as exc:
+            submitted = supplier.submit_order(OrderRequest(
+                external_id=f"{order.reference}-{ful.id}",
+                recipient=recipient_for(order),
+                lines=tuple(line_for(it) for it in group),
+            ))
+        except SupplierError as exc:
             ful.status = Fulfillment.Status.PROBLEM
-            ful.problem_note = f"Printful rejected the order: {exc}"
+            ful.problem_note = f"{supplier.name} rejected the order: {exc}"
             ful.save(update_fields=["status", "problem_note", "updated"])
             order.status = OrderStatus.APPROVED  # approved but not cleanly submitted
             order.curator_note = (order.curator_note + f"\nSubmit failed: {exc}").strip()
             order.save(update_fields=["status", "curator_note", "updated"])
             return order
 
-        ful.partner_order_id = str(result.get("id", ""))
+        ful.partner_order_id = submitted.supplier_order_id
         ful.status = Fulfillment.Status.SUBMITTED
-        record_supplier_costs(ful, result)
+        record_supplier_costs(ful, submitted)
         ful.save(update_fields=["partner_order_id", "status", "supplier_cost_actual", "supplier_tax", "updated"])
 
     order.status = OrderStatus.SUBMITTED
@@ -71,115 +73,51 @@ def approve_and_submit(order: Order, *, note: str = "") -> Order:
     return order
 
 
-def _money(value):
-    try:
-        return Decimal(str(value)).quantize(Decimal("0.01"))
-    except (InvalidOperation, TypeError, ValueError):
-        return None
-
-
-def record_supplier_costs(ful: Fulfillment, result: dict) -> None:
-    """Store what Printful says it will charge for this order, from the reply to
-    'create order' (so no extra call). Silently does nothing if the reply has no
-    costs block (e.g. the mock, or a shape we don't recognise)."""
-    costs = result.get("costs") if isinstance(result, dict) else None
-    if not isinstance(costs, dict):
+def record_supplier_costs(ful: Fulfillment, submitted) -> None:
+    """Store what the supplier says it will charge for this order, from the reply to 'submit order' (so
+    no extra call). Does nothing when the supplier didn't report a cost."""
+    if submitted.cost_total is None:
         return
-    total = _money(costs.get("total"))
-    if total is None or total <= 0:  # an order never really costs nothing: not a recorded cost
-        return
-    ful.supplier_cost_actual = total
-    # Printful reports sales tax as `tax` and VAT as `vat`; both are tax we paid.
-    ful.supplier_tax = (_money(costs.get("tax")) or Decimal("0.00")) + (_money(costs.get("vat")) or Decimal("0.00"))
+    ful.supplier_cost_actual = submitted.cost_total
+    ful.supplier_tax = submitted.cost_tax
 
 
-def _recipient(order: Order) -> dict:
-    a = order.shipping_address or {}
-    return {
-        "name": order.name,
-        "email": order.email,
-        "address1": a.get("line1", ""),
-        "address2": a.get("line2", ""),
-        "city": a.get("city", ""),
-        "state_code": a.get("state", ""),
-        "country_code": a.get("country", "US"),
-        "zip": a.get("postal_code", ""),
-    }
+# ---- supplier webhook -> our state -------------------------------
 
-
-def _line(item) -> dict:
-    """One Printful order line for the size actually ordered.
-
-    ListingSize.printful_variant_id holds a *sync* variant id once the listing
-    has been sent to Printful (sync_listing overwrites the catalog id), and a
-    catalog variant id before that (match_variants). Each goes in its own field.
-    """
-    listing = item.listing
-    size = item.listing_size
-    if listing and listing.is_connected:
-        vid = (getattr(size, "printful_variant_id", "") or "") if size else ""
-    else:
-        vid = (getattr(size, "printful_catalog_variant_id", "") or "") if size else ""
-    if not listing or not vid:
-        raise printful.PrintfulError(
-            f"{item.design_title} ({item.size_label}) has no Printful variant — "
-            "open the listing and use 'Match sizes to Printful variants', then send it to Printful."
-        )
-
-    line = {
-        "quantity": item.quantity,
-        "name": item.design_title,
-        "retail_price": str(item.unit_price),
-    }
-    if listing.is_connected:
-        line["sync_variant_id"] = int(vid)
-    else:
-        # Not synced yet: order straight off the catalog variant, with the art attached.
-        line["variant_id"] = int(vid)
-        line["files"] = listing.print_file_entries()
-    return line
-
-
-# ---- Printful webhook -> our state -------------------------------
-
-_SHIP_FIELDS = ("tracking_number", "tracking_url", "carrier")
+def handle_supplier_payload(payload: dict) -> Order | None:
+    """A supplier's raw webhook body: let the supplier's adapter say what it means, then apply it."""
+    event = get_supplier().parse_event(payload)
+    return apply_event(event) if event else None
 
 
 def apply_partner_event(event_type: str, data: dict) -> Order | None:
-    ext = (data.get("order") or data).get("external_id", "")
-    partner_id = str((data.get("order") or data).get("id", ""))
+    return handle_supplier_payload({"type": event_type, "data": data})
 
+
+def apply_event(event) -> Order | None:
     ful = (
-        Fulfillment.objects.filter(partner_order_id=partner_id).first()
-        or Fulfillment.objects.filter(order__reference=ext.split("-")[0]).first()
+        Fulfillment.objects.filter(partner_order_id=event.supplier_order_id).first()
+        or Fulfillment.objects.filter(order__reference=event.external_id.split("-")[0]).first()
     )
     if not ful:
         return None
     order = ful.order
     if ful.status == Fulfillment.Status.CANCELLED:
-        return order  # we cancelled it ourselves; Printful's echo isn't a problem
+        return order  # we cancelled it ourselves; the supplier's echo isn't a problem
 
-    if event_type == "package_shipped":
-        shipment = data.get("shipment", {})
+    kind = event.kind
+    if kind == EventKind.SHIPPED:
         ful.status = Fulfillment.Status.SHIPPED
-        ful.tracking_number = shipment.get("tracking_number", "")
-        ful.tracking_url = shipment.get("tracking_url", "")
-        ful.carrier = shipment.get("carrier", "")
+        ful.tracking_number = event.tracking_number
+        ful.tracking_url = event.tracking_url
+        ful.carrier = event.carrier
         ful.save()
-    elif event_type in ("order_updated",) and (data.get("order") or {}).get("status") == "inprocess":
+    elif kind == EventKind.IN_PRODUCTION:
         ful.status = Fulfillment.Status.IN_PRODUCTION
         ful.save(update_fields=["status", "updated"])
-    elif event_type == "package_returned":
+    elif kind in (EventKind.RETURNED, EventKind.FAILED, EventKind.ON_HOLD, EventKind.CANCELED):
         ful.status = Fulfillment.Status.PROBLEM
-        ful.problem_note = "Package returned to sender."
-        ful.save()
-    elif event_type in ("order_failed", "order_put_hold"):
-        ful.status = Fulfillment.Status.PROBLEM
-        ful.problem_note = data.get("reason", "Printful placed the order on hold.")
-        ful.save()
-    elif event_type == "order_canceled":
-        ful.status = Fulfillment.Status.PROBLEM
-        ful.problem_note = "Printful canceled the order."
+        ful.problem_note = event.reason
         ful.save()
 
     _rollup(order)
@@ -217,16 +155,16 @@ def _rollup(order: Order) -> None:
 # ---- refunds & reprints -----------------------------------------
 
 def cancel_partner_order(ful: Fulfillment) -> None:
-    """Cancel one fulfilment's order at Printful (a real call when Printful is
-    configured). Raises PrintfulError if Printful won't — typically because
-    production has already started."""
-    printful.get_client().cancel_order(ful.partner_order_id)
+    """Cancel one fulfilment's order at the supplier (a real call when the supplier is configured).
+    Raises SupplierError if the supplier won't — typically because production has already started."""
+    supplier = get_supplier()
+    supplier.cancel_order(ful.partner_order_id)
     ful.status = Fulfillment.Status.CANCELLED
-    ful.problem_note = "Cancelled at Printful."
+    ful.problem_note = f"Cancelled at {supplier.name}."
     ful.save(update_fields=["status", "problem_note", "updated"])
 
 
-def cancel_printful_orders(order: Order) -> tuple[list[str], list[str]]:
+def cancel_supplier_orders(order: Order) -> tuple[list[str], list[str]]:
     """Cancel every cancellable fulfilment. Returns (cancelled, failures) as
     display strings; a failure never stops the others."""
     cancelled, failures = [], []
@@ -236,7 +174,7 @@ def cancel_printful_orders(order: Order) -> tuple[list[str], list[str]]:
         try:
             cancel_partner_order(ful)
             cancelled.append(ful.partner_order_id)
-        except printful.PrintfulError as exc:
+        except SupplierError as exc:
             failures.append(f"{ful.partner_order_id} ({exc})")
     return cancelled, failures
 
@@ -253,37 +191,33 @@ def refund_order(order: Order, *, reason: str = "") -> tuple[Order, list[str], l
     order.status = OrderStatus.REFUNDED
     order.curator_note = (order.curator_note + f"\nRefunded: {reason}").strip()
     order.save(update_fields=["status", "curator_note", "updated"])
-    cancelled, failures = cancel_printful_orders(order)
+    cancelled, failures = cancel_supplier_orders(order)
     return order, cancelled, failures
 
 
 def reprint(fulfillment: Fulfillment, *, reason: str = "") -> Fulfillment:
     """Create and submit a replacement for `fulfillment`.
 
-    Raises PrintfulError, with nothing created, if the order lines can't be built
-    (e.g. a size with no Printful variant). If Printful itself refuses the order,
-    the new fulfilment is kept in the Problem state with Printful's reason."""
-    client = printful.get_client()
+    Raises SupplierError, with nothing created, if the order lines can't be built
+    (e.g. a size with no supplier variant). If the supplier itself refuses the order,
+    the new fulfilment is kept in the Problem state with its reason."""
+    supplier = get_supplier()
     order = fulfillment.order
     items = list(fulfillment.items.all())
-    lines = [_line(it) for it in items]  # may raise: do it before creating anything
+    lines = tuple(line_for(it) for it in items)  # may raise: do it before creating anything
 
     new = Fulfillment.objects.create(
         order=order, supplier=fulfillment.supplier, status=Fulfillment.Status.PENDING,
         problem_note=f"Reprint of fulfilment #{fulfillment.id}: {reason}",
     )
     new.items.set(items)
-    payload = {
-        "external_id": f"{order.reference}-{new.id}-reprint",
-        "recipient": _recipient(order),
-        "items": lines,
-    }
     try:
-        result = client.create_order(payload, confirm=True)
-        new.partner_order_id = str(result.get("id", ""))
+        submitted = supplier.submit_order(OrderRequest(
+            external_id=f"{order.reference}-{new.id}-reprint", recipient=recipient_for(order), lines=lines))
+        new.partner_order_id = submitted.supplier_order_id
         new.status = Fulfillment.Status.SUBMITTED
-        record_supplier_costs(new, result)
-    except printful.PrintfulError as exc:
+        record_supplier_costs(new, submitted)
+    except SupplierError as exc:
         new.status = Fulfillment.Status.PROBLEM
         new.problem_note += f" — submit failed: {exc}"
     new.save()
