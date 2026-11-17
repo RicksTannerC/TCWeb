@@ -7,7 +7,9 @@ from unittest import mock
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 
-from . import printful
+from tshirtbrand.bootstrap import get_supplier
+
+from . import listing_sync, printful
 from .models import Design, Listing, PrintPlacement, PrintPosition, ProductTemplate, ProductType, Status
 
 
@@ -81,7 +83,7 @@ class SyncPayloadIncludesPositioningTests(TestCase):
         client = mock.MagicMock(is_mock=False)
         client.create_sync_product.return_value = {"id": 1, "sync_variants": []}
         with mock.patch.object(printful, "get_client", return_value=client):
-            printful.sync_listing(listing)
+            listing_sync.sync_listing(listing)
         payload = client.create_sync_product.call_args[0][0]
         file_entry = payload["sync_variants"][0]["files"][0]
         self.assertEqual(file_entry["type"], "back")
@@ -190,7 +192,7 @@ class ColorDropdownTests(ConsoleBase):
 
     def test_printful_error_falls_back_to_free_text_without_breaking_the_page(self):
         listing = make_listing(blueprint_id="456")
-        with mock.patch.object(printful, "catalog_color_options", side_effect=printful.PrintfulError("down")):
+        with mock.patch.object(listing_sync, "catalog_color_options", side_effect=printful.PrintfulError("down")):
             page = self.c.get(f"/manage/listings/{listing.pk}/")
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, '<input id="color"')
@@ -212,15 +214,15 @@ class CatalogColorsTests(TestCase):
         cache.clear()  # this class counts real fetches, so it must start from an empty cache
 
     def test_no_blueprint_is_an_empty_list(self):
-        self.assertEqual(printful.catalog_colors(""), [])
+        self.assertEqual(get_supplier().colors(""), [])
 
     def test_returns_sorted_real_colors(self):
-        self.assertEqual(printful.catalog_colors(456), ["Black", "Khaki", "White"])
+        self.assertEqual([c.name for c in get_supplier().colors("456")], ["Black", "Khaki", "White"])
 
     def test_colors_and_match_variants_share_one_cached_fetch(self):
         client = printful.MockPrintful()
         with mock.patch.object(printful, "get_client", return_value=client), \
                 mock.patch.object(client, "catalog_variants", wraps=client.catalog_variants) as spy:
-            printful.catalog_colors(456)
-            printful.match_variants(456, "Black", ["S"])
+            get_supplier().colors("456")
+            listing_sync.match_variants(456, "Black", ["S"])
             self.assertEqual(spy.call_count, 1)

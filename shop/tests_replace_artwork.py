@@ -10,6 +10,8 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 
+from tshirtbrand.adapters.suppliers.printful.supplier import _clean_image_url, _previews
+
 from . import printful
 from .models import Design, Listing, ListingPrint, ProductTemplate
 
@@ -153,13 +155,13 @@ class BarePreviewUrlTests(Base):
     REAL = "https://files.cdn.printful.com/files/1d2/abc_preview.png"
 
     def test_a_bare_cdn_host_is_not_an_image(self):
-        self.assertEqual(printful._clean_image_url(self.BARE), "")
-        self.assertEqual(printful._clean_image_url(self.BARE.rstrip("/")), "")
-        self.assertEqual(printful._clean_image_url(self.REAL), self.REAL)
+        self.assertEqual(_clean_image_url(self.BARE), "")
+        self.assertEqual(_clean_image_url(self.BARE.rstrip("/")), "")
+        self.assertEqual(_clean_image_url(self.REAL), self.REAL)
 
     def test_a_new_read_drops_it(self):
-        got = printful.extract_previews({"sync_product": {"thumbnail_url": self.BARE}, "sync_variants": []})
-        self.assertEqual(got, [])
+        got = _previews({"sync_product": {"thumbnail_url": self.BARE}, "sync_variants": []}, "")
+        self.assertEqual(got, ())
 
     def test_an_old_stored_read_is_not_shown_as_a_broken_image(self):
         self.listing.printful_product_id = "1"

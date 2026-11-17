@@ -6,10 +6,17 @@ from unittest import mock
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 
-from . import printful
+from tshirtbrand.adapters.suppliers.printful.supplier import _previews
+
+from . import listing_sync, printful
 from .models import Design, Listing, ListingSize, ProductTemplate
 
 CDN = "https://files.cdn.printful.com"
+
+
+def extract_previews(result, color=""):
+    """What the Printful adapter keeps of a sync-product reply, as the stored [{"label", "url"}] list."""
+    return [{"label": p.label, "url": p.url} for p in _previews(result, color)]
 
 
 def reply(color="Ivory"):
@@ -39,44 +46,44 @@ def reply(color="Ivory"):
 
 class ExtractTests(TestCase):
     def test_thumbnail_plus_the_previews_of_the_listings_colour(self):
-        got = printful.extract_previews(reply(), "Ivory")
+        got = extract_previews(reply(), "Ivory")
         self.assertEqual([p["url"] for p in got], [f"{CDN}/thumb.png", f"{CDN}/ivory-S.jpg"])
         self.assertEqual(got[1]["label"], "Ivory")
 
     def test_another_colours_preview_is_not_used(self):
-        urls = [p["url"] for p in printful.extract_previews(reply(), "Ivory")]
+        urls = [p["url"] for p in extract_previews(reply(), "Ivory")]
         self.assertNotIn(f"{CDN}/black-S.jpg", urls)
 
     def test_art_files_are_not_mistaken_for_previews(self):
-        urls = [p["url"] for p in printful.extract_previews(reply(), "Ivory")]
+        urls = [p["url"] for p in extract_previews(reply(), "Ivory")]
         self.assertFalse(any("art-" in u for u in urls))
 
     def test_no_colour_set_uses_the_first_variant_with_a_preview(self):
-        urls = [p["url"] for p in printful.extract_previews(reply(), "")]
+        urls = [p["url"] for p in extract_previews(reply(), "")]
         self.assertIn(f"{CDN}/black-S.jpg", urls)
 
     def test_a_missing_preview_just_yields_fewer_images(self):
         r = reply()
         for sv in r["sync_variants"]:
             sv["files"] = [f for f in sv["files"] if f["type"] != "preview"]
-        self.assertEqual([p["url"] for p in printful.extract_previews(r, "Ivory")], [f"{CDN}/thumb.png"])
+        self.assertEqual([p["url"] for p in extract_previews(r, "Ivory")], [f"{CDN}/thumb.png"])
 
     def test_nonsense_replies_do_not_raise(self):
         for junk in (None, [], "x", {}, {"sync_variants": None}, {"sync_variants": ["a"]},
                      {"sync_product": "x", "sync_variants": [{"files": "no"}]}):
-            self.assertEqual(printful.extract_previews(junk, "Ivory"), [], junk)
+            self.assertEqual(extract_previews(junk, "Ivory"), [], junk)
 
     def test_only_https_images_are_kept(self):
         r = reply()
         r["sync_product"]["thumbnail_url"] = "http://insecure.test/t.png"
         r["sync_variants"][1]["files"][2]["preview_url"] = 'javascript:alert(1)'
         r["sync_variants"][1]["files"][2]["thumbnail_url"] = 'https://x.test/a.png" onerror="alert(1)'
-        self.assertEqual(printful.extract_previews(r, "Ivory"), [])
+        self.assertEqual(extract_previews(r, "Ivory"), [])
 
     def test_at_most_six(self):
         r = {"sync_variants": [{"name": "J / Ivory / M", "files": [
             {"type": "preview", "preview_url": f"{CDN}/p{i}.jpg"} for i in range(10)]}]}
-        self.assertEqual(len(printful.extract_previews(r, "Ivory")), 6)
+        self.assertEqual(len(extract_previews(r, "Ivory")), 6)
 
 
 def make_listing(connected=True, color="Ivory"):
@@ -99,7 +106,7 @@ class StoreTests(TestCase):
     def test_refresh_preview_stores_the_images_and_when(self):
         listing = make_listing()
         with mock.patch.object(printful, "get_client", return_value=self.stub()):
-            n = printful.refresh_preview(listing)
+            n = listing_sync.refresh_preview(listing)
         listing.refresh_from_db()
         self.assertEqual(n, 2)
         self.assertEqual(len(listing.printful_preview), 2)
@@ -109,7 +116,7 @@ class StoreTests(TestCase):
         listing = make_listing()
         client = self.stub()
         with mock.patch.object(printful, "get_client", return_value=client):
-            printful.refresh_sync_variants(listing)
+            listing_sync.refresh_sync_variants(listing)
         listing.refresh_from_db()
         self.assertEqual(len(listing.printful_preview), 2)
         self.assertEqual(client.get_sync_product.call_count, 1)
@@ -119,13 +126,13 @@ class StoreTests(TestCase):
         client = self.stub()
         client.create_sync_product.return_value = {"id": 477, "variants": 1}  # the summary reply
         with mock.patch.object(printful, "get_client", return_value=client):
-            printful.sync_listing(listing)
+            listing_sync.sync_listing(listing)
         listing.refresh_from_db()
         self.assertEqual(len(listing.printful_preview), 2)
 
     def test_not_connected_raises_a_clear_error(self):
         with self.assertRaisesMessage(printful.PrintfulError, "isn't connected"):
-            printful.refresh_preview(make_listing(connected=False))
+            listing_sync.refresh_preview(make_listing(connected=False))
 
 
 @override_settings(STAFF_2FA_REQUIRED=False)

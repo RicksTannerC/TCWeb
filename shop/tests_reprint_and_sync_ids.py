@@ -9,7 +9,7 @@ from unittest import mock
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 
-from . import fulfillment, printful
+from . import fulfillment, listing_sync, printful
 from .models import Design, Listing, ListingSize, ProductTemplate, Status
 from .orders import Fulfillment, Order, OrderItem, OrderStatus
 
@@ -57,7 +57,7 @@ def summary_client(read_back=None, read_back_error=None):
 class SyncIdsTests(TestCase):
     def send(self, listing, client, **kw):
         with mock.patch.object(printful, "get_client", return_value=client):
-            return printful.sync_listing(listing, **kw)
+            return listing_sync.sync_listing(listing, **kw)
 
     def sizes(self, listing):
         return dict(listing.sizes.values_list("label", "printful_variant_id"))

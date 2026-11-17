@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 
-from . import printful
+from . import listing_sync, printful
 from .models import Design, Listing, ListingSize, ProductTemplate, ProductType, Status
 
 
@@ -17,56 +17,56 @@ class SearchCatalogTests(TestCase):
         cache.clear()
 
     def test_matches_by_title_model_or_brand(self):
-        self.assertTrue(any(p["id"] == 456 for p in printful.search_catalog("stanley")))
-        self.assertTrue(any(p["id"] == 456 for p in printful.search_catalog("sttu169")))
-        self.assertTrue(any(p["id"] == 71 for p in printful.search_catalog("bella")))
+        self.assertTrue(any(p["id"] == "456" for p in listing_sync.search_catalog("stanley")))
+        self.assertTrue(any(p["id"] == "456" for p in listing_sync.search_catalog("sttu169")))
+        self.assertTrue(any(p["id"] == "71" for p in listing_sync.search_catalog("bella")))
 
     def test_case_insensitive(self):
-        self.assertTrue(any(p["id"] == 145 for p in printful.search_catalog("GILDAN")))
+        self.assertTrue(any(p["id"] == "145" for p in listing_sync.search_catalog("GILDAN")))
 
     def test_short_or_empty_query_returns_nothing(self):
-        self.assertEqual(printful.search_catalog(""), [])
-        self.assertEqual(printful.search_catalog(" a "), [])
+        self.assertEqual(listing_sync.search_catalog(""), [])
+        self.assertEqual(listing_sync.search_catalog(" a "), [])
 
     def test_no_match_is_an_empty_list_not_an_error(self):
-        self.assertEqual(printful.search_catalog("nonexistent brand xyz"), [])
+        self.assertEqual(listing_sync.search_catalog("nonexistent brand xyz"), [])
 
     def test_catalog_is_fetched_once_and_cached(self):
         client = printful.MockPrintful()
         with mock.patch.object(printful, "get_client", return_value=client), \
                 mock.patch.object(client, "list_catalog", wraps=client.list_catalog) as spy:
-            printful.search_catalog("stanley")
-            printful.search_catalog("gildan")
+            listing_sync.search_catalog("stanley")
+            listing_sync.search_catalog("gildan")
             self.assertEqual(spy.call_count, 1)
 
 
 class MatchVariantsTests(TestCase):
     def test_matches_each_size_for_the_given_color(self):
-        matches, unmatched, colors = printful.match_variants(456, "Khaki", ["S", "M", "2XL"])
+        matches, unmatched, colors = listing_sync.match_variants(456, "Khaki", ["S", "M", "2XL"])
         self.assertEqual(set(matches), {"S", "M", "2XL"})
         self.assertEqual(unmatched, [])
         self.assertIn("Khaki", colors)
 
     def test_color_matching_is_case_insensitive(self):
-        matches, unmatched, _ = printful.match_variants(456, "khaki", ["S"])
+        matches, unmatched, _ = listing_sync.match_variants(456, "khaki", ["S"])
         self.assertIn("S", matches)
 
     def test_unknown_color_matches_nothing_but_lists_real_colors(self):
-        matches, unmatched, colors = printful.match_variants(456, "Mauve", ["S", "M"])
+        matches, unmatched, colors = listing_sync.match_variants(456, "Mauve", ["S", "M"])
         self.assertEqual(matches, {})
         self.assertEqual(unmatched, ["S", "M"])
         self.assertEqual(colors, ["Black", "Khaki", "White"])
 
     def test_unknown_size_label_is_reported_unmatched(self):
-        matches, unmatched, _ = printful.match_variants(456, "Black", ["S", "3XL"])
+        matches, unmatched, _ = listing_sync.match_variants(456, "Black", ["S", "3XL"])
         self.assertIn("S", matches)
         self.assertEqual(unmatched, ["3XL"])
 
     def test_variant_ids_are_stable_and_distinct_per_color(self):
-        black, _, _ = printful.match_variants(456, "Black", ["M"])
-        white, _, _ = printful.match_variants(456, "White", ["M"])
+        black, _, _ = listing_sync.match_variants(456, "Black", ["M"])
+        white, _, _ = listing_sync.match_variants(456, "White", ["M"])
         self.assertNotEqual(black["M"], white["M"])
-        black2, _, _ = printful.match_variants(456, "Black", ["M"])
+        black2, _, _ = listing_sync.match_variants(456, "Black", ["M"])
         self.assertEqual(black["M"], black2["M"])
 
 

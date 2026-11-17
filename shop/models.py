@@ -498,11 +498,15 @@ class Listing(models.Model):
         Only a positioned print needs them, so the common centered full-size case makes no lookup."""
         if scale_pct >= 100 and position == PrintPosition.CENTER:
             return placement_payload(placement, scale_pct, position)
-        from . import printful
+        from tshirtbrand.bootstrap import get_supplier
 
+        try:
+            found = get_supplier().print_area(self.template.printful_blueprint_id, placement)
+        except Exception:  # noqa: BLE001 - a failed lookup must never block a send
+            found = None
         return placement_payload(
             placement, scale_pct, position,
-            area=printful.print_area(self.template.printful_blueprint_id, placement),
+            area=(found.width, found.height) if found else DEFAULT_PRINT_AREA,
             aspect=design.artwork_aspect())
 
     @property

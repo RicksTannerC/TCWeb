@@ -11,6 +11,37 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-17 — Step 1 of the restructure: the print supplier is a port (Printful is one adapter)
+
+- **What:** everything the shop asks of its print supplier now goes through one neutral interface,
+  `tshirtbrand.core.fulfilment` (`Supplier` port, plain dataclasses for catalogue lookups, products, orders and
+  events). Printful's raw HTTP client, its canned mock and all of its wire formats (field names, nesting, event
+  names, cost/tax parsing, preview extraction, US-production check) moved into `adapters/suppliers/printful`; a
+  second, in-memory supplier proves the port isn't secretly Printful-shaped. `shop/fulfillment.py` (approve,
+  cancel, refund, reprint, webhook events) and the new `shop/listing_sync.py` (send/re-send, previews, size
+  match, catalogue) build neutral requests from the models and apply neutral results; `shop/supplier_bridge.py`
+  does the model-to-neutral translation; `tshirtbrand/bootstrap.py` is the one place that picks the adapter.
+  `shop/printful.py` shrank to settings wiring (`get_client`, webhook URL/token). No behaviour changed: the same
+  requests go to Printful and the same pages render.
+- **Files:** new `tshirtbrand/core/fulfilment/`, `tshirtbrand/adapters/suppliers/{printful,memory}/`,
+  `tshirtbrand/bootstrap.py`, `shop/listing_sync.py`, `shop/supplier_bridge.py`; reworked `shop/fulfillment.py`,
+  `shop/printful.py`, `shop/console_views.py`, `shop/manage_views.py`, `shop/admin.py`, `shop/views.py`
+  (webhook), `shop/models.py` (`payload_for` asks the supplier for the print area); `docs/ARCHITECTURE.md`.
+  Tests that checked Printful's wire format through the shop now check it in the adapter; the rest were
+  retargeted at the new modules.
+- **Verified:** 626 tests OK. One contract test class (`tshirtbrand/adapters/suppliers/tests_supplier_contract.py`)
+  runs the same ~20 checks against the in-memory supplier, Printful over its canned mock, and Printful over real
+  HTTP with the network replaced; extra tests pin Printful's exact request shapes (recipient, sync vs catalog
+  lines, position box, auth header, error mapping, every webhook event). The boundary test now also fails if the
+  supplier slice imports the vendor module or mentions a Printful wire name. No call was made to Printful or any
+  credentialed service.
+- **Follow-ups:** left for later steps (see ARCHITECTURE.md): webhook URL/token + `printful_webhook` command,
+  `Listing.print_file_entries()` dict shape, `printful_*` model field names, a settings switch for the supplier.
+  Not live until the site is restarted on the new code. Also: `gh` isn't installed here, so the GitHub repo
+  couldn't be set to private from this machine; the owner has to do it in GitHub's settings.
+
+---
+
 ## 2026-11-17 — Ports-and-adapters plan, package skeleton and boundary test
 
 - **What:** the owner wants the app restructured so parts are independent and swappable (another printer, other

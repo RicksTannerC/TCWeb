@@ -10,6 +10,8 @@ from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.test import TestCase, override_settings
 
+from tshirtbrand.bootstrap import get_supplier
+
 from . import printful
 from .models import DEFAULT_PRINT_AREA, Design, Listing, ListingPrint, PrintPosition, ProductTemplate, placement_payload
 
@@ -57,7 +59,8 @@ class AreaLookupTests(TestCase):
 
     def area(self, placement, client, blueprint="586"):
         with mock.patch.object(printful, "get_client", return_value=client):
-            return printful.print_area(blueprint, placement)
+            found = get_supplier().print_area(blueprint, placement)
+        return (found.width, found.height) if found else DEFAULT_PRINT_AREA  # the fallback Listing.payload_for applies
 
     def test_reads_the_size_of_each_placement(self):
         c = self.stub()

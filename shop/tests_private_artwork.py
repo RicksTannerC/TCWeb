@@ -13,7 +13,7 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 
-from . import printful
+from . import listing_sync, printful
 from .supplier_bridge import line_for
 from .models import Design, Listing, ListingSize, ProductTemplate, ProductType
 from .storage import get_private_storage
@@ -188,7 +188,7 @@ class PrintfulGuardTests(PrivateBase):
         client.create_sync_product.return_value = {"id": 1, "sync_variants": []}
         listing = self.listing()
         with mock.patch.object(printful, "get_client", return_value=client):
-            printful.sync_listing(listing)
+            listing_sync.sync_listing(listing)
         payload = client.create_sync_product.call_args[0][0]
         url = payload["sync_variants"][0]["files"][0]["url"]
         self.assertTrue(url.startswith(settings.SITE_BASE_URL))
@@ -198,14 +198,14 @@ class PrintfulGuardTests(PrivateBase):
 
     def test_mock_printful_still_works_locally(self):
         with mock.patch.object(printful, "get_client", return_value=printful.MockPrintful()):
-            result = printful.sync_listing(self.listing())
+            result = listing_sync.sync_listing(self.listing())
         self.assertTrue(result)
 
     def test_listing_without_artwork_is_unaffected(self):
         client = mock.MagicMock(is_mock=False)
         client.create_sync_product.return_value = {"id": 1, "sync_variants": []}
         with mock.patch.object(printful, "get_client", return_value=client):
-            printful.sync_listing(self.listing(with_art=False))
+            listing_sync.sync_listing(self.listing(with_art=False))
         payload = client.create_sync_product.call_args[0][0]
         self.assertEqual(payload["sync_variants"][0]["files"], [])
 

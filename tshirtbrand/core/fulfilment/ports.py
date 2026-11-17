@@ -27,6 +27,9 @@ class Supplier(Protocol):
     def made_in_us(self, catalog_id: str) -> bool | None:
         """Whether it can be produced and shipped from the US; None when the supplier doesn't say."""
 
+    def dashboard_url(self, product_name: str, product_type: str = "tee") -> str:
+        """A best-effort link to this blank in the supplier's own dashboard, or "" when there is none."""
+
     # --- products ---
     def create_product(self, spec: ProductSpec, color: str = "") -> ProductRecord: ...
     def get_product(self, product_id: str, color: str = "") -> ProductRecord: ...

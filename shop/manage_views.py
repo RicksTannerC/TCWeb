@@ -10,7 +10,10 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from . import fulfillment, printful
+from tshirtbrand.bootstrap import get_supplier
+from tshirtbrand.core.fulfilment.api import SupplierError
+
+from . import fulfillment
 from .orders import Fulfillment, Order, OrderStatus
 
 QUEUE_ORDER = [
@@ -50,7 +53,7 @@ def order_manage(request, pk):
     return render(request, "shop/manage/order.html", {
         "order": order,
         "address_ok": _address_looks_complete(order),
-        "is_mock": getattr(printful.get_client(), "is_mock", False),
+        "is_mock": get_supplier().simulated,
     })
 
 
@@ -67,7 +70,7 @@ def order_approve(request, pk):
     try:
         fulfillment.approve_and_submit(order, note=request.POST.get("note", ""))
         messages.success(request, f"{order.reference} approved and submitted to Printful.")
-    except (ValueError, printful.PrintfulError) as exc:
+    except (ValueError, SupplierError) as exc:
         messages.error(request, str(exc))
     return redirect("shop:manage_order", pk=pk)
 
@@ -107,7 +110,7 @@ def fulfillment_cancel(request, pk):
     try:
         fulfillment.cancel_partner_order(ful)
         messages.success(request, f"Printful order {ful.partner_order_id} cancelled.")
-    except printful.PrintfulError as exc:
+    except SupplierError as exc:
         messages.error(request, f"Printful wouldn't cancel order {ful.partner_order_id}: {exc}")
     return redirect("shop:manage_order", pk=ful.order_id)
 
@@ -118,7 +121,7 @@ def fulfillment_reprint(request, pk):
     ful = get_object_or_404(Fulfillment, pk=pk)
     try:
         new = fulfillment.reprint(ful, reason=request.POST.get("reason", "damage / print error"))
-    except printful.PrintfulError as exc:
+    except SupplierError as exc:
         messages.error(request, f"Couldn't reprint: {exc} Nothing was sent to Printful.")
         return redirect("shop:manage_order", pk=ful.order_id)
     if new.status == Fulfillment.Status.PROBLEM:

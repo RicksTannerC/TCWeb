@@ -1,6 +1,8 @@
 from django.contrib import admin, messages
 
-from . import printful
+from tshirtbrand.core.fulfilment.api import SupplierError
+
+from . import listing_sync
 from .models import (
     Collection,
     Design,
@@ -74,9 +76,9 @@ class ListingAdmin(admin.ModelAdmin):
         done, failed = 0, 0
         for listing in queryset:
             try:
-                printful.sync_listing(listing)
+                listing_sync.sync_listing(listing)
                 done += 1
-            except printful.PrintfulError as exc:
+            except SupplierError as exc:
                 failed += 1
                 self.message_user(request, f"{listing}: {exc}", level=messages.ERROR)
         if done:

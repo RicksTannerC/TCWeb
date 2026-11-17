@@ -143,6 +143,18 @@ class PrintfulSupplier:
             return None
         return "US" in regions
 
+    def dashboard_url(self, product_name, product_type="tee"):
+        """Best-effort link to this blank's page in the Printful dashboard (where its colors are shown on the
+        real shirt), built from the pattern of a real link: /dashboard/custom/mens/t-shirts/<title-slug>.
+        '' for anything but a tee or when the name is unknown. Printful doesn't publish this URL in its API,
+        so it is a constructed link, not a looked-up one."""
+        if product_type != "tee":
+            return ""
+        slug = re.sub(r"[^a-z0-9]+", "-", str(product_name or "").lower().replace("/", " ")).strip("-")
+        if not slug:
+            return ""
+        return f"https://www.printful.com/dashboard/custom/mens/t-shirts/{slug}"
+
     # ----------------------------------------------------------- products
 
     def create_product(self, spec: ProductSpec, color=""):
@@ -310,6 +322,8 @@ def _previews(result, color):
     """Printful's own renders of the art on the blank: the product thumbnail plus the `preview` file(s)
     of the first variant in the wanted colour (sizes of one colour look alike). At most 6, https only.
     Anything unexpected yields fewer images, never an error."""
+    if not isinstance(result, dict):
+        return ()
     out, seen = [], set()
 
     def add(label, url):

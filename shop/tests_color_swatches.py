@@ -7,7 +7,10 @@ from unittest import mock
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 
-from . import printful
+from tshirtbrand.adapters.suppliers.printful.supplier import PrintfulSupplier
+from tshirtbrand.bootstrap import get_supplier
+
+from . import listing_sync, printful
 from .models import Design, Listing, ProductTemplate
 
 VARIANTS = {"variants": [
@@ -20,8 +23,8 @@ VARIANTS = {"variants": [
 
 
 def options():
-    with mock.patch.object(printful, "_cached_variants", return_value=VARIANTS):
-        return {o["name"]: o for o in printful.catalog_color_options("586")}
+    with mock.patch.object(PrintfulSupplier, "_variants", return_value=VARIANTS):
+        return {o["name"]: o for o in listing_sync.catalog_color_options("586")}
 
 
 class ColorOptionsTests(TestCase):
@@ -45,8 +48,8 @@ class ColorOptionsTests(TestCase):
         self.assertEqual(options()["Mystery"]["image"], "")
 
     def test_sorted_by_name(self):
-        with mock.patch.object(printful, "_cached_variants", return_value=VARIANTS):
-            names = [o["name"] for o in printful.catalog_color_options("586")]
+        with mock.patch.object(PrintfulSupplier, "_variants", return_value=VARIANTS):
+            names = [o["name"] for o in listing_sync.catalog_color_options("586")]
         self.assertEqual(names, sorted(names, key=str.lower))
 
     def test_hostile_values_from_the_api_are_never_passed_on(self):
@@ -56,18 +59,18 @@ class ColorOptionsTests(TestCase):
             {"color": "Evil2", "color_code": "#ff0000", "image": 'https://x.test/a.jpg" onerror="alert(1)'},
             {"color": "Evil3", "image": "http://insecure.test/a.jpg"},
         ]}
-        with mock.patch.object(printful, "_cached_variants", return_value=bad):
-            o = {x["name"]: x for x in printful.catalog_color_options("586")}
+        with mock.patch.object(PrintfulSupplier, "_variants", return_value=bad):
+            o = {x["name"]: x for x in listing_sync.catalog_color_options("586")}
         self.assertEqual((o["Evil"]["hex"], o["Evil"]["hex2"], o["Evil"]["image"]), ("", "", ""))
         self.assertEqual(o["Evil2"]["image"], "")
         self.assertEqual(o["Evil2"]["swatch"], "#ff0000")
         self.assertEqual(o["Evil3"]["image"], "")
 
     def test_no_blueprint_means_no_options(self):
-        self.assertEqual(printful.catalog_color_options(""), [])
+        self.assertEqual(listing_sync.catalog_color_options(""), [])
 
     def test_the_mock_catalogue_carries_swatches_for_local_development(self):
-        o = {x["name"]: x for x in printful.catalog_color_options(456)}
+        o = {x["name"]: x for x in listing_sync.catalog_color_options(456)}
         self.assertEqual(o["Black"]["hex"], "#0b0b0b")
         self.assertEqual(o["White"]["hex"], "#ffffff")
 
@@ -75,16 +78,16 @@ class ColorOptionsTests(TestCase):
 class ProductLinkTests(TestCase):
     def test_built_in_the_pattern_of_a_real_printful_dashboard_link(self):
         self.assertEqual(
-            printful.dashboard_product_url("Unisex Garment-Dyed Heavyweight T-Shirt | Comfort Colors 1717"),
+            get_supplier().dashboard_url("Unisex Garment-Dyed Heavyweight T-Shirt | Comfort Colors 1717"),
             "https://www.printful.com/dashboard/custom/mens/t-shirts/unisex-garment-dyed-heavyweight-t-shirt-comfort-colors-1717")
         # the shape of the link the curator pasted earlier (a slash in the brand becomes a hyphen)
         self.assertEqual(
-            printful.dashboard_product_url("Unisex Organic Cotton T-Shirt | Stanley/Stella STTU169"),
+            get_supplier().dashboard_url("Unisex Organic Cotton T-Shirt | Stanley/Stella STTU169"),
             "https://www.printful.com/dashboard/custom/mens/t-shirts/unisex-organic-cotton-t-shirt-stanley-stella-sttu169")
 
     def test_nothing_is_guessed_without_a_name_or_for_non_tees(self):
-        self.assertEqual(printful.dashboard_product_url(""), "")
-        self.assertEqual(printful.dashboard_product_url("Kiss-Cut Stickers", "sticker"), "")
+        self.assertEqual(get_supplier().dashboard_url(""), "")
+        self.assertEqual(get_supplier().dashboard_url("Kiss-Cut Stickers", "sticker"), "")
 
 
 @override_settings(STAFF_2FA_REQUIRED=False)
@@ -100,7 +103,7 @@ class PickerPageTests(TestCase):
                                       product_type="tee", color=color)
 
     def page(self, listing):
-        with mock.patch.object(printful, "_cached_variants", return_value=VARIANTS):
+        with mock.patch.object(PrintfulSupplier, "_variants", return_value=VARIANTS):
             return self.c.get(f"/manage/listings/{listing.pk}/").content.decode()
 
     def test_every_option_shows_its_swatch_and_name(self):
@@ -136,7 +139,7 @@ class PickerPageTests(TestCase):
     def test_hostile_api_values_cannot_inject_into_the_page(self):
         bad = {"variants": [{"color": "X", "color_code": '#ff0000" onmouseover="alert(1)', "image": 'https://a.test/x" onerror="y'}]}
         listing = self.listing(color="X")
-        with mock.patch.object(printful, "_cached_variants", return_value=bad):
+        with mock.patch.object(PrintfulSupplier, "_variants", return_value=bad):
             html = self.c.get(f"/manage/listings/{listing.pk}/").content.decode()
         self.assertNotIn("onmouseover", html)
         self.assertNotIn('onerror="y', html)

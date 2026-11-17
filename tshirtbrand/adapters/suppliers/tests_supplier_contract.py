@@ -114,6 +114,12 @@ class SupplierContract:
         self.assertIn(self.supplier.made_in_us(self.catalog_id), (True, False, None))
         self.assertIsNone(self.supplier.made_in_us(""))
 
+    def test_dashboard_url_is_a_link_or_empty(self):
+        url = self.supplier.dashboard_url("Bella + Canvas 3001", "tee")
+        self.assertTrue(url == "" or url.startswith("https://"))
+        self.assertEqual(self.supplier.dashboard_url("", "tee"), "")
+        self.assertEqual(self.supplier.dashboard_url("Anything", "mug"), "")
+
     # --- products
     def spec(self):
         files = (PrintFile("front", "https://art.example.test/a.png"),)

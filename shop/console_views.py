@@ -23,7 +23,10 @@ from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 from PIL import Image
 
-from . import printful
+from tshirtbrand.bootstrap import get_supplier
+from tshirtbrand.core.fulfilment.api import SupplierError
+
+from . import listing_sync
 from .console import ContactMessage, OverheadEntry, Page, VisitLog
 from .models import (
     Collection,
@@ -384,8 +387,8 @@ def listing_edit(request, pk):
     blueprint_id = listing.template.printful_blueprint_id
     if blueprint_id:
         try:
-            color_options = printful.catalog_color_options(blueprint_id)
-        except printful.PrintfulError:
+            color_options = listing_sync.catalog_color_options(blueprint_id)
+        except SupplierError:
             pass  # fall back to the free-text color field below; never break the page over this
     current_color = next((o for o in color_options if o["name"] == listing.color), None)
 
@@ -396,13 +399,13 @@ def listing_edit(request, pk):
         "collections": Collection.objects.all(),
         "all_tags": Tag.objects.all(),
         "image_kinds": ListingImage.Kind.choices,
-        "is_mock": getattr(printful.get_client(), "is_mock", False),
+        "is_mock": get_supplier().simulated,
         "color_options": color_options,
         "current_color": current_color,
-        "printful_product_url": printful.dashboard_product_url(
+        "printful_product_url": get_supplier().dashboard_url(
             listing.template.printful_blueprint_name, listing.product_type) if color_options else "",
-        "not_us_produced": blueprint_id and printful.us_production(blueprint_id) is False,
-        "unmatched_sizes": printful.missing_catalog_sizes(listing) if listing.is_connected else [],
+        "not_us_produced": blueprint_id and get_supplier().made_in_us(blueprint_id) is False,
+        "unmatched_sizes": listing_sync.missing_catalog_sizes(listing) if listing.is_connected else [],
         # sent to Printful but a size has no id there yet: an order for it would fail at fulfilment
         "sizes_without_ids": [s.label for s in listing.sizes.all() if not s.printful_variant_id] if listing.is_connected else [],
         "prints": list(listing.prints.all()),
@@ -440,10 +443,10 @@ def _warn_if_sizes_lack_ids(request, listing):
 def listing_send_to_printful(request, pk):
     listing = get_object_or_404(Listing, pk=pk)
     try:
-        printful.sync_listing(listing)
+        listing_sync.sync_listing(listing)
         messages.success(request, f"{listing.design.title} sent to Printful.")
         _warn_if_sizes_lack_ids(request, listing)
-    except printful.PrintfulError as exc:
+    except SupplierError as exc:
         messages.error(request, str(exc))
     return redirect("shop:manage_listing_edit", pk=pk)
 
@@ -664,8 +667,8 @@ def listing_resend_to_printful(request, pk):
     if not listing.is_connected:
         messages.error(request, "This listing isn't on Printful yet \u2014 use Send to Printful.")
         return redirect("shop:manage_listing_edit", pk=pk)
-    if not getattr(printful.get_client(), "is_mock", False):
-        missing = printful.missing_catalog_sizes(listing)
+    if not get_supplier().simulated:
+        missing = listing_sync.missing_catalog_sizes(listing)
         if missing:
             messages.error(
                 request,
@@ -673,8 +676,8 @@ def listing_resend_to_printful(request, pk):
             return redirect("shop:manage_listing_edit", pk=pk)
     old = listing.printful_product_id
     try:
-        printful.sync_listing(listing, replace=True)
-    except printful.PrintfulError as exc:
+        listing_sync.sync_listing(listing, replace=True)
+    except SupplierError as exc:
         messages.error(request, f"Printful wouldn't create the new product: {exc}")
         return redirect("shop:manage_listing_edit", pk=pk)
     messages.success(
@@ -694,8 +697,8 @@ def listing_refresh_preview(request, pk):
     listing = get_object_or_404(Listing, pk=pk)
     back = redirect(reverse("shop:manage_listing_edit", args=[pk]) + "#printful-preview")
     try:
-        found = printful.refresh_preview(listing)
-    except printful.PrintfulError as exc:
+        found = listing_sync.refresh_preview(listing)
+    except SupplierError as exc:
         messages.error(request, str(exc))
         return back
     if found:
@@ -713,8 +716,8 @@ def listing_refresh_printful_sizes(request, pk):
     variant id. A real, read-only Printful call, made only on this click."""
     listing = get_object_or_404(Listing.objects.select_related("template"), pk=pk)
     try:
-        matched, unmatched = printful.refresh_sync_variants(listing)
-    except printful.PrintfulError as exc:
+        matched, unmatched = listing_sync.refresh_sync_variants(listing)
+    except SupplierError as exc:
         messages.error(request, str(exc))
         return redirect("shop:manage_listing_edit", pk=pk)
 
@@ -756,9 +759,9 @@ def listing_match_printful_sizes(request, pk):
 
     sizes = list(listing.sizes.all())
     try:
-        matches, unmatched, available_colors = printful.match_variants(
+        matches, unmatched, available_colors = listing_sync.match_variants(
             blueprint_id, listing.color, [s.label for s in sizes])
-    except printful.PrintfulError as exc:
+    except SupplierError as exc:
         messages.error(request, str(exc))
         return redirect("shop:manage_listing_edit", pk=pk)
 
@@ -820,21 +823,18 @@ def listing_add_image(request, pk):
 @require_POST
 def listing_generate_mockups(request, pk):
     listing = get_object_or_404(Listing, pk=pk)
-    client = printful.get_client()
-    if not getattr(client, "is_mock", False):
-        # Real mockup generation (Printful's async mockup-generator task) isn't built.
-        # This used to fall through to create_sync_product with no variants -- a real
-        # (rejected) write to the live store and a crash page. Never reach Printful here.
+    if not get_supplier().simulated:
+        # Real mockup generation (the supplier's async mockup task) isn't built.
+        # This used to fall through to a real create-product call with no variants -- a real
+        # (rejected) write to the live store and a crash page. Never reach the supplier here.
         messages.info(request, "Mockup generation from Printful isn't available yet. Upload product photos "
                                "in the Imagery section instead. Nothing was sent to Printful.")
         return redirect("shop:manage_listing_edit", pk=pk)
-    # Mock only: fabricate mockup image rows for local development.
-    result = client.create_sync_product({"sync_product": {"name": listing.design.title}, "sync_variants": []})
-    for m in result.get("mockups", []):
-        ListingImage.objects.get_or_create(
-            listing=listing, alt_text=f"{listing.design.title} mockup",
-            defaults={"kind": ListingImage.Kind.MOCKUP, "sort_order": 0},
-        )
+    # Simulated supplier only: fabricate a mockup image row for local development.
+    ListingImage.objects.get_or_create(
+        listing=listing, alt_text=f"{listing.design.title} mockup",
+        defaults={"kind": ListingImage.Kind.MOCKUP, "sort_order": 0},
+    )
     messages.info(request, "Mockups requested (mock).")
     return redirect("shop:manage_listing_edit", pk=pk)
 
@@ -1043,7 +1043,7 @@ def template_printful_search(request):
     made only when a curator types into this search box, on their own
     initiative, from their own signed-in console session."""
     q = request.GET.get("q", "")
-    results = printful.search_catalog(q)
+    results = listing_sync.search_catalog(q)
     return render(request, "shop/manage/_printful_search_results.html", {"results": results, "q": q.strip()})
 
 

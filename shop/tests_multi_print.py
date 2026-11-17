@@ -13,7 +13,7 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 
-from . import printful
+from . import listing_sync, printful
 from .supplier_bridge import line_for
 from .models import (
     Design, Listing, ListingPrint, ListingSize, PrintPlacement, PrintPosition, ProductTemplate, placement_payload,
@@ -146,7 +146,7 @@ class SendAndOrderTests(PrivateBase):
         client = mock.MagicMock(is_mock=False)
         client.create_sync_product.return_value = {"sync_product": {"id": 9}, "sync_variants": []}
         with mock.patch.object(printful, "get_client", return_value=client):
-            printful.sync_listing(listing)
+            listing_sync.sync_listing(listing)
         files = client.create_sync_product.call_args[0][0]["sync_variants"][0]["files"]
         self.assertEqual(sorted(f["type"] for f in files), ["back", "front"])
         self.assertEqual(len({f["url"] for f in files}), 2)
@@ -156,7 +156,7 @@ class SendAndOrderTests(PrivateBase):
         client = mock.MagicMock(is_mock=False)
         client.create_sync_product.return_value = {"sync_product": {"id": 9}, "sync_variants": []}
         with mock.patch.object(printful, "get_client", return_value=client):
-            printful.sync_listing(listing)
+            listing_sync.sync_listing(listing)
         listing.refresh_from_db()
         self.assertEqual(listing.printful_changes_not_sent, [])
         ListingPrint.objects.create(listing=listing, placement="front", scale_pct=30)

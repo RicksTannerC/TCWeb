@@ -202,3 +202,41 @@ class CheckerCatchesEachRule(SimpleTestCase):
     def test_bootstrap_may_wire_anything(self):
         text = "from tshirtbrand.adapters.suppliers.mock import m\nfrom tshirtbrand.core.fulfilment import usecases\nimport django\n"
         self.assertEqual(self.run_tree({"bootstrap.py": text}), [])
+
+
+class SliceStaysClean(SimpleTestCase):
+    """Slices already moved behind a port must not slide back. Each step of the migration adds its
+    modules here (docs/ARCHITECTURE.md, "How a slice is moved", step 5)."""
+
+    # step 1, the print supplier: these talk to the supplier only through tshirtbrand.core.fulfilment
+    SUPPLIER_CLEAN = [
+        "shop/fulfillment.py", "shop/listing_sync.py", "shop/supplier_bridge.py", "shop/console_views.py",
+        "shop/manage_views.py", "shop/admin.py", "shop/orders.py", "shop/cart.py", "shop/emails.py",
+    ]
+    FORBIDDEN = ("shop.printful", "RealPrintful", "MockPrintful", "adapters.suppliers", "httpx")
+
+    def imports_of(self, rel):
+        tree = ast.parse((REPO / rel).read_text(encoding="utf-8"))
+        names = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names += [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                base = ("." * node.level) + (node.module or "")
+                names += [base] + [f"{base}.{a.name}".lstrip(".") for a in node.names]
+        return names
+
+    def test_the_supplier_slice_does_not_reach_the_vendor(self):
+        for rel in self.SUPPLIER_CLEAN:
+            for name in self.imports_of(rel):
+                bare = name.lstrip(".")
+                self.assertFalse(
+                    bare == "printful" or bare.startswith(("printful.", "shop.printful", "httpx"))
+                    or "adapters.suppliers" in bare,
+                    f"{rel} imports {name}: go through tshirtbrand.bootstrap.get_supplier() instead")
+
+    def test_the_supplier_slice_has_no_vendor_wire_names(self):
+        for rel in self.SUPPLIER_CLEAN:
+            text = (REPO / rel).read_text(encoding="utf-8")
+            for word in ("sync_variant_id", "sync_product", "create_sync_product", "get_sync_product", "state_code"):
+                self.assertFalse(word in text, f"{rel} mentions the vendor wire name {word!r}")

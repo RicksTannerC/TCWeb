@@ -81,9 +81,17 @@ with the console entry point.
 ## Migration order
 
 0. **Guardrails (done in this step):** skeleton, this document, the boundary test.
-1. **Fulfilment supplier port.** Highest value for "different printers". Today `printful.py` takes a `Listing`
-   and returns Printful-shaped dicts. Becomes: neutral `ProductSpec` in, neutral results out; Printful and the
-   mock become adapters; webhook events are translated to neutral events at the edge.
+1. **Fulfilment supplier port: DONE 2026-11-17.** `core/fulfilment` (neutral types + `Supplier` port),
+   `adapters/suppliers/printful` (raw client, canned mock, `PrintfulSupplier`), `adapters/suppliers/memory`
+   (a second implementation), one contract test run against all of them, `bootstrap.get_supplier()`.
+   `shop/fulfillment.py`, `shop/listing_sync.py` and the console/admin now speak only neutral types; the
+   boundary test keeps them that way. To add a printer: write an adapter, pass the contract, change
+   `bootstrap.get_supplier()`.
+   *Left for later steps:* the webhook URL/token and the `printful_webhook` command still use
+   `shop/printful.py` directly (they move with the webhook entry point, step 8); `Listing.print_file_entries()`
+   still builds Printful-shaped dicts that `supplier_bridge` converts (moves with step 2); model fields are still
+   named `printful_*` (renamed with the persistence adapter, step 6); `get_supplier()` always picks Printful
+   (a settings switch arrives with the first second real printer).
 2. **Artwork / print layout.** `placement_payload`, `visible_box`, `compose`, `print_signature` are already
    nearly pure; move them first, they are the easiest win and the area with the most recent churn.
 3. **Payments port** (Stripe, mock).

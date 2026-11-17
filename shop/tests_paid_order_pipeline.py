@@ -17,7 +17,10 @@ from django.test import Client, TestCase, override_settings
 
 from tshirtbrand.core.fulfilment.api import SupplierError
 
-from . import fulfillment, printful
+from tshirtbrand.adapters.suppliers.printful.supplier import PrintfulSupplier
+from tshirtbrand.bootstrap import get_supplier
+
+from . import fulfillment, listing_sync, printful
 from .supplier_bridge import line_for
 from .models import Design, Listing, ListingSize, ProductTemplate, Status
 from .orders import Order, OrderItem, OrderStatus
@@ -155,7 +158,7 @@ class SyncListingReplyShapeTests(TestCase):
             "sync_variants": [{"id": 5123456789, "external_id": f"{listing.slug}::M", "variant_id": 17145}],
         }
         with mock.patch.object(printful, "get_client", return_value=client):
-            printful.sync_listing(listing)
+            listing_sync.sync_listing(listing)
         listing.refresh_from_db()
         self.assertEqual(listing.printful_product_id, "474865517")
         self.assertEqual(listing.sizes.get(label="M").printful_variant_id, "5123456789")
@@ -236,7 +239,7 @@ class RefreshSizesAndPlacementTests(TestCase):
 
     def test_mock_client_supports_refresh(self):
         listing = self.connected_listing()
-        matched, unmatched = printful.refresh_sync_variants(listing)
+        matched, unmatched = listing_sync.refresh_sync_variants(listing)
         self.assertEqual((matched, unmatched), (["S", "M"], []))
 
     # --- front / back ---
@@ -405,8 +408,8 @@ class RefundCancelsPrintfulTests(TestCase):
 
 class UsProductionTests(TestCase):
     def check(self, data):
-        with mock.patch.object(printful, "_cached_variants", return_value=data):
-            return printful.us_production("456")
+        with mock.patch.object(PrintfulSupplier, "_variants", return_value=data):
+            return get_supplier().made_in_us("456")
 
     def test_eu_only_list_shape_is_flagged(self):
         self.assertIs(self.check({"variants": [
@@ -426,11 +429,11 @@ class UsProductionTests(TestCase):
 
     def test_no_availability_data_says_nothing_rather_than_warning(self):
         self.assertIsNone(self.check({"variants": [{"id": 1, "size": "M"}]}))
-        self.assertIsNone(printful.us_production(""))
+        self.assertIsNone(get_supplier().made_in_us(""))
 
     def test_a_printful_error_says_nothing(self):
-        with mock.patch.object(printful, "_cached_variants", side_effect=printful.PrintfulError("down")):
-            self.assertIsNone(printful.us_production("456"))
+        with mock.patch.object(PrintfulSupplier, "_variants", side_effect=printful.PrintfulError("down")):
+            self.assertIsNone(get_supplier().made_in_us("456"))
 
 
 @override_settings(STAFF_2FA_REQUIRED=False)
@@ -449,7 +452,7 @@ class UsWarningAndTrackingPageTests(TestCase):
 
     def test_listing_page_warns_when_the_product_is_not_us_produced(self):
         listing = self.listing()
-        with mock.patch.object(printful, "us_production", return_value=False):
+        with mock.patch.object(PrintfulSupplier, "made_in_us", return_value=False):
             page = self.c.get(f"/manage/listings/{listing.pk}/")
         self.assertContains(page, "Not made in the US")
         self.assertContains(page, "Stanley/Stella STTU169")
@@ -457,7 +460,7 @@ class UsWarningAndTrackingPageTests(TestCase):
     def test_no_warning_when_us_produced_or_unknown(self):
         listing = self.listing()
         for value in (True, None):
-            with mock.patch.object(printful, "us_production", return_value=value):
+            with mock.patch.object(PrintfulSupplier, "made_in_us", return_value=value):
                 self.assertNotContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Not made in the US")
 
     def test_tracking_page_hides_internal_notes_and_softens_problem(self):
