@@ -15,6 +15,8 @@ from django.test import SimpleTestCase
 ROOT_PKG = "tshirtbrand"
 STDLIB = set(sys.stdlib_module_names)
 REPO = Path(__file__).resolve().parent.parent
+CONSOLE = sorted(p.relative_to(REPO).as_posix() for p in (REPO / "tshirtbrand/entrypoints/console").glob("*.py")
+                 if p.name != "__init__.py")
 
 
 def _module_parts(path, root):
@@ -218,8 +220,8 @@ class SliceStaysClean(SimpleTestCase):
 
     # step 1, the print supplier: these talk to the supplier only through tshirtbrand.core.fulfilment
     SUPPLIER_CLEAN = [
-        "shop/fulfillment.py", "shop/listing_sync.py", "shop/supplier_bridge.py", "shop/console_views.py",
-        "shop/manage_views.py", "shop/admin.py", "shop/orders.py", "shop/cart.py", "shop/emails.py",
+        "shop/fulfillment.py", "shop/listing_sync.py", "shop/supplier_bridge.py", *CONSOLE,
+        "shop/admin.py", "shop/orders.py", "shop/cart.py", "shop/emails.py",
     ]
     FORBIDDEN = ("shop.printful", "RealPrintful", "MockPrintful", "adapters.suppliers", "httpx")
 
@@ -253,7 +255,7 @@ class SliceStaysClean(SimpleTestCase):
 class PaymentsSliceStaysClean(SimpleTestCase):
     """Step 3, payments: the shop talks to its payment provider only through tshirtbrand.core.payments."""
 
-    CLEAN = ["shop/payments.py", "shop/views.py", "shop/manage_views.py", "shop/console_views.py", "shop/fulfillment.py",
+    CLEAN = ["shop/payments.py", "shop/views.py", *CONSOLE, "shop/fulfillment.py",
              "shop/orders.py", "shop/cart.py", "shop/emails.py", "shop/admin.py"]
 
     def test_no_stripe_sdk_or_adapter_in_the_shop(self):
@@ -305,7 +307,7 @@ class OrderingSliceStaysClean(SimpleTestCase):
             self.assertFalse(word in text, f"shop/fulfillment.py mentions {word!r}")
 
     def test_the_status_rules_are_not_restated_elsewhere_in_the_shop(self):
-        for rel in ("shop/manage_views.py", "shop/console_views.py", "shop/views.py"):
+        for rel in (*CONSOLE, "shop/views.py"):
             text = (REPO / rel).read_text(encoding="utf-8")
             for word in ("_address_looks_complete", "def _rollup", "should_hold"):
                 self.assertFalse(word in text, f"{rel} restates {word!r}")
@@ -315,7 +317,7 @@ class CatalogueSliceStaysClean(SimpleTestCase):
     """Step 4, catalogue and pricing: the pricing rule and per-kind facts live in tshirtbrand.core.catalogue."""
 
     def test_the_old_pricing_constants_and_ceiling_are_gone_from_the_django_app(self):
-        for rel in ("shop/models.py", "shop/console_views.py", "shop/manage_views.py", "shop/views.py"):
+        for rel in ("shop/models.py", *CONSOLE, "shop/views.py"):
             text = (REPO / rel).read_text(encoding="utf-8")
             for word in ("PRICING_MULTIPLIER", "PRICING_GUARDRAIL", "TEE_CEILING"):
                 self.assertFalse(word in text, f"{rel} still mentions {word!r}")
@@ -345,7 +347,7 @@ class ArtworkSliceStaysClean(SimpleTestCase):
                                  f"{rel} imports {name}: use tshirtbrand.bootstrap.get_image_tool()")
 
     def test_the_old_layout_names_are_gone(self):
-        for rel in self.NO_IMAGE_LIBRARY + ["shop/console_views.py", "shop/manage_views.py"]:
+        for rel in self.NO_IMAGE_LIBRARY + CONSOLE:
             text = (REPO / rel).read_text(encoding="utf-8")
             for word in self.OLD_NAMES:
                 self.assertFalse(word in text, f"{rel} still mentions {word!r}")

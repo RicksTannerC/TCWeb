@@ -2,7 +2,7 @@
 
 Originals (SVG or full-size PNG) live outside MEDIA_ROOT, in PRIVATE_MEDIA_ROOT,
 and have no public URL. They are only ever read through a staff-only view on the
-console host (see console_views.design_artwork).
+console host (see tshirtbrand.entrypoints.console.listings.design_artwork).
 """
 
 import os

@@ -237,12 +237,13 @@ backups (see [Backups](#backups)).
 
 - `config/` — settings (env-driven), root URLs, `urls_console.py` (the private
   console host's URL layout), WSGI/ASGI
-- `shop/` — the app: `models.py`, `views.py`, `urls.py` (public + console
-  patterns), `cart.py` (session cart), `payments.py` (Stripe), `printful.py` +
-  `fulfillment.py` + `orders.py` (order pipeline), `console*.py` /
-  `manage_views.py` (the console), `two_factor.py` (second-factor check),
-  `middleware.py` (host routing, 2FA gate, visit capture), `emails.py`,
-  `templates/shop/`, `static/shop/`
+- `shop/` — the Django app: `models.py`, `views.py` (storefront), `urls.py`, `cart.py` (session cart),
+  `payments.py`, `fulfillment.py`, `listing_sync.py` (thin wrappers over the use cases), `orders.py`,
+  `two_factor.py` (second-factor check), `middleware.py` (host routing, 2FA gate, visit capture),
+  `emails.py`, `templates/shop/`, `static/shop/`
+- `tshirtbrand/` — the structure the shop is being moved onto (see `docs/ARCHITECTURE.md`): `core/` (pure
+  business rules and use cases), `adapters/` (Printful, Stripe, Pillow, the ORM), `entrypoints/console/` (the
+  curator's console, one module per area) and `bootstrap.py` (the one place that picks the adapters)
 - `shop/static/shop/css/style.css` — the design system (tokens, both themes,
   glass panel, layout)
 - `shop/static/shop/vendor/` — vendored htmx + Alpine (no CDN dependency)

@@ -38,6 +38,12 @@ class PillowImageToolTests(SimpleTestCase):
         self.assertIsNone(self.tool.visible_size(b'<svg viewBox="0 0 1 1"></svg>'))
         self.assertIsNone(self.tool.visible_size(b""))
 
+    def test_is_raster_tells_an_intact_image_from_anything_else(self):
+        self.assertTrue(self.tool.is_raster(png_bytes()))
+        self.assertFalse(self.tool.is_raster(png_bytes()[:40]))   # truncated
+        self.assertFalse(self.tool.is_raster(b'<svg xmlns="http://www.w3.org/2000/svg"/>'))
+        self.assertFalse(self.tool.is_raster(b""))
+
     def test_compose_fills_the_slot_with_the_visible_design(self):
         out = self.tool.compose(png_bytes(), Layout(1800, 2400, 1260, 0, 540, 270))
         img = Image.open(io.BytesIO(out)).convert("RGBA")

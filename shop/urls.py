@@ -1,8 +1,7 @@
 from django.urls import include, path
 
-from . import console_views as cv
-from . import manage_views as mv
-from . import two_factor
+from tshirtbrand.entrypoints.console.urls import console_patterns
+
 from . import views
 
 app_name = "shop"
@@ -44,82 +43,6 @@ public_patterns = [
     # catalogue
     path("overlay/close/", views.overlay_close, name="overlay_close"),
     path("shirts/<slug:slug>/", views.listing_detail, name="listing_detail"),
-]
-
-# The curator's console. Served under /manage/ on the normal host and at the
-# root of the private CONSOLE_HOST (see shop.middleware.HostRoutingMiddleware).
-console_patterns = [
-    path("2fa/", two_factor.verify, name="manage_2fa"),
-    path("", cv.dashboard, name="manage_dashboard"),
-
-    path("orders/", mv.order_queue, name="manage_queue"),
-    path("orders/<int:pk>/", mv.order_manage, name="manage_order"),
-    path("orders/<int:pk>/approve/", mv.order_approve, name="manage_order_approve"),
-    path("orders/<int:pk>/refund/", mv.order_refund, name="manage_order_refund"),
-    path("orders/<int:pk>/simulate/", mv.order_simulate, name="manage_order_simulate"),
-    path("fulfillments/<int:pk>/reprint/", mv.fulfillment_reprint, name="manage_fulfillment_reprint"),
-    path("fulfillments/<int:pk>/cancel/", mv.fulfillment_cancel, name="manage_fulfillment_cancel"),
-
-    path("listings/", cv.listings, name="manage_listings"),
-    path("listings/intake/", cv.listings_intake, name="manage_listings_intake"),
-    path("listings/<int:pk>/", cv.listing_edit, name="manage_listing_edit"),
-    path("listings/<int:pk>/printful/", cv.listing_send_to_printful, name="manage_listing_printful"),
-    path("listings/<int:pk>/match-printful-sizes/", cv.listing_match_printful_sizes, name="manage_listing_match_printful_sizes"),
-    path("listings/<int:pk>/prints/add/", cv.listing_print_add, name="manage_listing_print_add"),
-    path("listings/<int:pk>/prints/<int:print_pk>/", cv.listing_print_update, name="manage_listing_print_update"),
-    path("listings/<int:pk>/delete/", cv.listing_delete, name="manage_listing_delete"),
-    path("listings/<int:pk>/replace-artwork/", cv.listing_replace_artwork, name="manage_listing_replace_artwork"),
-    path("listings/<int:pk>/prints/<int:print_pk>/replace-artwork/", cv.listing_print_replace_artwork,
-         name="manage_listing_print_replace_artwork"),
-    path("listings/<int:pk>/prints/<int:print_pk>/delete/", cv.listing_print_delete, name="manage_listing_print_delete"),
-    path("listings/<int:pk>/resend-to-printful/", cv.listing_resend_to_printful, name="manage_listing_resend_printful"),
-    path("listings/<int:pk>/refresh-preview/", cv.listing_refresh_preview, name="manage_listing_refresh_preview"),
-    path("listings/<int:pk>/refresh-printful-sizes/", cv.listing_refresh_printful_sizes, name="manage_listing_refresh_printful_sizes"),
-    path("listings/<int:pk>/status/", cv.listing_set_status, name="manage_listing_status"),
-    path("listings/<int:pk>/image/", cv.listing_add_image, name="manage_listing_add_image"),
-    path("listings/<int:pk>/mockups/", cv.listing_generate_mockups, name="manage_listing_mockups"),
-    path("images/<int:pk>/move/", cv.image_move, name="manage_image_move"),
-    path("images/<int:pk>/delete/", cv.image_delete, name="manage_image_delete"),
-    path("designs/<int:pk>/artwork/", cv.design_artwork, name="manage_design_artwork"),
-
-    # Catalogue setup: product templates + collections, one merged page.
-    # The bare /templates/ and /collections/ URLs below still work (they
-    # redirect here) so nothing that already links to them breaks.
-    path("catalogue/setup/", cv.catalogue_setup, name="manage_catalogue_setup"),
-
-    path("collections/", cv.collections, name="manage_collections"),
-    path("collections/create/", cv.collection_create, name="manage_collection_create"),
-    path("collections/<int:pk>/", cv.collection_edit, name="manage_collection_edit"),
-    path("collections/<int:pk>/toggle/", cv.collection_toggle, name="manage_collection_toggle"),
-    path("collections/<int:pk>/toggle-landing/", cv.collection_toggle_landing, name="manage_collection_toggle_landing"),
-
-    # Money: pricing + books, one merged page. /pricing/ and /books/ still
-    # work (they redirect here).
-    path("money/", cv.money, name="manage_money"),
-
-    path("pricing/", cv.pricing, name="manage_pricing"),
-    path("pricing/update/", cv.pricing_update, name="manage_pricing_update"),
-
-    path("templates/", cv.product_templates, name="manage_templates"),
-    path("templates/new/", cv.product_template_edit, name="manage_template_new"),
-    path("templates/<int:pk>/", cv.product_template_edit, name="manage_template_edit"),
-    path("templates/<int:pk>/delete/", cv.product_template_delete, name="manage_template_delete"),
-    path("templates/printful-search/", cv.template_printful_search, name="manage_template_printful_search"),
-
-    path("books/", cv.books, name="manage_books"),
-    path("books/overhead/add/", cv.overhead_add, name="manage_overhead_add"),
-    path("books/overhead/<int:pk>/delete/", cv.overhead_delete, name="manage_overhead_delete"),
-
-    # Content: messages (inbox) + pages, one merged page. /messages/ and
-    # /pages/ still work (they redirect here).
-    path("content/", cv.content, name="manage_content"),
-
-    path("messages/", cv.inbox, name="manage_inbox"),
-    path("messages/<int:pk>/toggle/", cv.message_toggle, name="manage_message_toggle"),
-
-    path("pages/", cv.pages, name="manage_pages"),
-    path("pages/new/", cv.page_edit, name="manage_page_new"),
-    path("pages/<int:pk>/", cv.page_edit, name="manage_page_edit"),
 ]
 
 urlpatterns = public_patterns + [path("manage/", include(console_patterns))]

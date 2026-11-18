@@ -120,7 +120,11 @@ with the console entry point.
    `printful_*`/`stripe_*` columns (a live migration: needs a backup and the owner's go-ahead; only the adapters
    know the names now). *Left for the next steps:* the console's and storefront's display reads and the admin still
    use the models directly (steps 7-8).
-7. **Split the console** into entry points per context. This is where the new console design drops in.
+7. **Split the console: DONE 2026-11-18.** `tshirtbrand/entrypoints/console/` (dashboard, listings, catalogue
+   setup, money, content, orders + the URL table). Moved unchanged; the console no longer imports any vendor
+   library. The new console design replaces these modules and their templates when the charter arrives.
+   *Left for later:* the templates still live under `shop/templates/shop/manage/`; the console's read-only
+   display queries still use the models directly.
 8. **Storefront entry point.**
 9. **Multi-server readiness:** storage, cache, sessions, jobs behind ports; idempotent webhooks.
 

@@ -38,6 +38,14 @@ class PillowImageTool:
         except Exception:  # noqa: BLE001 - not a raster image (an SVG, say): the caller tries another way
             return None
 
+    def is_raster(self, data):
+        try:
+            with Image.open(io.BytesIO(data)) as im:
+                im.verify()
+            return True
+        except Exception:  # noqa: BLE001 - anything unreadable is "not an image"
+            return False
+
     def compose(self, data, layout: Layout):
         if not (layout.area_width <= MAX_SIDE and layout.area_height <= MAX_SIDE):
             raise ValueError("bad print layout")

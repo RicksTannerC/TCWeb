@@ -1,21 +1,17 @@
-"""
-The curator's order desk — the seed of the Milestone 4 console. Staff-only
-(reuses the Django admin login). The approval queue, the approval card, and
-the refund / reprint / status actions.
-"""
+"""The curator's console: the order desk (queue, approval card, refund, reprint, cancel)."""
 
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from shop import fulfillment
+from shop.orders import Fulfillment, Order, OrderStatus
 from tshirtbrand.bootstrap import get_gateway, get_supplier
 from tshirtbrand.core.fulfilment.api import SupplierError
 from tshirtbrand.core.ordering import api as ordering
 from tshirtbrand.core.payments.api import PaymentError
 
-from . import fulfillment
-from .orders import Fulfillment, Order, OrderStatus
 
 QUEUE_ORDER = [
     OrderStatus.PENDING_APPROVAL,

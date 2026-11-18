@@ -6,7 +6,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 
-from .console_views import parse_sizes
+from tshirtbrand.entrypoints.console.catalogue_setup import parse_sizes
 from .models import Design, Listing, ListingPrint, ListingSize, PrintPlacement, ProductTemplate
 
 

@@ -12,7 +12,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from PIL import Image
 
-from .console_views import format_sizes, parse_sizes
+from tshirtbrand.entrypoints.console.catalogue_setup import format_sizes, parse_sizes
 from .models import Design, Listing, ListingSize, ProductTemplate, ProductType, Status, unique_slug
 
 TEE_SIZES = [{"label": "M", "width_in": 20, "height_in": 29}, {"label": "L", "width_in": 22, "height_in": 30}]
@@ -154,7 +154,7 @@ class IntakeTests(TestCase):
                 raise RuntimeError("boom")
             return real_create(*a, **kw)
 
-        with mock.patch.object(ListingSize.objects, "create", side_effect=flaky),                 self.assertLogs("shop.console_views", level="ERROR"):
+        with mock.patch.object(ListingSize.objects, "create", side_effect=flaky),                 self.assertLogs("tshirtbrand.entrypoints.console.listings", level="ERROR"):
             r = self.upload(png("first.png"), png("second.png", "blue"))
         self.assertEqual([d.title for d in Design.objects.all()], ["Second"])   # first left nothing behind
         self.assertEqual(Listing.objects.exclude(design__title="Second").count(), 0)

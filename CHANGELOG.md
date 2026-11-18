@@ -11,6 +11,26 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-18 — Step 7 of the restructure: the console is its own entry point, one module per area
+
+- **What:** the 1,300-line `shop/console_views.py` and the order desk in `shop/manage_views.py` are now
+  `tshirtbrand/entrypoints/console/`: `dashboard`, `listings`, `catalogue_setup` (templates and collections), `money`
+  (pricing and books), `content` (inbox and pages) and `orders`, with the console's URL table in `urls.py` (still
+  included under `/manage/` and at the root of the private console host; every URL name is unchanged). Each function
+  moved unchanged. The imports were rebuilt from what each module really uses, so a module can be read, replaced
+  or redesigned without the others. The one place the console touched an image library directly (checking an
+  uploaded file is a real image) now goes through the image tool port, so the console imports no vendor library at
+  all. The boundary test now covers the console modules as entry points (core only through `api`, no adapters, no
+  SDKs) and the earlier ratchets follow the files to their new homes.
+- **Why now:** the new console design is a charter still to come. When it arrives it replaces these modules (and
+  their templates) against the same use cases; nothing outside the console needs to change.
+- **Verified:** 787 tests OK, including a new URL-table test (every name still exists and reverses, every view is
+  served from a console module); no migrations; no template or behaviour change.
+- **Left alone on purpose:** templates stay in `shop/templates/shop/manage/` until the redesign; the console's
+  display queries still read the models directly (read-side only; a reporting port can follow if wanted).
+
+---
+
 ## 2026-11-18 — Step 6 of the restructure: listings and orders live behind repository ports
 
 - **What:** the last business sequencing that wrote the database directly now runs in the core against ports.
