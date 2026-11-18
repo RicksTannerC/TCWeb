@@ -11,6 +11,33 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-18 — Step 5 of the restructure: the order pipeline is a use-case layer (`OrderDesk`)
+
+- **What:** approving an order, sending it to the supplier, following the supplier's news, cancelling, refunding and
+  reprinting are now `tshirtbrand.core.ordering.OrderDesk`, handed everything it touches: an `OrderRepository`
+  (where orders live), a `LineSource` (order item -> supplier order line), a `Notifier` (tell the customer), the
+  `Supplier` port and the `PaymentGateway` port. The status rules are pure functions beside it: the roll-up from
+  fulfilment statuses to the order's, what each supplier event does to a fulfilment, who may be cancelled, whether
+  an address is complete, the `TTS-00012-5` id we give the supplier. The Django side is
+  `adapters/persistence/django_orm/orders.py` (the one place that reads and writes the order tables for these use
+  cases) and `bootstrap.get_order_desk()` wires it. `shop/fulfillment.py` shrank to thin wrappers that hand Django
+  order objects to the desk and refresh them, so the console, templates and webhook are untouched. The boundary test
+  now also enforces that only the persistence adapter may import the shop app.
+- **Fixed on the way:** when a supplier event didn't match a fulfilment by the supplier's order id, the fallback
+  looked up a field that doesn't exist on the database table (`order__reference` is a property) and would have
+  crashed the webhook; it now matches by the id we gave the order (`TTS-<order>-<fulfilment>`), checks it is that
+  order's, and an event with a blank supplier id can no longer match some other unsent fulfilment.
+- **Files:** new `tshirtbrand/core/ordering/`, `tshirtbrand/adapters/persistence/django_orm/orders.py`,
+  `shop/tests_event_matching.py`; rewritten `shop/fulfillment.py`; `shop/orders.py` (`reference` from the core),
+  `shop/manage_views.py`, `shop/payments.py` (the unused `refund` helper removed), `tshirtbrand/bootstrap.py`.
+- **Verified:** ~40 core tests run every use case against an in-memory order book, the in-memory supplier and the
+  in-memory payment gateway (no database); the existing pipeline, refund, reprint, cost and webhook tests pass
+  with three retargeted at the new seams; 750 tests OK; no migrations.
+- **Follow-ups:** orders are still created and promoted by `shop/payments.py` and `shop/cart.py` against the ORM
+  (they move with the persistence step); the console views still read order tables directly for display.
+
+---
+
 ## 2026-11-18 — Step 4 of the restructure: catalogue rules and pricing are pure code, with product kinds
 
 - **What:** the pricing rule (landed cost = base + shipping; suggested price = landed x 2.5 rounded to whole dollars;

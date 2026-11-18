@@ -109,7 +109,11 @@ with the console entry point.
    and margin functions, template warnings). Models and console delegate; a test keeps `ProductType` and the core
    kinds identical. *Left for later steps:* "which supplier makes which kind" (with the second real printer);
    listing/template persistence (step 6); the two storefront filters on "tee" (step 8).
-5. **Ordering and fulfilment use cases** out of `console_views.py` / `manage_views.py` / `orders.py`.
+5. **Ordering and fulfilment use cases: DONE 2026-11-18.** `core/ordering` (`OrderDesk` use cases, status rules,
+   ports for the order book, line building and notifying), `adapters/persistence/django_orm/orders.py`,
+   `bootstrap.get_order_desk()`; `shop/fulfillment.py` is a thin wrapper. The boundary test now stops any adapter
+   but persistence importing `shop`. *Left for later steps:* order creation and promotion from a payment
+   (`shop/payments.py`), the cart, and the console's display reads still use the ORM directly (steps 6-7).
 6. **Persistence adapter.** Repositories behind ports; ORM models become an implementation detail.
 7. **Split the console** into entry points per context. This is where the new console design drops in.
 8. **Storefront entry point.**

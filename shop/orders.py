@@ -13,6 +13,8 @@ from decimal import Decimal
 from django.db import models
 from django.utils.crypto import get_random_string
 
+from tshirtbrand.core.ordering import api as ordering
+
 
 class OrderStatus(models.TextChoices):
     PENDING_PAYMENT = "pending_payment", "Awaiting payment"
@@ -65,7 +67,7 @@ class Order(models.Model):
 
     @property
     def reference(self):
-        return f"TTS-{self.pk:05d}"
+        return ordering.reference(self.pk)
 
     @property
     def _recorded_supplier_costs(self):

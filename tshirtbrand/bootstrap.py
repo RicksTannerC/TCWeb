@@ -36,3 +36,11 @@ def get_gateway():
 
     key = "" if settings.TESTING else settings.STRIPE_SECRET_KEY
     return StripeGateway(secret_key=key, webhook_secret=settings.STRIPE_WEBHOOK_SECRET)
+
+
+def get_order_desk():
+    """The order use cases, wired to the ORM, the current supplier and payment gateway, and the customer email."""
+    from tshirtbrand.adapters.persistence.django_orm.orders import DjangoOrderRepository, EmailNotifier, OrderItemLines
+    from tshirtbrand.core.ordering.api import OrderDesk
+
+    return OrderDesk(DjangoOrderRepository(), get_supplier(), OrderItemLines(), EmailNotifier(), get_gateway())

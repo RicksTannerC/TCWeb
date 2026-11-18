@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 
 from tshirtbrand.core.fulfilment.api import SubmittedOrder
+from tshirtbrand.core.ordering.api import submitted_change
 
 from . import fulfillment, printful
 from .models import Design, Listing, ListingSize, ProductTemplate
@@ -42,9 +43,9 @@ def ful(order, item, actual=None, tax=None, status="submitted"):
 class RecordTests(TestCase):
     def test_the_real_reply_shape_is_stored_total_and_tax(self):
         order, item = make_order()
-        f = ful(order, item)
-        fulfillment.record_supplier_costs(f, SubmittedOrder("179489366", "pending", Decimal("19.09"), Decimal("1.15")))
-        self.assertEqual((f.supplier_cost_actual, f.supplier_tax), (Decimal("19.09"), Decimal("1.15")))
+        change = submitted_change(SubmittedOrder("179489366", "pending", Decimal("19.09"), Decimal("1.15")))
+        self.assertEqual((change.supplier_cost, change.supplier_tax), (Decimal("19.09"), Decimal("1.15")))
+        self.assertEqual(change.supplier_order_id, "179489366")
 
     def test_vat_counts_as_tax_paid_too(self):
         order, item = make_order()
@@ -60,9 +61,8 @@ class RecordTests(TestCase):
 
     def test_no_costs_block_or_nonsense_records_nothing(self):
         order, item = make_order()
-        f = ful(order, item)
-        fulfillment.record_supplier_costs(f, SubmittedOrder("1", "pending", None))
-        self.assertIsNone(f.supplier_cost_actual)
+        change = submitted_change(SubmittedOrder("1", "pending", None))
+        self.assertEqual((change.supplier_cost, change.supplier_tax), (None, None))
         # what the adapter makes of nonsense replies is covered by the supplier contract tests
         for reply in ({}, {"costs": None}, {"costs": {"total": "n/a"}}, {"costs": {"total": "0.00"}}):
             client = mock.MagicMock(is_mock=False)

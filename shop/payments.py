@@ -97,9 +97,3 @@ def fulfill_from_event(event):
     order.status = OrderStatus.PENDING_APPROVAL
     order.save()
     return order, True
-
-
-def refund(order, amount=None, reason=""):
-    """Refund an order's payment. Nothing is sent (and the result says so) when checkout is only the local
-    stand-in or the order has no payment on record. Raises PaymentError."""
-    return get_gateway().refund(order.stripe_payment_intent, amount)

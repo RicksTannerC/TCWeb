@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST
 
 from tshirtbrand.bootstrap import get_gateway, get_supplier
 from tshirtbrand.core.fulfilment.api import SupplierError
+from tshirtbrand.core.ordering import api as ordering
 from tshirtbrand.core.payments.api import PaymentError
 
 from . import fulfillment
@@ -52,15 +53,9 @@ def order_manage(request, pk):
     )
     return render(request, "shop/manage/order.html", {
         "order": order,
-        "address_ok": _address_looks_complete(order),
+        "address_ok": ordering.address_looks_complete(order.shipping_address),
         "is_mock": get_supplier().simulated,
     })
-
-
-def _address_looks_complete(order):
-    a = order.shipping_address or {}
-    required = ["line1", "city", "state", "postal_code"]
-    return all(a.get(k) for k in required) and a.get("country", "US") == "US"
 
 
 @staff_member_required

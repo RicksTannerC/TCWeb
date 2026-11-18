@@ -58,6 +58,8 @@ def _check(layer, context, parts, target):
         return _core_to_core(context, t, "core")
 
     if layer == "adapters":
+        if top == "shop" and (len(parts) < 3 or parts[2] != "persistence"):
+            return "only the persistence adapter may import the shop app (the tables)"
         if not inside:
             return None  # vendor SDKs, Django, PIL: that is what adapters are for
         if t[1:2] == ["core"]:
@@ -178,6 +180,12 @@ class CheckerCatchesEachRule(SimpleTestCase):
         ok = self.run_tree({"adapters/payments/stripe/gateway.py": "from tshirtbrand.core.payments.ports import Gateway\n"})
         self.assertEqual(ok, [])
 
+    def test_only_persistence_may_import_the_shop_app(self):
+        bad = self.run_tree({"adapters/suppliers/printful/a.py": "from shop import models\n"})
+        self.assertEqual(len(bad), 1)
+        ok = self.run_tree({"adapters/persistence/django_orm/a.py": "from shop import models\nimport shop.orders\n"})
+        self.assertEqual(ok, [])
+
     def test_adapters_do_not_use_each_other_or_entrypoints(self):
         files = {"adapters/suppliers/printful/a.py": "from tshirtbrand.adapters.payments.stripe import gateway\n"}
         self.assertEqual(len(self.run_tree(files)), 1)
@@ -262,6 +270,29 @@ class PaymentsSliceStaysClean(SimpleTestCase):
             for word in ("stripe.checkout", "stripe.Refund", "stripe.Webhook", "construct_event", "StripeError",
                          "fulfill_from_session", "stripe_ready"):
                 self.assertFalse(word in text, f"{rel} mentions the Stripe wire name {word!r}")
+
+
+class OrderingSliceStaysClean(SimpleTestCase):
+    """Step 5, ordering and fulfilment use cases: sequencing and status rules live in tshirtbrand.core.ordering;
+    shop/fulfillment.py only hands Django objects to the order desk and back."""
+
+    def test_the_fulfillment_module_holds_no_rules_or_collaborators(self):
+        imports = SliceStaysClean.imports_of(self, "shop/fulfillment.py")
+        for name in imports:
+            bare = name.lstrip(".")
+            self.assertFalse(
+                bare.endswith(("get_supplier", "get_gateway", "supplier_bridge", "payments", "emails"))
+                or bare.startswith("tshirtbrand.core.fulfilment"),
+                f"shop/fulfillment.py imports {name}: the use cases get these from bootstrap.get_order_desk()")
+        text = (REPO / "shop/fulfillment.py").read_text(encoding="utf-8")
+        for word in ("_rollup", "SupplierError", "EventKind", "OrderRequest", "status =", ".save("):
+            self.assertFalse(word in text, f"shop/fulfillment.py mentions {word!r}")
+
+    def test_the_status_rules_are_not_restated_elsewhere_in_the_shop(self):
+        for rel in ("shop/manage_views.py", "shop/console_views.py", "shop/views.py"):
+            text = (REPO / rel).read_text(encoding="utf-8")
+            for word in ("_address_looks_complete", "def _rollup", "should_hold"):
+                self.assertFalse(word in text, f"{rel} restates {word!r}")
 
 
 class CatalogueSliceStaysClean(SimpleTestCase):
