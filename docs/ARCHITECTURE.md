@@ -100,7 +100,11 @@ with the console entry point.
    *Left for later steps:* the signed artwork-link code is still `shop/printful_delivery.py` (moves with the
    storage/webhook entry points, steps 8-9); `Design.artwork` is still a Django file field (persistence, step 6);
    `PrintPlacement`/`PrintPosition` remain Django choices classes whose values the core treats as plain strings.
-3. **Payments port** (Stripe, mock).
+3. **Payments port: DONE 2026-11-18.** `core/payments` (`PaymentGateway` port, `CheckoutRequest`, `PaymentEvent`,
+   checkout-line rules), `adapters/payments/stripe` and `adapters/payments/memory`, one contract test over both,
+   `bootstrap.get_gateway()` (simulated when keyless or under test). `shop/payments.py` is order bookkeeping only.
+   *Left for later steps:* `Order.stripe_*` field names (persistence, step 6); fulfilling an order from a payment
+   event still reads and writes the ORM directly (step 5).
 4. **Catalogue and pricing** (templates, listings, margins), including the product-kind abstraction.
 5. **Ordering and fulfilment use cases** out of `console_views.py` / `manage_views.py` / `orders.py`.
 6. **Persistence adapter.** Repositories behind ports; ORM models become an implementation detail.

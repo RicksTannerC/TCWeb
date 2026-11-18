@@ -1,31 +1,26 @@
 """
-Stripe hosted Checkout.
+Paying for an order: the shop side of checkout.
 
-An Order is created in ``pending_payment`` before the redirect; the webhook
-promotes it to ``pending_approval`` once Stripe confirms the payment. This
-keeps the line items authoritative on our side rather than reconstructing
-them from Stripe.
+An Order is created in ``pending_payment`` before the redirect; the payment webhook promotes it to
+``pending_approval`` once the provider confirms the payment. This keeps the line items authoritative on our side
+rather than reconstructing them from the provider.
+
+Talking to the provider is the gateway's job (tshirtbrand.core.payments + the adapter that bootstrap.get_gateway()
+picks); this module reads and writes orders and turns them into the neutral requests the gateway takes.
 """
 
-from decimal import Decimal
-
-import stripe
 from django.conf import settings
 from django.urls import reverse
+
+from tshirtbrand.bootstrap import get_gateway
+from tshirtbrand.core.payments.api import PaymentError, checkout_request, success_url_with_session  # noqa: F401
 
 from .orders import Order, OrderItem, OrderStatus
 
 
-def _configure():
-    stripe.api_key = settings.STRIPE_SECRET_KEY
-
-
-def stripe_ready():
-    # settings.TESTING is a hard guarantee, independent of the environment:
-    # see shop.printful.configured() for the matching guard and why it exists.
-    if settings.TESTING:
-        return False
-    return bool(settings.STRIPE_SECRET_KEY)
+def checkout_is_live():
+    """Whether checkout can really take money (a gateway with credentials, not the local stand-in)."""
+    return not get_gateway().simulated
 
 
 def _abs(request, viewname, **kwargs):
@@ -58,116 +53,53 @@ def create_order_from_cart(cart, email=""):
 
 
 def create_checkout_session(request, order):
-    _configure()
-
-    line_items = [
-        {
-            "quantity": item.quantity,
-            "price_data": {
-                "currency": "usd",
-                "unit_amount": int(item.unit_price * 100),
-                "tax_behavior": "exclusive",
-                "product_data": {
-                    "name": item.design_title,
-                    "description": ", ".join(
-                        p for p in [item.product_type.title(), item.color, item.size_label] if p
-                    ) or "Item",
-                },
-            },
-        }
-        for item in order.items.all()
-    ]
-
-    params = {
-        "mode": "payment",
-        "line_items": line_items,
-        "client_reference_id": str(order.id),
-        "metadata": {"order_id": str(order.id)},
-        "customer_email": order.email or None,
-        "success_url": _abs(request, "shop:checkout_success") + "?ref={CHECKOUT_SESSION_ID}",
-        "cancel_url": _abs(request, "shop:cart_detail"),
-        "shipping_address_collection": {"allowed_countries": ["US"]},
-        "billing_address_collection": "auto",
-        # hybrid shipping: free to the customer, absorbed into pricing
-        "shipping_options": [
-            {
-                "shipping_rate_data": {
-                    "type": "fixed_amount",
-                    "fixed_amount": {"amount": 0, "currency": "usd"},
-                    "display_name": "Standard shipping",
-                    # Keep in step with the Shipping & Returns page ("about 10-14 days"), from a
-                    # real order: ~a week to hand to the carrier plus the carrier's window. Calendar days.
-                    "delivery_estimate": {
-                        "minimum": {"unit": "day", "value": 10},
-                        "maximum": {"unit": "day", "value": 14},
-                    },
-                }
-            }
-        ],
-    }
-    if settings.STRIPE_TAX_ENABLED:
-        params["automatic_tax"] = {"enabled": True}
-
-    session = stripe.checkout.Session.create(**params)
+    """Ask the gateway for a hosted checkout for `order` and remember its session id. Raises PaymentError."""
+    items = [(i.design_title, i.product_type, i.color, i.size_label, i.quantity, i.unit_price)
+             for i in order.items.all()]
+    session = get_gateway().create_checkout(checkout_request(
+        order.id, items, email=order.email,
+        success_url=success_url_with_session(_abs(request, "shop:checkout_success")),
+        cancel_url=_abs(request, "shop:cart_detail"),
+        collect_tax=settings.STRIPE_TAX_ENABLED,
+    ))
     order.stripe_session_id = session.id
     order.save(update_fields=["stripe_session_id"])
     return session
 
 
-def fulfill_from_session(session):
-    """
-    Idempotently promote the order for a completed checkout session.
-    Called from the webhook. Returns (order, created_now).
-    """
-    # A verified webhook hands us a stripe.StripeObject, which (unlike a dict)
-    # has no .get(); a plain dict (tests, replays) passes straight through.
-    if hasattr(session, "to_dict"):
-        session = session.to_dict()
+def parse_event(payload, signature):
+    """The verified payment event in a webhook, or None for one we don't act on. Raises PaymentError."""
+    return get_gateway().parse_event(payload, signature)
 
-    order_id = (session.get("client_reference_id")
-                or session.get("metadata", {}).get("order_id"))
-    if not order_id:
-        return None, False
 
+def fulfill_from_event(event):
+    """
+    Idempotently promote the order for a confirmed payment. Called from the webhook.
+    Returns (order, created_now).
+    """
     try:
-        order = Order.objects.get(id=order_id)
-    except Order.DoesNotExist:
+        order = Order.objects.get(id=event.order_ref)
+    except (Order.DoesNotExist, ValueError):
         return None, False
 
     if order.status != OrderStatus.PENDING_PAYMENT:
         return order, False  # already handled
 
-    details = session.get("customer_details") or {}
-    total = Decimal(session.get("amount_total", 0)) / 100
-    tax = Decimal((session.get("total_details") or {}).get("amount_tax", 0)) / 100
-    shipping = Decimal((session.get("total_details") or {}).get("amount_shipping", 0)) / 100
-
-    order.stripe_session_id = session["id"]
-    order.stripe_payment_intent = session.get("payment_intent", "") or ""
-    order.email = details.get("email") or order.email
-    order.name = details.get("name") or ""
-    order.shipping_address = (session.get("shipping_details") or details).get("address", {}) or {}
-    order.tax_total = tax
-    order.shipping_total = shipping
-    order.grand_total = total
-    order.items_total = total - tax - shipping
+    order.stripe_session_id = event.session_id
+    order.stripe_payment_intent = event.payment_ref
+    order.email = event.email or order.email
+    order.name = event.name or ""
+    order.shipping_address = event.address or {}
+    order.tax_total = event.tax
+    order.shipping_total = event.shipping
+    order.grand_total = event.total
+    order.items_total = event.items_total
     order.status = OrderStatus.PENDING_APPROVAL
     order.save()
     return order, True
 
 
-def construct_event(payload, sig_header):
-    return stripe.Webhook.construct_event(
-        payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
-    )
-
-
 def refund(order, amount=None, reason=""):
-    """Refund an order's payment. No-op (mock) when Stripe isn't configured."""
-    if not stripe_ready() or not order.stripe_payment_intent:
-        return {"mock": True, "amount": amount or order.grand_total}
-    _configure()
-    kwargs = {"payment_intent": order.stripe_payment_intent, "reason": "requested_by_customer"}
-    if amount is not None:
-        kwargs["amount"] = int(amount * 100)
-    return stripe.Refund.create(**kwargs)
+    """Refund an order's payment. Nothing is sent (and the result says so) when checkout is only the local
+    stand-in or the order has no payment on record. Raises PaymentError."""
+    return get_gateway().refund(order.stripe_payment_intent, amount)

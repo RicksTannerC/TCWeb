@@ -3,8 +3,9 @@
 from decimal import Decimal
 from unittest import mock
 
-import stripe
 from django.test import Client, TestCase, override_settings
+
+from tshirtbrand.core.payments.api import PaymentError
 
 from . import payments
 from .models import Design, Listing, ListingSize, ProductTemplate, ProductType, Status
@@ -76,7 +77,7 @@ class CheckoutPlaceholderTests(TestCase):
 
     # TESTING=False: simulate production for this one assertion, overriding the
     # hard test-suite guard (settings.TESTING) that otherwise always keeps
-    # stripe_ready() False — see shop.payments.stripe_ready().
+    # checkout_is_live() False — see tshirtbrand.bootstrap.get_gateway().
     @override_settings(STRIPE_SECRET_KEY="sk_test_x", STRIPE_PUBLISHABLE_KEY="pk_test_x", DEBUG=False, TESTING=False)
     def test_cart_page_shows_real_checkout_once_stripe_keys_are_set(self):
         c = self.cart_with_item()
@@ -98,7 +99,7 @@ class StripeFailureTests(TestCase):
     def test_a_stripe_error_shows_a_friendly_message_not_a_500(self):
         c = self.cart_with_item()
         with mock.patch.object(payments, "create_checkout_session",
-                                side_effect=stripe.PermissionError("wrong key type")):
+                                side_effect=PaymentError("wrong key type")):
             r = c.post("/checkout/")
         self.assertRedirects(r, "/cart/", fetch_redirect_response=False)
         r = c.get("/cart/")
@@ -107,21 +108,21 @@ class StripeFailureTests(TestCase):
     def test_a_stripe_error_leaves_no_orphan_order(self):
         c = self.cart_with_item()
         with mock.patch.object(payments, "create_checkout_session",
-                                side_effect=stripe.PermissionError("wrong key type")):
+                                side_effect=PaymentError("wrong key type")):
             c.post("/checkout/")
         self.assertEqual(Order.objects.count(), 0)
 
     def test_a_stripe_error_clears_the_pending_order_from_session(self):
         c = self.cart_with_item()
         with mock.patch.object(payments, "create_checkout_session",
-                                side_effect=stripe.PermissionError("wrong key type")):
+                                side_effect=PaymentError("wrong key type")):
             c.post("/checkout/")
         self.assertNotIn("pending_order_id", c.session)
 
     def test_the_cart_still_has_its_item_after_a_stripe_error(self):
         c = self.cart_with_item()
         with mock.patch.object(payments, "create_checkout_session",
-                                side_effect=stripe.PermissionError("wrong key type")):
+                                side_effect=PaymentError("wrong key type")):
             c.post("/checkout/")
         self.assertContains(c.get("/cart/"), "Pillars")
 

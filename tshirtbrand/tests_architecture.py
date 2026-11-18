@@ -242,6 +242,28 @@ class SliceStaysClean(SimpleTestCase):
                 self.assertFalse(word in text, f"{rel} mentions the vendor wire name {word!r}")
 
 
+class PaymentsSliceStaysClean(SimpleTestCase):
+    """Step 3, payments: the shop talks to its payment provider only through tshirtbrand.core.payments."""
+
+    CLEAN = ["shop/payments.py", "shop/views.py", "shop/manage_views.py", "shop/console_views.py", "shop/fulfillment.py",
+             "shop/orders.py", "shop/cart.py", "shop/emails.py", "shop/admin.py"]
+
+    def test_no_stripe_sdk_or_adapter_in_the_shop(self):
+        imports_of = SliceStaysClean.imports_of
+        for rel in self.CLEAN:
+            for name in imports_of(self, rel):
+                bare = name.lstrip(".")
+                self.assertFalse(bare.split(".")[0] == "stripe" or "adapters.payments" in bare,
+                                 f"{rel} imports {name}: go through tshirtbrand.bootstrap.get_gateway()")
+
+    def test_no_stripe_wire_names(self):
+        for rel in self.CLEAN:
+            text = (REPO / rel).read_text(encoding="utf-8")
+            for word in ("stripe.checkout", "stripe.Refund", "stripe.Webhook", "construct_event", "StripeError",
+                         "fulfill_from_session", "stripe_ready"):
+                self.assertFalse(word in text, f"{rel} mentions the Stripe wire name {word!r}")
+
+
 class ArtworkSliceStaysClean(SimpleTestCase):
     """Step 2, artwork and print layout: layout maths and image handling live in tshirtbrand.core.artwork and
     the imaging adapter, so the Django app neither does the maths nor touches an image library."""

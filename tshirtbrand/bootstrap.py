@@ -22,3 +22,17 @@ def get_image_tool():
     from tshirtbrand.adapters.imaging.pillow.tool import PillowImageTool
 
     return PillowImageTool()
+
+
+def get_gateway():
+    """The payment gateway the shop is using right now.
+
+    Without a Stripe secret key (or while the test suite runs: settings.TESTING is a hard guarantee that no test
+    can reach Stripe, whatever the environment holds) the gateway is `simulated`: it never calls Stripe. It can
+    still verify a signed webhook, which is a local calculation and needs only the webhook secret."""
+    from django.conf import settings
+
+    from tshirtbrand.adapters.payments.stripe.gateway import StripeGateway
+
+    key = "" if settings.TESTING else settings.STRIPE_SECRET_KEY
+    return StripeGateway(secret_key=key, webhook_secret=settings.STRIPE_WEBHOOK_SECRET)

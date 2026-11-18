@@ -356,12 +356,13 @@ class RefundCancelsPrintfulTests(TestCase):
         client.cancel_order.assert_not_called()
 
     def test_a_stripe_failure_changes_nothing_and_shows_a_message(self):
-        import stripe
+        from tshirtbrand.core.payments.api import PaymentError
+
         from . import payments
         order, ful = self.submitted()
         client = self.cancel_client()
         with mock.patch.object(printful, "get_client", return_value=client), \
-                mock.patch.object(payments, "refund", side_effect=stripe.InvalidRequestError("already refunded", "x")):
+                mock.patch.object(payments, "refund", side_effect=PaymentError("already refunded")):
             r = self.c.post(f"/manage/orders/{order.pk}/refund/", {"reason": "x"}, follow=True)
         order.refresh_from_db()
         self.assertEqual(order.status, OrderStatus.SUBMITTED)

@@ -16,7 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # True under `manage.py test` (any way it's invoked). A hard, code-level
 # guarantee -- independent of what .env/environment variables happen to be
 # set -- that the test suite can never reach a real third-party API: see
-# shop.printful.configured() and shop.payments.stripe_ready(), both of which
+# shop.printful.configured() and tshirtbrand.bootstrap.get_gateway(), both of which
 # check this before deciding whether a real API key is usable.
 TESTING = "test" in sys.argv[:2]
 

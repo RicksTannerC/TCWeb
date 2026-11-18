@@ -35,8 +35,8 @@ class PrintfulGuardTests(TestCase):
 @override_settings(STRIPE_SECRET_KEY="sk_live_a-real-looking-key")
 class StripeGuardTests(TestCase):
     def test_a_real_key_is_not_enough_while_testing(self):
-        self.assertFalse(payments.stripe_ready())
+        self.assertFalse(payments.checkout_is_live())
 
     @override_settings(TESTING=False)
     def test_without_the_testing_guard_the_same_key_would_be_used(self):
-        self.assertTrue(payments.stripe_ready())
+        self.assertTrue(payments.checkout_is_live())

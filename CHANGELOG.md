@@ -11,6 +11,30 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-18 — Step 3 of the restructure: payments are a port (Stripe is one adapter)
+
+- **What:** checkout, the payment webhook and refunds now go through `tshirtbrand.core.payments`: a
+  `PaymentGateway` port (`create_checkout`, `parse_event`, `refund`), plain values (`CheckoutRequest`,
+  `PaymentEvent`, `RefundResult`) and `PaymentError`. Everything Stripe-shaped (line items in cents, the shipping
+  rate and its 10-14 day estimate, `checkout.session.completed`, signature checking, the refund call) lives in
+  `adapters/payments/stripe`; `adapters/payments/memory` is a second gateway that proves the port isn't Stripe-
+  shaped. `bootstrap.get_gateway()` picks it; with no secret key, or while the tests run (`settings.TESTING`), the
+  Stripe gateway is `simulated`: it never calls Stripe but still verifies a signed webhook. The key is now passed
+  with each call instead of set globally. `shop/payments.py` keeps only the order work (create from cart, promote
+  on payment, refund bookkeeping). The business rule for what a checkout line says and the free 10-14 day standard
+  shipping is pure code in the core. Behaviour is unchanged.
+- **Files:** new `tshirtbrand/core/payments/`, `tshirtbrand/adapters/payments/{stripe,memory}/`; reworked
+  `shop/payments.py`, `shop/views.py` (checkout + webhook), `shop/manage_views.py` (refund message names the
+  gateway), `tshirtbrand/bootstrap.py`; `stripe_ready()` became `payments.checkout_is_live()`.
+- **Verified:** one contract test runs the same ~12 checks against both gateways (Stripe's SDK calls replaced by
+  local stand-ins, webhooks signed locally; no network, no key); wire-format tests pin what Stripe is sent and read
+  back; the existing checkout, webhook-replay, refund and shipping-estimate tests pass unchanged apart from
+  raising `PaymentError`. The boundary test keeps the shop free of the Stripe SDK.
+- **Follow-ups:** the `Order.stripe_*` columns keep their names until the persistence step; the webhook URL
+  (`/webhooks/stripe/`) is unchanged so the Stripe dashboard setting needs no edit.
+
+---
+
 ## 2026-11-17 — Step 2 of the restructure: print layout and image handling leave the models
 
 - **What:** where a print sits on its print area is now pure code in `tshirtbrand.core.artwork`: `plan_layout`

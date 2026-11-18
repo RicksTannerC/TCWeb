@@ -11,7 +11,7 @@ import json
 import logging
 import mimetypes
 
-import stripe
+from tshirtbrand.core.payments.api import PaymentError
 
 from . import fulfillment, payments
 from .cart import Cart
@@ -175,7 +175,7 @@ def cart_detail(request):
 def checkout_open():
     """Whether a visitor can actually place an order right now: real Stripe
     keys, or the DEBUG-only simulated checkout that stands in for them."""
-    return payments.stripe_ready() or settings.DEBUG
+    return payments.checkout_is_live() or settings.DEBUG
 
 
 @require_POST
@@ -199,14 +199,14 @@ def checkout(request):
     order = payments.create_order_from_cart(cart)
     request.session["pending_order_id"] = order.id
 
-    if payments.stripe_ready():
+    if payments.checkout_is_live():
         try:
             session = payments.create_checkout_session(request, order)
-        except stripe.StripeError:
-            # Configured but broken (bad/mismatched keys, Stripe outage, ...):
+        except PaymentError:
+            # Configured but broken (bad/mismatched keys, a provider outage, ...):
             # never leave the customer on a raw error page, and never leave
             # an order stranded with nothing that will ever move it forward.
-            logger.exception("Stripe checkout session creation failed for order %s", order.pk)
+            logger.exception("Checkout session creation failed for order %s", order.pk)
             order.delete()
             request.session.pop("pending_order_id", None)
             messages.error(
@@ -268,12 +268,12 @@ def checkout_simulate(request):
 @require_POST
 def stripe_webhook(request):
     try:
-        event = payments.construct_event(request.body, request.META.get("HTTP_STRIPE_SIGNATURE", ""))
-    except Exception:  # noqa: BLE001 — bad signature / malformed
+        event = payments.parse_event(request.body, request.META.get("HTTP_STRIPE_SIGNATURE", ""))
+    except PaymentError:  # bad signature / malformed
         return HttpResponseBadRequest("invalid payload")
 
-    if event["type"] == "checkout.session.completed":
-        order, created = payments.fulfill_from_session(event["data"]["object"])
+    if event is not None:
+        order, created = payments.fulfill_from_event(event)
         if order and created:
             try:
                 send_order_confirmation(order)

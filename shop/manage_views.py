@@ -4,14 +4,14 @@ The curator's order desk — the seed of the Milestone 4 console. Staff-only
 the refund / reprint / status actions.
 """
 
-import stripe
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from tshirtbrand.bootstrap import get_supplier
+from tshirtbrand.bootstrap import get_gateway, get_supplier
 from tshirtbrand.core.fulfilment.api import SupplierError
+from tshirtbrand.core.payments.api import PaymentError
 
 from . import fulfillment
 from .orders import Fulfillment, Order, OrderStatus
@@ -82,9 +82,9 @@ def order_refund(request, pk):
     try:
         order, cancelled, failures = fulfillment.refund_order(
             order, reason=request.POST.get("reason", "curator refund"))
-    except stripe.StripeError as exc:
+    except PaymentError as exc:
         # Nothing was changed: the order is not marked refunded.
-        messages.error(request, f"Stripe couldn't refund {order.reference}: {exc}")
+        messages.error(request, f"{get_gateway().name} couldn't refund {order.reference}: {exc}")
         return redirect("shop:manage_order", pk=pk)
 
     msg = f"{order.reference} refunded."
