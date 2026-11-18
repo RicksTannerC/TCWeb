@@ -11,6 +11,24 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-18 — Console redesign, phases 3 to 5: orders, money, content, setup, sign-in step, cleanup (nothing deployed)
+
+- **What:** the rest of the console is in the glass look. Orders: the queue, and the order page with the approval first
+  and address, items, fulfillments and the other actions below. Money (pricing table in one dense bubble, books as
+  figures), Content (messages with an Open / All switch, pages), Setup (templates, collections, template and collection
+  and page editors, the Printful catalog search results), and the second-factor sign-in page. The temporary legacy stylesheet
+  is deleted, `base.html` has no fallback wrapper, and the console-only rules were removed from the storefront's
+  `style.css` (163 lines; the storefront does not load them).
+- **Files:** every template under `shop/templates/shop/manage/`, `console.css`, `shop/static/shop/css/style.css`,
+  `shop/tests_paid_order_pipeline.py` (two notes now check the banner classes).
+- **Verified:** full suite OK; the order page looked at in the built-in browser. Text on every page is unchanged apart from
+  the Printful buttons (phase 2).
+- **Deploy note:** `python manage.py collectstatic --noinput`, then restart; and see the phase 2 note about the migration.
+- **Follow-ups:** the owner's check of the real console on a phone (the photo, the contrast of small text over it) and
+  whether to remove the unused Printful routes.
+
+---
+
 ## 2026-11-18 — Console redesign, phase 2: listings, the editor, one Printful action, versions (nothing deployed)
 
 - **What:** (1) The Listings page and the listing editor are in the glass look. The status dropdown is kept, restyled.

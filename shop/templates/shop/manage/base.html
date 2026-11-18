@@ -20,7 +20,6 @@
   <link rel="stylesheet" href="{% static 'shop/console/page.css' %}" />
   <link rel="stylesheet" href="{% static 'shop/console/glass.css' %}" />
   <link rel="stylesheet" href="{% static 'shop/console/console.css' %}" />
-  <link rel="stylesheet" href="{% static 'shop/console/console-legacy.css' %}" />
   {# console.js first: it registers the Alpine components before Alpine starts #}
   <script src="{% static 'shop/console/console.js' %}" defer></script>
   <script src="{% static 'shop/console/glass-menu.js' %}" defer></script>
@@ -71,10 +70,7 @@
       {% for m in messages %}
         <div class="g-banner {% if m.tags == 'success' %}is-ok{% elif m.tags == 'warning' %}is-warn{% elif m.tags == 'info' or m.tags == 'debug' %}is-info{% endif %}" role="{% if m.tags == 'error' %}alert{% else %}status{% endif %}">{{ m }}</div>
       {% endfor %}
-      {% block page %}
-        {# Pages not yet redesigned fill `console` and are wrapped in one readable bubble (see console-legacy.css). #}
-        <div class="g-dense c-legacy">{% block console %}{% endblock %}</div>
-      {% endblock %}
+      {% block page %}{% endblock %}
     </main>
     <footer class="g-footbar"><a href="#top">&uarr; Back to top</a></footer>
   </div>

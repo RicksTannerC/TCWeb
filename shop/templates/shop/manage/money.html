@@ -1,18 +1,20 @@
 {% extends "shop/manage/base.html" %}
 {% block title %}Money{% endblock %}
 
-{% block console %}
-<h1>Money</h1>
-
-<section id="pricing" class="console-section">
-  <h2>Pricing workspace</h2>
-  <p class="muted">Rule: <code>(base + ship) &times; {{ multiplier }}</code>, round to <code>.00</code>, flag under {{ guardrail }}&times;. Tee ceiling ${{ ceiling }}.
+{% block page %}
+<section id="pricing" class="g-dense c-stack">
+  <div class="c-head">
+    <h1>Money</h1>
+    <span class="g-muted g-small"><a href="#books">Books &darr;</a></span>
+  </div>
+  <h2 class="c-label">Pricing workspace</h2>
+  <p class="g-muted">Rule: <code>(base + ship) &times; {{ multiplier }}</code>, round to <code>.00</code>, flag under {{ guardrail }}&times;. Tee ceiling ${{ ceiling }}.
     Competitor prices are hand-entered. Edit retail inline and save.</p>
 
-  <form method="post" action="{% url 'shop:manage_pricing_update' %}">
+  <form method="post" action="{% url 'shop:manage_pricing_update' %}" class="c-stack">
     {% csrf_token %}
-    <div class="table-wrap">
-      <table class="pricing-table">
+    <div class="g-table-wrap" tabindex="0" role="region" aria-label="Pricing by listing">
+      <table class="g-table">
         <thead>
           <tr>
             <th>Listing</th><th>Base</th><th>Ship</th><th>Landed</th>
@@ -22,76 +24,76 @@
         <tbody>
           {% for l in rows %}
             <tr {% if l.below_guardrail %}class="is-flag"{% endif %}>
-              <td>{{ l.design.title }} <span class="faint">{{ l.get_product_type_display }}{% if l.color %} · {{ l.color }}{% endif %}</span></td>
-              <td class="tnum">${{ l.base_cost }}</td>
-              <td class="tnum">${{ l.shipping_est }}</td>
-              <td class="tnum">${{ l.landed_cost }}</td>
-              <td class="tnum">${{ l.suggested_price }}</td>
-              <td><input class="cell-input" name="price_{{ l.pk }}" type="number" step="0.01" value="{{ l.price }}" /></td>
-              <td class="tnum">{{ l.margin_multiple }}{% if l.below_guardrail %} ⚠{% endif %}</td>
-              <td class="tnum">${{ l.margin_dollars }}</td>
-              <td><input class="cell-input" name="comp_{{ l.pk }}" type="number" step="0.01" value="{{ l.competitor_price|default_if_none:'' }}" /></td>
+              <td>{{ l.design.title }} <span class="g-muted g-small">{{ l.get_product_type_display }}{% if l.color %} · {{ l.color }}{% endif %}</span></td>
+              <td class="g-nowrap">${{ l.base_cost }}</td>
+              <td class="g-nowrap">${{ l.shipping_est }}</td>
+              <td class="g-nowrap">${{ l.landed_cost }}</td>
+              <td class="g-nowrap">${{ l.suggested_price }}</td>
+              <td><input class="g-input c-cell" name="price_{{ l.pk }}" type="number" step="0.01" value="{{ l.price }}" aria-label="Retail price, {{ l.design.title }}" /></td>
+              <td class="g-nowrap">{{ l.margin_multiple }}{% if l.below_guardrail %} <span class="g-tag is-bad">under {{ guardrail }}&times;</span>{% endif %}</td>
+              <td class="g-nowrap">${{ l.margin_dollars }}</td>
+              <td><input class="g-input c-cell" name="comp_{{ l.pk }}" type="number" step="0.01" value="{{ l.competitor_price|default_if_none:'' }}" aria-label="Competitor price, {{ l.design.title }}" /></td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    <button type="submit" class="btn">Save prices</button>
+    <div class="g-row"><button type="submit" class="g-btn g-btn-primary">Save prices</button></div>
   </form>
 </section>
 
-<section id="books" class="console-section">
-  <h2>Books</h2>
+<section id="books" class="g-bubble c-stack">
+  <h2 class="c-label">Books</h2>
 
-  <div class="tile-stats">
-    <div class="panel stat"><span class="stat__label">Revenue (items)</span><span class="stat__big price">${{ revenue }}</span></div>
-    <div class="panel stat"><span class="stat__label">Supplier cost</span><span class="stat__big price">${{ supplier_cost }}</span>
-      <span class="faint">{% if estimated_orders %}{{ estimated_orders }} order{{ estimated_orders|pluralize }} still estimated from base cost{% else %}what Printful actually charged{% endif %}</span></div>
-    <div class="panel stat"><span class="stat__label">Sales tax Printful charged you</span><span class="stat__big price">${{ supplier_tax }}</span>
-      <span class="faint">already inside supplier cost</span></div>
-    <div class="panel stat"><span class="stat__label">Overhead</span><span class="stat__big price">${{ overhead_total }}</span></div>
-    <div class="panel stat"><span class="stat__label">Refunds</span><span class="stat__big price">${{ refunds }}</span></div>
-    <div class="panel stat {% if net < 0 %}stat--flag{% endif %}"><span class="stat__label">Net</span><span class="stat__big price">${{ net }}</span></div>
-    <div class="panel stat"><span class="stat__label">Sales tax collected</span><span class="stat__big price">${{ tax_collected }}</span>
-      <span class="faint">owed to the state &mdash; not income, not in Net</span></div>
+  <div class="c-stats">
+    <div class="g-well c-stat"><span>Revenue (items)</span><b>${{ revenue }}</b></div>
+    <div class="g-well c-stat"><span>Supplier cost</span><b>${{ supplier_cost }}</b>
+      <span>{% if estimated_orders %}{{ estimated_orders }} order{{ estimated_orders|pluralize }} still estimated from base cost{% else %}what Printful actually charged{% endif %}</span></div>
+    <div class="g-well c-stat"><span>Sales tax Printful charged you</span><b>${{ supplier_tax }}</b>
+      <span>already inside supplier cost</span></div>
+    <div class="g-well c-stat"><span>Overhead</span><b>${{ overhead_total }}</b></div>
+    <div class="g-well c-stat"><span>Refunds</span><b>${{ refunds }}</b></div>
+    <div class="g-well c-stat"><span>Net</span><b>${{ net }}</b>{% if net < 0 %}<span><span class="g-tag is-bad">negative</span></span>{% endif %}</div>
+    <div class="g-well c-stat"><span>Sales tax collected</span><b>${{ tax_collected }}</b>
+      <span>owed to the state &mdash; not income, not in Net</span></div>
   </div>
 
-  <div class="row-2" style="align-items:start;">
-    <div class="panel stack">
-      <h3>Overhead by category</h3>
-      <ul class="bar-list">
-        {% for c in overhead_by_cat %}<li><span>{{ c.category|title }}</span><span class="tnum">${{ c.s }}</span></li>{% empty %}<li class="faint">Nothing logged.</li>{% endfor %}
+  <div class="c-cols">
+    <div class="g-well c-stack">
+      <h3 class="c-label">Overhead by category</h3>
+      <ul class="c-bars">
+        {% for c in overhead_by_cat %}<li><span>{{ c.category|title }}</span><span class="num">${{ c.s }}</span></li>{% empty %}<li class="g-muted">Nothing logged.</li>{% endfor %}
       </ul>
     </div>
 
-    <div class="panel stack">
-      <h3>Log an expense</h3>
-      <form method="post" action="{% url 'shop:manage_overhead_add' %}" class="stack">
+    <div class="g-well c-stack">
+      <h3 class="c-label">Log an expense</h3>
+      <form method="post" action="{% url 'shop:manage_overhead_add' %}" class="c-stack">
         {% csrf_token %}
-        <div class="row-2">
-          <div class="field"><label for="incurred_on">Date</label><input id="incurred_on" name="incurred_on" type="date" /></div>
-          <div class="field"><label for="amount">Amount</label><input id="amount" name="amount" type="number" step="0.01" required /></div>
+        <div class="c-pair">
+          <div class="g-field"><label for="incurred_on">Date</label><input class="g-input" id="incurred_on" name="incurred_on" type="date" /></div>
+          <div class="g-field"><label for="amount">Amount</label><input class="g-input" id="amount" name="amount" type="number" step="0.01" required /></div>
         </div>
-        <div class="field"><label for="label">What for</label><input id="label" name="label" required /></div>
-        <div class="field"><label for="category">Category</label>
-          <select id="category" name="category">{% for v, l in categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
-        <button type="submit" class="btn btn--sm">Add</button>
+        <div class="g-field"><label for="label">What for</label><input class="g-input" id="label" name="label" required /></div>
+        <div class="g-field"><label for="category">Category</label>
+          <select class="g-input" id="category" name="category">{% for v, l in categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+        <div class="g-row"><button type="submit" class="g-btn g-btn-primary">Add</button></div>
       </form>
     </div>
   </div>
 
-  <h3>Recent expenses</h3>
-  <ul class="listing-rows" role="list">
+  <h3 class="c-label">Recent expenses</h3>
+  <ul class="c-list">
     {% for e in entries %}
-      <li class="panel listing-row">
-        <span class="listing-row__meta">
+      <li class="c-row">
+        <div class="c-row__main">
           <strong>{{ e.label }}</strong>
-          <span class="faint">{{ e.incurred_on|date:"j M Y" }} &middot; {{ e.get_category_display }}</span>
-        </span>
-        <span class="price">${{ e.amount }}</span>
-        <form method="post" action="{% url 'shop:manage_overhead_delete' e.pk %}">{% csrf_token %}<button class="linkish" type="submit">delete</button></form>
+          <span class="g-muted g-small">{{ e.incurred_on|date:"j M Y" }} &middot; {{ e.get_category_display }}</span>
+        </div>
+        <strong class="c-order__money">${{ e.amount }}</strong>
+        <form method="post" action="{% url 'shop:manage_overhead_delete' e.pk %}">{% csrf_token %}<button class="g-btn g-btn-danger" type="submit" aria-label="Delete {{ e.label }}">Delete</button></form>
       </li>
-    {% empty %}<li class="muted">No expenses logged yet.</li>{% endfor %}
+    {% empty %}<li class="g-muted">No expenses logged yet.</li>{% endfor %}
   </ul>
 </section>
 {% endblock %}

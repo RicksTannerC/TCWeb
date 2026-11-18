@@ -1,31 +1,31 @@
 {% extends "shop/manage/base.html" %}
 {% block title %}Catalogue setup{% endblock %}
 
-{% block console %}
-<h1>Catalogue setup</h1>
-<p class="muted">The configuration behind the catalogue: what a listing is made from, and how designs
-  are grouped into collections.</p>
-
-<section id="templates" class="console-section">
-  <div class="cluster" style="justify-content:space-between;">
-    <h2>Product templates</h2>
-    <a class="btn btn--sm" href="{% url 'shop:manage_template_new' %}">New template</a>
+{% block page %}
+<section id="templates" class="g-dense c-stack">
+  <div class="c-head">
+    <div>
+      <h1>Catalogue setup</h1>
+      <span class="g-muted g-small">What a listing is made from, and how designs are grouped into collections.</span>
+    </div>
+    <a class="g-btn g-btn-primary" href="{% url 'shop:manage_template_new' %}">New template</a>
   </div>
-  <p class="muted">A template is a reusable product setup: the garment, its nominal costs and its default sizes.
+  <h2 class="c-label">Product templates</h2>
+  <p class="g-muted">A template is a reusable product setup: the garment, its nominal costs and its default sizes.
     Every file you drop on the Listings page becomes a draft listing <em>per template</em> (the first tee template and
     the first sticker template are used). Editing a template changes <strong>new</strong> uploads only; existing listings keep their own values.
     Suggested price uses the pricing rule <code>(base + ship) &times; 2.5</code>, rounded to the dollar.</p>
 
   {% if missing %}
-    <div class="panel" role="status">
+    <div class="g-banner is-warn" role="status">
       No <strong>{{ missing|join:" or " }}</strong> template yet
       {% if missing|length == 2 %}&mdash; uploads can't make any listings until there is at least one.{% else %}&mdash; uploads will skip that product until you add one.{% endif %}
     </div>
   {% endif %}
 
   {% if rows %}
-  <div class="table-wrap">
-    <table class="pricing-table">
+  <div class="g-table-wrap" tabindex="0" role="region" aria-label="Product templates">
+    <table class="g-table">
       <thead>
         <tr><th>Template</th><th>Type</th><th>Base</th><th>Ship</th><th>Landed</th><th>Suggested</th><th>Sizes</th><th>Listings</th><th></th></tr>
       </thead>
@@ -36,20 +36,20 @@
             <td>
               <a href="{% url 'shop:manage_template_edit' t.pk %}"><strong>{{ t.name }}</strong></a>
               {% if t.printful_blueprint_id %}
-                <div class="faint">Printful: {{ t.printful_blueprint_name|default:t.printful_blueprint_id }}</div>
+                <div class="g-muted g-small">Printful: {{ t.printful_blueprint_name|default:t.printful_blueprint_id }}</div>
               {% else %}
-                <div class="faint">Not linked to a Printful product yet</div>
+                <div class="g-muted g-small">Not linked to a Printful product yet</div>
               {% endif %}
-              {% for w in r.warnings %}<div class="faint">&#9888; {{ w }}</div>{% endfor %}
+              {% for w in r.warnings %}<div class="g-muted g-small">&#9888; {{ w }}</div>{% endfor %}
             </td>
             <td>{{ t.get_product_type_display }}</td>
-            <td class="tnum">${{ t.base_cost }}</td>
-            <td class="tnum">${{ t.shipping_est }}</td>
-            <td class="tnum">${{ t.landed_cost }}</td>
-            <td class="tnum">${{ t.suggested_price }}</td>
-            <td class="faint">{% for s in t.default_sizes %}{{ s.label }}{% if not forloop.last %}, {% endif %}{% empty %}&mdash;{% endfor %}</td>
-            <td class="tnum">{{ t.n_listings }}</td>
-            <td><a class="btn btn--sm btn--ghost" href="{% url 'shop:manage_template_edit' t.pk %}">Edit</a></td>
+            <td class="g-nowrap">${{ t.base_cost }}</td>
+            <td class="g-nowrap">${{ t.shipping_est }}</td>
+            <td class="g-nowrap">${{ t.landed_cost }}</td>
+            <td class="g-nowrap">${{ t.suggested_price }}</td>
+            <td class="g-muted">{% for s in t.default_sizes %}{{ s.label }}{% if not forloop.last %}, {% endif %}{% empty %}&mdash;{% endfor %}</td>
+            <td class="g-nowrap">{{ t.n_listings }}</td>
+            <td><a class="g-btn g-btn-secondary" href="{% url 'shop:manage_template_edit' t.pk %}">Edit</a></td>
           </tr>
           {% endwith %}
         {% endfor %}
@@ -57,43 +57,43 @@
     </table>
   </div>
   {% else %}
-    <div class="panel">
+    <div class="g-well c-stack">
       <p>No templates yet. Create one for your tee and one for your sticker, then drop your first artwork on the Listings page.</p>
-      <p><a class="btn btn--sm" href="{% url 'shop:manage_template_new' %}">Create the first template</a></p>
+      <div class="g-row"><a class="g-btn g-btn-primary" href="{% url 'shop:manage_template_new' %}">Create the first template</a></div>
     </div>
   {% endif %}
 </section>
 
-<section id="collections" class="console-section">
-  <h2>Collections</h2>
+<section id="collections" class="g-bubble c-stack">
+  <h2 class="c-label">Collections</h2>
 
-  <ul class="listing-rows" role="list">
+  <ul class="c-list">
     {% for c in collections %}
-      <li class="panel listing-row">
-        <span class="listing-row__meta">
-          <a href="{% url 'shop:manage_collection_edit' c.pk %}"><strong>{{ c.name }}</strong></a>
-          <span class="faint">{{ c.n }} listing{{ c.n|pluralize }}{% if c.is_base %} &middot; base world{% endif %}{% if c.go_live_at %} &middot; live {{ c.go_live_at|date:"j M" }}{% endif %}</span>
-        </span>
-        <span class="tag {% if c.status != 'live' %}faint{% endif %}">{{ c.get_status_display }}</span>
-        {% if c.featured_on_landing %}<span class="tag" title="Shown as a card on the landing page">On landing</span>{% endif %}
+      <li class="c-row">
+        <div class="c-row__main">
+          <a class="c-name" href="{% url 'shop:manage_collection_edit' c.pk %}">{{ c.name }}</a>
+          <span class="g-muted g-small">{{ c.n }} listing{{ c.n|pluralize }}{% if c.is_base %} &middot; base world{% endif %}{% if c.go_live_at %} &middot; live {{ c.go_live_at|date:"j M" }}{% endif %}</span>
+        </div>
+        <span class="g-tag {% if c.status == 'live' %}is-done{% endif %}">{{ c.get_status_display }}</span>
+        {% if c.featured_on_landing %}<span class="g-tag is-open" title="Shown as a card on the landing page">On landing</span>{% endif %}
         {% if not c.is_base %}
           <form method="post" action="{% url 'shop:manage_collection_toggle' c.pk %}">
             {% csrf_token %}
-            <button type="submit" class="btn btn--sm btn--ghost">{% if c.status == 'live' %}Unpublish{% else %}Publish{% endif %}</button>
+            <button type="submit" class="g-btn g-btn-secondary">{% if c.status == 'live' %}Unpublish{% else %}Publish{% endif %}</button>
           </form>
           <form method="post" action="{% url 'shop:manage_collection_toggle_landing' c.pk %}">
             {% csrf_token %}
-            <button type="submit" class="btn btn--sm btn--ghost">{% if c.featured_on_landing %}Remove from landing{% else %}Show on landing{% endif %}</button>
+            <button type="submit" class="g-btn g-btn-secondary">{% if c.featured_on_landing %}Remove from landing{% else %}Show on landing{% endif %}</button>
           </form>
         {% endif %}
       </li>
     {% endfor %}
   </ul>
 
-  <form class="panel cluster" method="post" action="{% url 'shop:manage_collection_create' %}">
+  <form class="g-well g-row" method="post" action="{% url 'shop:manage_collection_create' %}">
     {% csrf_token %}
-    <input name="name" placeholder="New collection name" required />
-    <button type="submit" class="btn btn--sm">Create</button>
+    <input class="g-input c-grow" name="name" placeholder="New collection name" aria-label="New collection name" required />
+    <button type="submit" class="g-btn g-btn-primary">Create</button>
   </form>
 </section>
 {% endblock %}

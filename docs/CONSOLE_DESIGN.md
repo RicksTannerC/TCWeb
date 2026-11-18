@@ -16,7 +16,6 @@ naming convention for Printful products. The original handoff is kept unchanged 
 | `shop/static/shop/console/glass-menu.js` | The side bar's helper (appendix D), verbatim. |
 | `shop/static/shop/console/console.css` | **Our** additions: everything prefixed `c-`, plus a few clearly labeled gap fills. |
 | `shop/static/shop/console/console.js` | The light / dark / device switch and the iPhone touch handler (rule 13). |
-| `shop/static/shop/console/console-legacy.css` | **Temporary** styling for pages not yet redesigned. Deleted at the end of the last phase. |
 | `shop/static/shop/console/mountains.jpg`, `mountains-phone.jpg` | The scene photo (1672 px and 900 px wide). |
 | `shop/templates/shop/manage/base.html` | The page skeleton from the handoff, with the side bar. |
 
@@ -26,9 +25,12 @@ file names. There is no Content-Security-Policy on the site, so inline style and
 ## How a page is built
 
 A redesigned page extends `base.html` and fills `{% block page %}` with bubbles (`g-bubble`, `g-dense`, `g-well`,
-`g-cols`). A page not yet redesigned still fills `{% block console %}`, and `base.html` wraps it in one dense bubble.
-That is the whole migration path: change `console` to `page`, replace the old classes, and delete the rules in
-`console-legacy.css` that nothing uses any more.
+`g-cols`). Every console page is built this way now; there is no fallback wrapper. The pattern is one `g-bubble`
+(a header, or a summary) and one `g-dense` (the form, table or list), with `g-well` panels inside, so a screen has two
+blurred bubbles plus the side bar. Page-level helpers we added: `c-head` (title row), `c-stack` (vertical rhythm),
+`c-cols` / `c-pair` (responsive columns), `c-label` (the small uppercase heading), `c-row` / `c-list` (list rows),
+`c-fold` (a native `<details>` section), `c-stats` / `c-stat` (small figures), `c-switch` / `c-seg` (the Drive-style
+segmented switch).
 
 Rules carried over from the handoff, in the short form we check against: never nest a bubble in a bubble (use
 `g-well`); two or three blurred bubbles per screen (the side bar counts); tables, forms and long lists inside **one**
@@ -55,14 +57,17 @@ Everything the handoff lists under "known gaps" is filled the smallest way that 
 
 ## Phases
 
-1. **Shell, side bar, dashboard** (done): base template, assets, theme switch, dashboard. Other pages keep their content
-   inside one legacy bubble.
+1. **Shell, side bar, dashboard** (done): base template, assets, theme switch, dashboard.
 2. **Listings and the listing editor** (done): one Printful strip with one action (Send / Update), folded sections, the
    status dropdown restyled, the quick-create drop (front and back designs), product versions (below).
-3. **Orders** (queue and order page).
-4. **Money, Content, Setup** (templates, collections, pages, messages).
-5. **Sign-in step (`two_factor.html`), cleanup:** delete `console-legacy.css`, remove the console-only rules left in
-   the storefront's `style.css` once nothing uses them.
+3. **Orders** (done): the queue, and the order page with the approval first and the rest folded.
+4. **Money, Content, Setup** (done): pricing table and books, messages and pages, templates, collections.
+5. **Sign-in step and cleanup** (done): the second-factor page is a glass page; `console-legacy.css` is deleted; the
+   console-only rules were removed from the storefront's `style.css` (`.row-2` and `.field` stay, the storefront uses them).
+
+Not done, on purpose: the old Printful routes (`match-printful-sizes`, `resend-to-printful`, `refresh-printful-sizes`,
+`refresh-preview`) still exist and have tests, but nothing links to them. Remove them together with their tests when
+you are sure you will not want separate buttons back.
 
 ## Deploying a phase
 

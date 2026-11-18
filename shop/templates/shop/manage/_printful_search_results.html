@@ -8,11 +8,11 @@
                         document.getElementById('printful_blueprint_name').value = '{{ r.title|escapejs }}';
                         label = '{{ r.title|escapejs }}';
                         $el.closest('.printful-results').innerHTML = '';">
-          <strong>{{ r.title }}</strong> <span class="faint">&middot; {{ r.brand }} &middot; #{{ r.id }}</span>
+          <strong>{{ r.title }}</strong> <span class="g-muted g-small">&middot; {{ r.brand }} &middot; #{{ r.id }}</span>
         </button>
       </li>
     {% endfor %}
   </ul>
 {% elif q %}
-  <p class="faint">No Printful products match &ldquo;{{ q }}&rdquo;.</p>
+  <p class="g-muted">No Printful products match &ldquo;{{ q }}&rdquo;.</p>
 {% endif %}
