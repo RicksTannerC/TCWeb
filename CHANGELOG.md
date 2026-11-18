@@ -11,6 +11,26 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-18 — Step 4 of the restructure: catalogue rules and pricing are pure code, with product kinds
+
+- **What:** the pricing rule (landed cost = base + shipping; suggested price = landed x 2.5 rounded to whole dollars;
+  margin; the under-2.0x guardrail) and the template warnings ("costs are $0", "over the tee ceiling", "no sizes")
+  moved into `tshirtbrand.core.catalogue` as plain functions. A `ProductKind` (tee, sticker, sweatshirt, mug) now
+  carries what is special about a product line: its label, its page-slug suffix (stickers get `-sticker`), its
+  own price ceiling and, if it ever needs one, its own pricing rule. The Django models and the console ask the core
+  instead of holding the numbers (`PRICING_MULTIPLIER`, `PRICING_GUARDRAIL` and `TEE_CEILING` are gone), and the
+  Money page prints the live rule instead of a hard-coded "2.5". Adding a product line is now a new kind in one
+  file; no supplier or payment code mentions a shirt. Behaviour is unchanged (same prices, same flags).
+- **Files:** new `tshirtbrand/core/catalogue/`; `shop/models.py` (`ProductTemplate`/`Listing` pricing properties
+  delegate; `kind`, `warnings`), `shop/console_views.py`, `shop/templates/shop/manage/money.html`.
+- **Verified:** pure tests for the rule and the kinds (rounding, guardrail edge, unknown costs, unknown kinds); a
+  test that the stored `ProductType` choices match the core kinds exactly so they cannot drift; the existing
+  template, pricing and console tests pass untouched; no migrations.
+- **Follow-ups:** the storefront still filters on "tee" in two places (moves with the storefront entry point,
+  step 8); which kinds a given supplier can make is not modelled yet (arrives with the second real printer).
+
+---
+
 ## 2026-11-18 — Step 3 of the restructure: payments are a port (Stripe is one adapter)
 
 - **What:** checkout, the payment webhook and refunds now go through `tshirtbrand.core.payments`: a

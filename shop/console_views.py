@@ -24,6 +24,7 @@ from django.views.decorators.http import require_POST
 from PIL import Image
 
 from tshirtbrand.bootstrap import get_supplier
+from tshirtbrand.core.catalogue import api as catalogue
 from tshirtbrand.core.fulfilment.api import SupplierError
 
 from . import listing_sync
@@ -878,8 +879,6 @@ def image_delete(request, pk):
 
 # ------------------------------------------------------------------ product templates
 
-TEE_CEILING = Decimal("40")
-
 
 def parse_sizes(text):
     """Parse the size box into the JSON stored on a template.
@@ -941,14 +940,7 @@ def _money(value):
 def _template_rows():
     rows = []
     for t in ProductTemplate.objects.annotate(n_listings=Count("listings")):
-        warnings = []
-        if t.landed_cost == 0:
-            warnings.append("Costs are $0, so listings would be priced at $0.")
-        if t.product_type == ProductType.TEE and t.suggested_price > TEE_CEILING:
-            warnings.append(f"Suggested price is over the ${TEE_CEILING} tee ceiling.")
-        if not t.default_sizes:
-            warnings.append("No sizes.")
-        rows.append({"t": t, "warnings": warnings})
+        rows.append({"t": t, "warnings": t.warnings})
     return rows
 
 
@@ -1067,7 +1059,7 @@ def catalogue_setup(request):
     used_types = set(ProductTemplate.objects.values_list("product_type", flat=True))
     return render(request, "shop/manage/catalogue_setup.html", {
         "rows": _template_rows(),
-        "ceiling": TEE_CEILING,
+        "ceiling": catalogue.kind_for(ProductType.TEE).price_ceiling,
         "missing": [label for value, label in ProductType.choices
                     if value in (ProductType.TEE, ProductType.STICKER) and value not in used_types],
         "collections": _collection_rows(),
@@ -1214,7 +1206,9 @@ def money(request):
     """Pricing + Books, one page: both are the financial side of the console."""
     return render(request, "shop/manage/money.html", {
         "rows": _pricing_rows(),
-        "ceiling": Decimal("40"),
+        "ceiling": catalogue.kind_for(ProductType.TEE).price_ceiling,
+        "multiplier": catalogue.STANDARD_PRICING.multiplier,
+        "guardrail": catalogue.STANDARD_PRICING.guardrail,
         **_books_context(),
     })
 

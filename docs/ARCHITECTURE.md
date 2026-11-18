@@ -105,7 +105,10 @@ with the console entry point.
    `bootstrap.get_gateway()` (simulated when keyless or under test). `shop/payments.py` is order bookkeeping only.
    *Left for later steps:* `Order.stripe_*` field names (persistence, step 6); fulfilling an order from a payment
    event still reads and writes the ORM directly (step 5).
-4. **Catalogue and pricing** (templates, listings, margins), including the product-kind abstraction.
+4. **Catalogue and pricing: DONE 2026-11-18.** `core/catalogue` (`ProductKind` registry, `PricingRule`, the pricing
+   and margin functions, template warnings). Models and console delegate; a test keeps `ProductType` and the core
+   kinds identical. *Left for later steps:* "which supplier makes which kind" (with the second real printer);
+   listing/template persistence (step 6); the two storefront filters on "tee" (step 8).
 5. **Ordering and fulfilment use cases** out of `console_views.py` / `manage_views.py` / `orders.py`.
 6. **Persistence adapter.** Repositories behind ports; ORM models become an implementation detail.
 7. **Split the console** into entry points per context. This is where the new console design drops in.

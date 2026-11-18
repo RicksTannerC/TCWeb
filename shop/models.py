@@ -8,19 +8,17 @@ the storefront shows a design's sticker option inside the tee's card rather
 than as its own tile.
 """
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
 
 from tshirtbrand.core.artwork import api as artwork
+from tshirtbrand.core.catalogue import api as catalogue
 
 from .storage import get_private_storage
 
-
-PRICING_MULTIPLIER = Decimal("2.5")
-PRICING_GUARDRAIL = Decimal("2.0")
 
 
 def unique_slug(model, text, *, pk=None, max_length=140, fallback="item"):
@@ -193,14 +191,21 @@ class ProductTemplate(models.Model):
         super().save(*args, **kwargs)
 
     @property
+    def kind(self):
+        return catalogue.kind_for(self.product_type)
+
+    @property
     def landed_cost(self):
-        return self.base_cost + self.shipping_est
+        return catalogue.landed_cost(self.base_cost, self.shipping_est)
 
     @property
     def suggested_price(self):
         """What the pricing rule would charge for a listing made from this template."""
-        raw = self.landed_cost * PRICING_MULTIPLIER
-        return raw.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        return catalogue.suggested_price(self.landed_cost, self.kind.pricing)
+
+    @property
+    def warnings(self):
+        return catalogue.template_warnings(self.kind, self.landed_cost, bool(self.default_sizes))
 
 
 class Design(models.Model):
@@ -360,9 +365,7 @@ class Listing(models.Model):
         super().save(*args, **kwargs)
 
     def _unique_slug(self):
-        base = slugify(self.design.title)
-        if self.product_type == ProductType.STICKER:
-            base = f"{base}-sticker"
+        base = slugify(self.design.title) + catalogue.kind_for(self.product_type).slug_suffix
         candidates = [base]
         if self.color:
             candidates.append(f"{base}-{slugify(self.color)}")
@@ -473,28 +476,28 @@ class Listing(models.Model):
         return jobs
 
     @property
+    def kind(self):
+        return catalogue.kind_for(self.product_type)
+
+    @property
     def landed_cost(self):
-        return self.base_cost + self.shipping_est
+        return catalogue.landed_cost(self.base_cost, self.shipping_est)
 
     @property
     def suggested_price(self):
-        raw = self.landed_cost * PRICING_MULTIPLIER
-        return raw.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        return catalogue.suggested_price(self.landed_cost, self.kind.pricing)
 
     @property
     def margin_dollars(self):
-        return self.price - self.landed_cost
+        return catalogue.margin_dollars(self.price, self.landed_cost)
 
     @property
     def margin_multiple(self):
-        if not self.landed_cost:
-            return None
-        return (self.price / self.landed_cost).quantize(Decimal("0.01"))
+        return catalogue.margin_multiple(self.price, self.landed_cost)
 
     @property
     def below_guardrail(self):
-        m = self.margin_multiple
-        return m is not None and m < PRICING_GUARDRAIL
+        return catalogue.below_guardrail(self.price, self.landed_cost, self.kind.pricing)
 
     @property
     def primary_image(self):

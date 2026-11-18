@@ -264,6 +264,23 @@ class PaymentsSliceStaysClean(SimpleTestCase):
                 self.assertFalse(word in text, f"{rel} mentions the Stripe wire name {word!r}")
 
 
+class CatalogueSliceStaysClean(SimpleTestCase):
+    """Step 4, catalogue and pricing: the pricing rule and per-kind facts live in tshirtbrand.core.catalogue."""
+
+    def test_the_old_pricing_constants_and_ceiling_are_gone_from_the_django_app(self):
+        for rel in ("shop/models.py", "shop/console_views.py", "shop/manage_views.py", "shop/views.py"):
+            text = (REPO / rel).read_text(encoding="utf-8")
+            for word in ("PRICING_MULTIPLIER", "PRICING_GUARDRAIL", "TEE_CEILING"):
+                self.assertFalse(word in text, f"{rel} still mentions {word!r}")
+
+    def test_the_stored_product_types_match_the_core_kinds(self):
+        from shop.models import ProductType
+        from tshirtbrand.core.catalogue.api import KINDS
+
+        self.assertEqual(sorted(ProductType.values), sorted(KINDS))
+        self.assertEqual({v: label for v, label in ProductType.choices}, {k.code: k.label for k in KINDS.values()})
+
+
 class ArtworkSliceStaysClean(SimpleTestCase):
     """Step 2, artwork and print layout: layout maths and image handling live in tshirtbrand.core.artwork and
     the imaging adapter, so the Django app neither does the maths nor touches an image library."""

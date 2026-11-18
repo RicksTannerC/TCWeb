@@ -6,7 +6,7 @@
 
 <section id="pricing" class="console-section">
   <h2>Pricing workspace</h2>
-  <p class="muted">Rule: <code>(base + ship) &times; 2.5</code>, round to <code>.00</code>, flag under 2.0&times;. Tee ceiling ${{ ceiling }}.
+  <p class="muted">Rule: <code>(base + ship) &times; {{ multiplier }}</code>, round to <code>.00</code>, flag under {{ guardrail }}&times;. Tee ceiling ${{ ceiling }}.
     Competitor prices are hand-entered. Edit retail inline and save.</p>
 
   <form method="post" action="{% url 'shop:manage_pricing_update' %}">
