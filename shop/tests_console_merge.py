@@ -120,17 +120,19 @@ class NavTests(ConsoleBase):
             ("Money", "/manage/money/"), ("Content", "/manage/content/"),
         ]:
             self.assertIn(f'href="{href}"', html)
-        self.assertIn("Catalogue", html)
         self.assertIn(f'href="/manage/listings/"', html)
         self.assertIn(f'href="/manage/catalogue/setup/"', html)
         # the old flat links are gone from the nav (still exist as URLs, just not linked from here)
         for gone in ("Collections</a>", "Pricing</a>", ">Templates<", ">Books<", ">Messages<", ">Pages<"):
             self.assertNotIn(gone, html)
 
-    def test_catalogue_group_shows_active_on_its_sub_pages(self):
+    def test_listings_and_setup_each_show_current_on_their_own_pages(self):
         for path in ("/manage/listings/", "/manage/catalogue/setup/"):
             html = self.c.get(path).content.decode()
-            self.assertIn("has-active", html)
+            self.assertIn(f'href="{path}" aria-current="page"', html)
+        # and only that one: the other is not marked
+        html = self.c.get("/manage/listings/").content.decode()
+        self.assertNotIn('href="/manage/catalogue/setup/" aria-current="page"', html)
 
     def test_money_and_content_links_show_current_page(self):
         html = self.c.get("/manage/money/").content.decode()

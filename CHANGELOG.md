@@ -11,6 +11,25 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-18 — Console redesign, phase 1: the glass shell, side bar and dashboard (nothing deployed)
+
+- **What:** the console is moving to the "glass" look from the design handoff (mountain photo, frosted bubbles, a floating
+  side bar, light and dark). Phase 1 is the page skeleton and the dashboard: a side bar replaces the top bar (Dashboard,
+  Listings, Orders, Money, Content, Setup; theme switch, Shop, Log out), messages become notices, and the dashboard is one
+  revenue figure plus a compact row of the rest, with "needs you" items (orders waiting, unread messages) as a notice
+  at the top. Pages not yet redesigned keep working inside one readable bubble (`console-legacy.css`, temporary).
+- **Why:** the owner's request: the handoff look, phone first, more condensed. Later phases fold the listing page's
+  Printful buttons into one action, restyle the status dropdown, rewrite the drop system, and convert the rest.
+- **Files:** `shop/templates/shop/manage/{base,dashboard}.html`; new `shop/static/shop/console/*` (handoff stylesheets and
+  script verbatim, `console.css`, `console.js`, `console-legacy.css`, the photo in two sizes); `docs/CONSOLE_DESIGN.md`
+  and the handoff itself under `docs/design/`; `shop/tests_console_merge.py` (the nav test now checks the side bar).
+- **Verified:** 798 tests OK; looked at in the built-in browser on a throwaway database (never `D:\TCData`) at desktop and
+  phone width, light and dark. The photo is the owner's attached image; text contrast was not re-measured against it.
+- **Deploy note:** `python manage.py collectstatic --noinput` before restarting (new static files).
+- **Follow-ups:** phases 2 to 5 in `docs/CONSOLE_DESIGN.md`.
+
+---
+
 ## 2026-11-18 — Step 9 of the restructure: ready for more than one server (nothing deployed)
 
 - **What:** the two places two servers could both act on the same thing are now one atomic database update each:

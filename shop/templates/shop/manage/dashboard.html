@@ -1,69 +1,54 @@
 {% extends "shop/manage/base.html" %}
 {% block title %}Dashboard{% endblock %}
 
-{% block console %}
-<h1>Dashboard</h1>
-
-<div class="tile-stats">
-  <div class="panel stat">
-    <span class="stat__label">Revenue · 7 days</span>
-    <span class="stat__big price">${{ rev_7 }}</span>
-    <span class="faint">30 days ${{ rev_30 }}</span>
-  </div>
-  <div class="panel stat">
-    <span class="stat__label">Orders · 7 days</span>
-    <span class="stat__big tnum">{{ orders_7 }}</span>
-    <span class="faint">30 days {{ orders_30 }}</span>
-  </div>
-  <div class="panel stat">
-    <span class="stat__label">Avg margin / order · 30d</span>
-    <span class="stat__big price">${{ avg_margin }}</span>
-  </div>
-  <div class="panel stat {% if awaiting %}stat--flag{% endif %}">
-    <span class="stat__label">Awaiting approval</span>
-    <span class="stat__big tnum">{{ awaiting }}</span>
-    <a href="{% url 'shop:manage_queue' %}">Order desk &rarr;</a>
-  </div>
-  <div class="panel stat">
-    <span class="stat__label">Cart abandon · 30d</span>
-    <span class="stat__big tnum">{{ abandon_rate }}%</span>
-  </div>
-  <div class="panel stat">
-    <span class="stat__label">Visits · 30d</span>
-    <span class="stat__big tnum">{{ visits_30 }}</span>
-  </div>
-  <div class="panel stat">
-    <span class="stat__label">Season-drop list</span>
-    <span class="stat__big tnum">{{ subscribers }}</span>
-  </div>
-  <div class="panel stat">
-    <span class="stat__label">Catalogue</span>
-    <span class="stat__big tnum">{{ live_listings }}</span>
-    <span class="faint">live · {{ draft_listings }} draft</span>
-  </div>
-  <div class="panel stat {% if unread_messages %}stat--flag{% endif %}">
-    <span class="stat__label">Unread messages</span>
-    <span class="stat__big tnum">{{ unread_messages }}</span>
-    <a href="{% url 'shop:manage_inbox' %}">Inbox &rarr;</a>
-  </div>
+{% block page %}
+{% if awaiting or unread_messages %}
+<div class="c-needs">
+  {% if awaiting %}
+    <div class="g-banner is-warn"><a href="{% url 'shop:manage_queue' %}"><strong>{{ awaiting }}</strong> order{{ awaiting|pluralize }} waiting for your approval &rarr;</a></div>
+  {% endif %}
+  {% if unread_messages %}
+    <div class="g-banner is-warn"><a href="{% url 'shop:manage_inbox' %}"><strong>{{ unread_messages }}</strong> unread message{{ unread_messages|pluralize }} &rarr;</a></div>
+  {% endif %}
 </div>
+{% endif %}
 
-<div class="row-2 dash-cards" style="align-items:start;">
-  <div class="panel dash-card">
-    <h2>Top designs <span class="faint">· last 30 days</span></h2>
-    {% if top_designs %}
-      <ul class="bar-list">
-        {% for d in top_designs %}<li><span>{{ d.design_title }}</span><span class="tnum">{{ d.units }} sold</span></li>{% endfor %}
-      </ul>
-    {% else %}<p class="muted">No sales in the window yet.</p>{% endif %}
+<section class="g-bubble c-hero">
+  <div class="c-hero__top">
+    <div>
+      <h1>Dashboard</h1>
+      <div class="g-figure">${{ rev_7 }}</div>
+      <div class="g-muted g-small">Revenue, last 7 days &middot; {{ orders_7 }} order{{ orders_7|pluralize }}</div>
+    </div>
+    <div class="g-muted g-small">Last 30 days: <strong>${{ rev_30 }}</strong> &middot; {{ orders_30 }} order{{ orders_30|pluralize }}</div>
   </div>
-  <div class="panel dash-card">
-    <h2>Where visits came from <span class="faint">· 30 days</span></h2>
-    {% if top_sources %}
-      <ul class="bar-list">
-        {% for s in top_sources %}<li><span>{{ s.label }}</span><span class="tnum">{{ s.n }}</span></li>{% endfor %}
-      </ul>
-    {% else %}<p class="muted">No visits recorded yet.</p>{% endif %}
+  <div class="c-stats">
+    <div class="g-well c-stat"><span>Avg margin per order, 30 days</span><b>${{ avg_margin }}</b></div>
+    <div class="g-well c-stat"><span>Carts abandoned, 30 days</span><b>{{ abandon_rate }}%</b></div>
+    <div class="g-well c-stat"><span>Visits, 30 days</span><b>{{ visits_30 }}</b></div>
+    <div class="g-well c-stat"><span>Season-drop list</span><b>{{ subscribers }}</b></div>
+    <div class="g-well c-stat"><span>Catalogue</span><b>{{ live_listings }} live</b><span>{{ draft_listings }} draft</span></div>
   </div>
-</div>
+</section>
+
+<section class="g-bubble">
+  <div class="c-two">
+    <div class="g-well">
+      <h2 class="c-label">Top designs &middot; 30 days</h2>
+      {% if top_designs %}
+        <ul class="c-bars">
+          {% for d in top_designs %}<li><span>{{ d.design_title }}</span><span class="num">{{ d.units }} sold</span></li>{% endfor %}
+        </ul>
+      {% else %}<p class="g-muted">No sales in the window yet.</p>{% endif %}
+    </div>
+    <div class="g-well">
+      <h2 class="c-label">Where visits came from &middot; 30 days</h2>
+      {% if top_sources %}
+        <ul class="c-bars">
+          {% for s in top_sources %}<li><span>{{ s.label }}</span><span class="num">{{ s.n }}</span></li>{% endfor %}
+        </ul>
+      {% else %}<p class="g-muted">No visits recorded yet.</p>{% endif %}
+    </div>
+  </div>
+</section>
 {% endblock %}

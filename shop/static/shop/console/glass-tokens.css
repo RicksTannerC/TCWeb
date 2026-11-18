@@ -1,0 +1,134 @@
+/* The glass design tokens (light default, dark for devices set to dark, forced overrides), copied verbatim from
+ * docs/design/glass-handoff.md appendix A. Change a value here only together with that document and
+ * docs/CONSOLE_DESIGN.md. */
+:root {
+  /* Brand */
+  --accent: #6B7A45;
+  --warm: #D69E5A;
+  /* Surface */
+  --bg: #F7F5EF;
+  --ink: #2B2A22;
+  --line: #E1DED1;
+  --muted: #80806B;
+  --soft: #EEF0E4;
+  /* Status */
+  --good: #4F7942;
+  --bad: #B3261E;
+  /* Arrival surface (the photo) */
+  --dark_bg: #11140F;
+  --cream: #F3EEDD;
+  --glass_panel: rgba(255,255,255,0.08);
+  --glass_accent: rgba(138,154,90,0.35);
+  --glass_accent_hover: rgba(138,154,90,0.55);
+  /* Scale */
+  --radius: 8px;
+  --base_font_size: 16px;
+  /* Glass, both modes */
+  --glass_radius: 24;
+  --glass_saturate: 1.2;
+  /* The light look (the default) */
+  /* Colors */
+  --bg: #F7F5EF;
+  --ink: #2B2A22;
+  --accent: #6B7A45;
+  --warm: #D69E5A;
+  --line: #E1DED1;
+  --muted: #80806B;
+  --soft: #EEF0E4;
+  --good: #4F7942;
+  --bad: #B3261E;
+  /* Text on glass and on buttons */
+  --glass_muted: #3A3A2A;
+  --on_accent: #FFFFFF;
+  /* The bubble */
+  --glass_tint: #FFFFFF;
+  --glass_opacity: 0.6;
+  --glass_dense_opacity: 0.82;
+  --glass_edge: rgba(255,255,255,0.80);
+  --glass_gloss: rgba(255,255,255,0.30);
+  --glass_shadow: rgba(40,46,28,0.20);
+  --glass_blur: 14;
+  --glass_wash: rgba(244,242,234,0.08);
+  color-scheme: light;
+}
+
+/* The dark look, for a device set to dark (unless light was chosen on the page). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* Colors */
+    --bg: #12150F;
+    --ink: #F3EEDD;
+    --accent: #A9BB78;
+    --warm: #E3B070;
+    --line: #4A5040;
+    --muted: #C9C9B1;
+    --soft: #2C3224;
+    --good: #A8D492;
+    --bad: #FF9A90;
+    /* Text on glass and on buttons */
+    --glass_muted: #D2D2BC;
+    --on_accent: #14170F;
+    /* The bubble */
+    --glass_tint: #12150F;
+    --glass_opacity: 0.5;
+    --glass_dense_opacity: 0.78;
+    --glass_edge: rgba(255,255,255,0.30);
+    --glass_gloss: rgba(255,255,255,0.08);
+    --glass_shadow: rgba(0,0,0,0.45);
+    --glass_blur: 14;
+    --glass_wash: rgba(8,10,6,0.55);
+    color-scheme: dark;
+  }
+}
+
+/* Forced by the light / dark / device switch. */
+:root[data-theme="dark"] {
+  /* Colors */
+  --bg: #12150F;
+  --ink: #F3EEDD;
+  --accent: #A9BB78;
+  --warm: #E3B070;
+  --line: #4A5040;
+  --muted: #C9C9B1;
+  --soft: #2C3224;
+  --good: #A8D492;
+  --bad: #FF9A90;
+  /* Text on glass and on buttons */
+  --glass_muted: #D2D2BC;
+  --on_accent: #14170F;
+  /* The bubble */
+  --glass_tint: #12150F;
+  --glass_opacity: 0.5;
+  --glass_dense_opacity: 0.78;
+  --glass_edge: rgba(255,255,255,0.30);
+  --glass_gloss: rgba(255,255,255,0.08);
+  --glass_shadow: rgba(0,0,0,0.45);
+  --glass_blur: 14;
+  --glass_wash: rgba(8,10,6,0.55);
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  /* Colors */
+  --bg: #F7F5EF;
+  --ink: #2B2A22;
+  --accent: #6B7A45;
+  --warm: #D69E5A;
+  --line: #E1DED1;
+  --muted: #80806B;
+  --soft: #EEF0E4;
+  --good: #4F7942;
+  --bad: #B3261E;
+  /* Text on glass and on buttons */
+  --glass_muted: #3A3A2A;
+  --on_accent: #FFFFFF;
+  /* The bubble */
+  --glass_tint: #FFFFFF;
+  --glass_opacity: 0.6;
+  --glass_dense_opacity: 0.82;
+  --glass_edge: rgba(255,255,255,0.80);
+  --glass_gloss: rgba(255,255,255,0.30);
+  --glass_shadow: rgba(40,46,28,0.20);
+  --glass_blur: 14;
+  --glass_wash: rgba(244,242,234,0.08);
+  color-scheme: light;
+}

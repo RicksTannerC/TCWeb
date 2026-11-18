@@ -1,59 +1,82 @@
-{% load static %}
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
   <meta name="robots" content="noindex" />
   <title>{% block title %}Console{% endblock %} — The T-Shirt Brand</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'shop/images/crest.svg' %}" />
-  <link rel="stylesheet" href="{% static 'shop/css/style.css' %}" />
+  <link rel="preload" as="image" href="{% static 'shop/console/mountains-phone.jpg' %}" media="(max-width: 700px)" />
+  <link rel="preload" as="image" href="{% static 'shop/console/mountains.jpg' %}" media="(min-width: 701px)" />
   <script>
     (function(){try{var t=localStorage.getItem('tts-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
   </script>
+  {# The two scene photos are set here, not in a stylesheet, so Django's hashed static file names resolve. #}
+  <style>
+    :root { --scene_image: url("{% static 'shop/console/mountains.jpg' %}"); --scene_image_phone: url("{% static 'shop/console/mountains-phone.jpg' %}"); }
+  </style>
+  <link rel="stylesheet" href="{% static 'shop/console/glass-tokens.css' %}" />
+  <link rel="stylesheet" href="{% static 'shop/console/page.css' %}" />
+  <link rel="stylesheet" href="{% static 'shop/console/glass.css' %}" />
+  <link rel="stylesheet" href="{% static 'shop/console/console.css' %}" />
+  <link rel="stylesheet" href="{% static 'shop/console/console-legacy.css' %}" />
   <script src="{% static 'shop/vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'shop/vendor/alpine.min.js' %}" defer></script>
+  <script src="{% static 'shop/console/glass-menu.js' %}" defer></script>
+  <script src="{% static 'shop/console/console.js' %}" defer></script>
 </head>
-<body class="console" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-  <header class="console-bar">
-    <div class="wrap">
-      <a class="console-brand" href="{% url 'shop:manage_dashboard' %}">
-        <img class="brand__mark" src="{% static 'shop/images/crest.svg' %}" alt="" aria-hidden="true" /> Console
-      </a>
-      <nav class="console-nav" aria-label="Console">
-        {% with u=request.resolver_match.url_name %}
-        <a href="{% url 'shop:manage_dashboard' %}" {% if u == 'manage_dashboard' %}aria-current="page"{% endif %}>Dashboard</a>
+<body id="top" class="g-page console" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <div class="g-edgefade" aria-hidden="true"></div>
+  <a class="g-skip" href="#main">Skip to content</a>
 
-        <div class="console-nav__group{% if 'listing' in u or 'template' in u or 'collection' in u or u == 'manage_catalogue_setup' %} has-active{% endif %}"
-             x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false">
-          <button type="button" class="console-nav__trigger" @click="open = !open" :aria-expanded="open.toString()">
-            Catalogue <span class="console-nav__caret">&#9662;</span>
-          </button>
-          <div class="console-nav__menu" x-show="open" x-cloak>
-            <a href="{% url 'shop:manage_listings' %}" {% if 'listing' in u %}aria-current="page"{% endif %} @click="open = false">Listings</a>
-            <a href="{% url 'shop:manage_catalogue_setup' %}" {% if 'template' in u or 'collection' in u or u == 'manage_catalogue_setup' %}aria-current="page"{% endif %} @click="open = false">Setup <span class="faint">(templates, collections)</span></a>
-          </div>
-        </div>
+  {# The side bar: the checkbox, the scrim and the nav are SIBLINGS in this order, with nothing between them. #}
+  <input type="checkbox" id="g-side-open" class="g-side-toggle" aria-label="Show the menu titles" aria-controls="g-side" autocomplete="off" />
+  <label class="g-side-scrim" for="g-side-open" aria-hidden="true"></label>
+  <nav id="g-side" class="g-bubble g-rail g-side" aria-label="Console">
+    {% with u=request.resolver_match.url_name %}
+    <label class="g-side-arrow" for="g-side-open">
+      <span class="g-sr-only">Expand or collapse the menu</span><span class="g-rail-label" aria-hidden="true">Collapse menu</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+    </label>
+    <a class="g-rail-item" href="{% url 'shop:manage_dashboard' %}" {% if u == 'manage_dashboard' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="8" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.5"/></svg><span class="g-rail-label">Dashboard</span></a>
+    <a class="g-rail-item" href="{% url 'shop:manage_listings' %}" {% if 'listing' in u %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 4 6.5 6 10.5 8 9.5V20h8V9.5l2 1 2-4L15 4a3 3 0 0 1-6 0z"/></svg><span class="g-rail-label">Listings</span></a>
+    <a class="g-rail-item" href="{% url 'shop:manage_queue' %}" {% if 'order' in u or 'queue' in u or 'fulfillment' in u %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="m3.5 7.5 8.5 4.5 8.5-4.5M12 12v9"/></svg><span class="g-rail-label">Orders</span></a>
+    <a class="g-rail-item" href="{% url 'shop:manage_money' %}" {% if 'pricing' in u or 'books' in u or 'overhead' in u or u == 'manage_money' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M14.6 9.3c-.4-.9-1.3-1.3-2.6-1.3-1.4 0-2.5.7-2.5 1.9 0 2.7 5 1.4 5 4 0 1.2-1.1 1.9-2.6 1.9-1.3 0-2.3-.5-2.7-1.5M12 6.5V8m0 8v1.5"/></svg><span class="g-rail-label">Money</span></a>
+    <a class="g-rail-item" href="{% url 'shop:manage_content' %}" {% if 'inbox' in u or 'message' in u or 'page' in u or u == 'manage_content' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4M9.5 12h5M9.5 15.5h5"/></svg><span class="g-rail-label">Content</span></a>
+    <a class="g-rail-item" href="{% url 'shop:manage_catalogue_setup' %}" {% if 'template' in u or 'collection' in u or u == 'manage_catalogue_setup' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg><span class="g-rail-label">Setup</span></a>
+    {% endwith %}
+    <div class="g-side-spacer"></div>
+    <div class="g-rail-rule"></div>
+    <button type="button" class="g-rail-item" id="c-theme" aria-label="Change the color theme">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4v16"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg><span class="g-rail-label" id="c-theme-label">Theme: device</span></button>
+    <a class="g-rail-item" href="{{ public_shop_url }}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg><span class="g-rail-label">Shop</span></a>
+    <form method="post" action="{% url 'admin:logout' %}">{% csrf_token %}
+      <button type="submit" class="g-rail-item">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h5.5v16H14"/><path d="M4 12h10M8 8l-4 4 4 4"/></svg><span class="g-rail-label">Log out</span></button>
+    </form>
+  </nav>
 
-        <a href="{% url 'shop:manage_queue' %}" {% if 'order' in u or 'queue' in u or 'fulfillment' in u %}aria-current="page"{% endif %}>Orders</a>
-        <a href="{% url 'shop:manage_money' %}" {% if 'pricing' in u or 'books' in u or 'overhead' in u or u == 'manage_money' %}aria-current="page"{% endif %}>Money</a>
-        <a href="{% url 'shop:manage_content' %}" {% if 'inbox' in u or 'message' in u or 'page' in u or u == 'manage_content' %}aria-current="page"{% endif %}>Content</a>
-        {% endwith %}
-      </nav>
-      <div class="console-bar__end">
-        <a href="{{ public_shop_url }}">Shop &rarr;</a>
-        <form method="post" action="{% url 'admin:logout' %}">{% csrf_token %}<button type="submit" class="linkish">Log out</button></form>
-      </div>
-    </div>
-  </header>
-
-  <main class="wrap console-main">
-    {% if messages %}
-      <ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>
-    {% endif %}
-    {% block console %}{% endblock %}
-  </main>
+  <div class="g-shell">
+    <div class="g-scene" aria-hidden="true"></div>
+    <main class="g-main g-side-pad" id="main">
+      {% for m in messages %}
+        <div class="g-banner {% if m.tags == 'success' %}is-ok{% elif m.tags == 'warning' %}is-warn{% elif m.tags == 'info' or m.tags == 'debug' %}is-info{% endif %}" role="{% if m.tags == 'error' %}alert{% else %}status{% endif %}">{{ m }}</div>
+      {% endfor %}
+      {% block page %}
+        {# Pages not yet redesigned fill `console` and are wrapped in one readable bubble (see console-legacy.css). #}
+        <div class="g-dense c-legacy">{% block console %}{% endblock %}</div>
+      {% endblock %}
+    </main>
+    <footer class="g-footbar"><a href="#top">&uarr; Back to top</a></footer>
+  </div>
 
   <script>
     document.body.addEventListener("htmx:afterSwap", e => { if (window.Alpine && e.detail.target) window.Alpine.initTree(e.detail.target); });

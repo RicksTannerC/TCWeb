@@ -1,0 +1,6 @@
+/* Page-level values (appendix B). The two scene photos are set in the console base template, from {% static %}. */
+html { --page_edge: #7C7C79; background: var(--page_edge); scroll-behavior: smooth; }
+@media (prefers-color-scheme: dark) { html:not([data-theme="light"]) { --page_edge: #373835; } }
+html[data-theme="dark"] { --page_edge: #373835; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+* { box-sizing: border-box; }

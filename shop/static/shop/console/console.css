@@ -1,0 +1,36 @@
+/* The console's own additions to the glass look. Everything here is prefixed c- (or is a g- gap fill), uses only the
+   tokens in glass-tokens.css, and is documented in docs/CONSOLE_DESIGN.md. Nothing here is a new color or effect. */
+
+[x-cloak] { display: none !important; }
+
+/* ---- side bar: a button and a form that look like the link items ------------------------------------------------ */
+button.g-rail-item { font: inherit; background: transparent; border: 0; cursor: pointer; margin: 0; text-align: left; appearance: none; -webkit-appearance: none; }
+.g-side form { display: contents; }
+
+/* ---- gap fills for things the handoff lists as not yet in the shared stylesheet --------------------------------- */
+.g-banner.is-info { border-color: color-mix(in srgb, var(--ink) 35%, transparent); background: color-mix(in srgb, var(--soft) 80%, var(--bg)); }
+.g-banner a { font-weight: 600; }
+.g-tag.is-bad { background: color-mix(in srgb, var(--bad) 18%, var(--soft)); }
+.g-tag.is-wait { background: color-mix(in srgb, var(--warm) 30%, var(--soft)); }
+
+/* ---- page header and generic blocks ---------------------------------------------------------------------------- */
+.c-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem 1rem; }
+.c-head h1 { margin: 0; font-size: 1.45rem; font-weight: 700; }
+.c-label { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; color: var(--glass_muted); margin: 0 0 .4rem; }
+.c-stack { display: grid; gap: .75rem; }
+.c-stack > * { min-width: 0; }
+.c-two { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr)); }
+
+/* ---- dashboard ------------------------------------------------------------------------------------------------- */
+.c-needs { display: grid; gap: .6rem; }
+.c-hero { display: grid; gap: .9rem; }
+.c-hero__top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: .5rem 1.5rem; }
+.c-stats { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); }
+.c-stat { display: grid; gap: .1rem; align-content: start; }
+.c-stat b { display: block; font-size: 1.35rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.c-stat span { font-size: .8rem; color: var(--glass_muted); }
+.c-bars { list-style: none; margin: 0; padding: 0; display: grid; }
+.c-bars li { display: flex; justify-content: space-between; gap: 1rem; padding: .45rem 0; border-top: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); }
+.c-bars li:first-child { border-top: 0; }
+.c-bars li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.c-bars .num { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--glass_muted); }

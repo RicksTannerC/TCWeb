@@ -1,0 +1,385 @@
+/* glass.css -- the shared glass stylesheet. Plain CSS, no script, no outside request.
+ *
+ * It needs the tokens from `manage.py export_theme` (the full export: light default, dark for devices set to dark, forced
+ * overrides) and two image addresses the PAGE sets, because each app serves its own copy of the photo:
+ *     :root { --scene_image: url("/scene/mountains.jpg"); --scene_image_phone: url("/scene/mountains-phone.jpg"); }
+ * Page skeleton:   <body class="g-page"><div class="g-scene" aria-hidden="true"></div> ... </body>
+ *
+ * Rules this file keeps (docs/product/briefs/lane-design-glass-theme.md):
+ *  - The scene is a pinned (position: sticky) LAYER inside the page, taller than the screen. Not background-attachment: fixed
+ *    (Safari on iPhone ignores it) and not position: fixed (Safari on iPhone clips it between its bars, leaving a bare band).
+ *  - Blur is modest and costs a layer per bubble: put at most two or three blurred bubbles on a screen, never nest one
+ *    inside another (use .g-well for a panel inside a bubble), and keep long lists inside ONE .g-dense bubble.
+ *  - Text on a bubble is --ink or --glass_muted only; links are --ink with an accent underline. The tests compute these against
+ *    the real photo's brightest and darkest areas after blur. Do not put --accent, --good or --bad text straight on glass.
+ *  - Every class is prefixed g- so this file can sit beside an older page's styles while an app moves over.
+ *  - Glass numbers (--glass_blur, --glass_radius, --glass_opacity ...) are unitless; calc() turns them into pixels.
+ */
+
+/* ---- the page and the scene -------------------------------------------------------------------------------------- */
+.g-page, .g-scope {
+  color: var(--ink);
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-size: var(--base_font_size);
+  line-height: 1.45;
+}
+/* The body paints nothing, or it would cover the scene. The page sets   html { background: var(--bg); }   for the overscroll colour. */
+.g-page { margin: 0; min-height: 100vh; background: none; }
+/* On a phone the page asks (viewport-fit=cover) to draw under the status bar and the bottom toolbar, so the scene can reach
+   the bottom edge. The content keeps clear of both areas, and the top area is a bar of the sign-in page's dark grey. */
+.g-page { padding: 0; }
+/* The page's box. The scene layer is taller than the screen and would hang below the end of the page and let you scroll past
+   the last bar; clipping here ends the page exactly at the bar. (overflow: clip does not make a scroll container, so the scene
+   still pins to the screen; a browser too old for it gets overflow: hidden, where the scene scrolls with the page instead.) */
+.g-shell { position: relative; padding-top: env(safe-area-inset-top, 0px); overflow: hidden; overflow: clip; }
+/* The end of the page: a grey fade (the page colour) with a Back to top button. Kept short (the owner asked for a shorter bar): the phone paints its toolbar below the page, so the button needs only a small cushion. The photo runs behind it. */
+.g-footbar {
+  /* The mirror of the strip at the top: the photo (the scene runs behind this bar) fades into the page colour, which is the colour the phone paints its toolbar with, so the page ends with no seam. */
+  position: relative; margin-top: 1.5rem; text-align: center; background: var(--dark_bg); background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--page_edge, var(--dark_bg)) 3%, transparent) 10%, color-mix(in srgb, var(--page_edge, var(--dark_bg)) 10%, transparent) 20%, color-mix(in srgb, var(--page_edge, var(--dark_bg)) 22%, transparent) 30%, color-mix(in srgb, var(--page_edge, var(--dark_bg)) 35%, transparent) 40%, color-mix(in srgb, var(--page_edge, var(--dark_bg)) 50%, transparent) 50%, color-mix(in srgb, var(--page_edge, var(--dark_bg)) 65%, transparent) 60%, color-mix(in srgb, var(--page_edge, var(--dark_bg)) 78%, transparent) 70%, color-mix(in srgb, var(--page_edge, var(--dark_bg)) 90%, transparent) 80%, color-mix(in srgb, var(--page_edge, var(--dark_bg)) 97%, transparent) 90%, var(--page_edge, var(--dark_bg)) calc(100% - 6px), var(--page_edge, var(--dark_bg)) 100%); color: var(--cream);
+  padding: 1.1rem 1rem calc(2.5rem + env(safe-area-inset-bottom, 0px));
+}
+/* (owner, 2026-11-16: a thin line between the end bar and the bottom of the page) The bar's pixel edge and the shell's clip edge can differ by a row, and in that row the photo showed. This covers it with the page colour; the shell clips anything beyond its own end, so it adds no length. */
+.g-footbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 4px; background: var(--page_edge, var(--dark_bg)); }
+.g-page .g-footbar a {
+  display: inline-block; min-width: 12rem; padding: .85rem 1.8rem; font-weight: 600; text-decoration: none;
+  color: var(--cream); background: rgba(17,20,15,.6); border: 1px solid rgba(255,255,255,.28);
+  border-radius: 999px; transition: background-color .2s ease, transform .25s cubic-bezier(.34, 1.56, .64, 1);
+}
+.g-page .g-footbar a:focus-visible { background: rgba(17,20,15,.78); transform: translateY(-1px); outline: 2px solid var(--cream); outline-offset: 2px; }
+@media (hover: hover) { .g-page .g-footbar a:hover { background: rgba(17,20,15,.78); transform: translateY(-1px); } }
+.g-page .g-footbar a:active { transform: scale(.97); }
+/* The browser paints the strip over the clock in the page colour (the page sets --page_edge to the tone of the photo's top edge); this fades that colour into the picture so there is no seam.
+   PART OF THE PAGE, NOT FIXED (owner, iPhone, 2026-11-16, in the end: the top gradient "should scroll away with the screen", i.e. belong to the top of the page, not stay in the window. Earlier words: "the gradient stays on the same spot of the screen rather than staying with the top of the page"). A fixed layer is
+   laid out by the phone below its top safe area and above its bottom one, and when you scroll the phone's strip turns see-through, so a fixed fade started a
+   clock's height down with bare photo above it. A sticky layer is painted like the page itself, under both bars (the photo, .g-scene, has been sticky for the
+   same reason), so these pin to the real top and bottom of the screen. Each is a layer with no room of its own in the page (its negative bottom margin cancels its
+   height) whose first part, as tall as the safe area, is solid page colour (the part under the phone's own strip or toolbar) and whose second part is the fade. */
+.g-edgefade {
+  /* z-index -1: between the photo (-2) and everything else. The fades blend the photo into the browser's bars, but the page's own
+     content (bubbles, text, the menu) is never faded, because it paints above them. */
+  --g_fade_h: 4.5rem;
+  position: absolute; top: 0; left: 0; right: 0; z-index: -1; pointer-events: none;   /* part of the page: it scrolls away with the page's top */
+  height: var(--g_fade_h);
+  /* Its own compositing layer (owner, iPhone, 2026-11-17: scroll to the very bottom and back to the top and the top gradient vanished until the next small scroll down).
+     The photo above is a sticky, separately composited layer; after a long scroll Safari did not re-create this fade's layer when the top came back, and only did on the next
+     scroll. A forced layer of its own is the usual remedy for that repaint miss. It changes nothing visible. */
+  transform: translateZ(0); -webkit-transform: translateZ(0); backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: linear-gradient(to bottom, var(--page_edge, #7C7C79) 0%, color-mix(in srgb, var(--page_edge, #7C7C79) 97%, transparent) 10%, color-mix(in srgb, var(--page_edge, #7C7C79) 90%, transparent) 20%, color-mix(in srgb, var(--page_edge, #7C7C79) 78%, transparent) 30%, color-mix(in srgb, var(--page_edge, #7C7C79) 65%, transparent) 40%, color-mix(in srgb, var(--page_edge, #7C7C79) 50%, transparent) 50%, color-mix(in srgb, var(--page_edge, #7C7C79) 35%, transparent) 60%, color-mix(in srgb, var(--page_edge, #7C7C79) 22%, transparent) 70%, color-mix(in srgb, var(--page_edge, #7C7C79) 10%, transparent) 80%, color-mix(in srgb, var(--page_edge, #7C7C79) 3%, transparent) 90%, transparent 100%) top / 100% 100% no-repeat;
+}
+/* The solid part of the top fade HANGS ABOVE the layer (owner, iPhone, 2026-11-16, second look: the fade still began a clock's height down). The phone lays a sticky or fixed layer out from the top of the area it gives the page, which is below the clock; the photo gets to the very top of the screen only because it reaches 300px above its layer. The cap does the same: 400px of solid page colour above the fade, painted over the clock area (nothing there but the phone's own strip), and off the screen above that. Nothing is scrollable above the top of a page, so it adds no length. */
+.g-edgefade::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 400px; background: var(--page_edge, #7C7C79); }
+/* No bottom fade layer (owner, 2026-11-16: it did the same as the top one, staying with the window). The end of the page is .g-footbar, which fades the photo into the page colour
+   (the colour the phone paints its toolbar with) and is part of the page, so it comes up with the page's end and is not there in the middle of a long page. */
+
+.g-scene {
+  /* A pinned layer inside the page (position: sticky), not position: fixed. On an iPhone the browser clips a fixed layer to the
+     area between its status bar and its bottom toolbar and leaves a bare band under the toolbar; a sticky layer is painted like
+     the page's own content, which runs under both bars. It is 300px taller than the screen at each end (lvh = the tallest the
+     screen gets), takes up no room in the page, and in the first 300px of scrolling it drifts up a little before it pins. */
+  --g_scene_h: calc(100vh + 600px);
+  --g_scene_h: calc(100lvh + 600px);
+  position: sticky;
+  top: -300px;
+  height: var(--g_scene_h);
+  margin: calc(-1 * env(safe-area-inset-top, 0px)) 0 calc(-1 * var(--g_scene_h));
+  z-index: -2;   /* under the edge fades (-1), which are under all content */
+  pointer-events: none;
+  background-color: var(--bg);
+  background-image: var(--scene_image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.g-scene::before { content: ""; position: absolute; inset: 0; background: var(--glass_wash); }
+/* The same scene inside a box (the editor preview, the style guide's frames): the box must be position: relative. */
+.g-scene-inline { position: absolute; z-index: 0; top: 0; bottom: 0; height: auto; margin: 0; }
+@media (max-width: 700px) {
+  .g-scene { background-image: var(--scene_image_phone, var(--scene_image)); }
+}
+@media print { .g-scene { display: none; } }
+
+:where(.g-page, .g-scope) a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.g-page h1, .g-page h2, .g-page h3, .g-scope h3 { color: var(--ink); margin: 0 0 .4rem; }
+.g-muted { color: var(--glass_muted); }
+.g-small { font-size: .85em; }
+
+/* ---- the bubble ----------------------------------------------------------------------------------------------------- */
+.g-bubble, .g-dense {
+  position: relative;
+  isolation: isolate;
+  color: var(--ink);
+  padding: 1rem 1.25rem;
+  border-radius: calc(var(--glass_radius) * 1px);
+  -webkit-backdrop-filter: blur(calc(var(--glass_blur) * 1px)) saturate(var(--glass_saturate));
+  backdrop-filter: blur(calc(var(--glass_blur) * 1px)) saturate(var(--glass_saturate));
+  box-shadow: 0 14px 32px -10px var(--glass_shadow), 0 2px 8px var(--glass_shadow);
+}
+/* the tint, at its opacity (a layer of its own, so the opacity never fades the text) */
+.g-bubble::before, .g-dense::before {
+  content: ""; position: absolute; inset: 0; z-index: -2; border-radius: inherit;
+  background: var(--glass_tint); opacity: var(--glass_opacity);
+}
+.g-dense::before { opacity: var(--glass_dense_opacity); }
+/* the faint gloss across the top, and the thin bright edge: brightest along the top, a quieter line all around */
+.g-bubble::after, .g-dense::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(180deg, var(--glass_gloss) 0, transparent 42%);
+  box-shadow: inset 0 1px 0 0 var(--glass_edge), inset 0 0 0 1px color-mix(in srgb, var(--glass_edge) 30%, transparent);
+}
+/* A panel inside a bubble: flat, no blur of its own. The tint only moves the background toward better contrast. */
+.g-well {
+  background: color-mix(in srgb, var(--glass_tint) 45%, transparent);
+  border-radius: calc(var(--glass_radius) * .6px);
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  padding: .75rem 1rem;
+}
+
+/* Where the browser cannot blur, or the device asks for less transparency: solid bubbles over the same scene. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .g-bubble, .g-dense { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .g-bubble::before, .g-dense::before { background: var(--bg); opacity: 1; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .g-bubble, .g-dense { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .g-bubble::before, .g-dense::before { background: var(--bg); opacity: 1; }
+}
+
+/* ---- key figure: the green gradient ------------------------------------------------------------------------------ */
+.g-figure {
+  --fig_from: color-mix(in srgb, var(--accent) 22%, var(--ink));
+  --fig_to: color-mix(in srgb, var(--good) 22%, var(--ink));
+  font-size: 2.5rem; font-weight: 700; line-height: 1.1; letter-spacing: -.02em;
+  background: linear-gradient(135deg, var(--fig_from), var(--fig_to));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+
+/* ---- buttons ------------------------------------------------------------------------------------------------------------ */
+.g-btn {
+  font: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; text-align: center; text-decoration: none;
+  padding: .5rem 1.15rem; border: 1px solid transparent;
+  border-radius: calc(var(--glass_radius) * .5px);
+  transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), background-color .2s ease;
+}
+/* The same response as the side bar items: under the pointer or keyboard focus a button tints toward the olive and grows a little; pressed, it shrinks a touch (the press rule must stay after these two). */
+.g-btn:focus-visible { transform: scale(1.04); }
+@media (hover: hover) { .g-btn:hover { transform: scale(1.04); } }
+.g-btn:active { transform: scale(.97); }
+.g-page .g-btn-primary, .g-scope .g-btn-primary { background: var(--accent); color: var(--on_accent); text-decoration: none; }
+.g-btn-primary:focus-visible { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); }
+@media (hover: hover) { .g-btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); } }
+.g-page .g-btn-secondary, .g-scope .g-btn-secondary {
+  background: color-mix(in srgb, var(--glass_tint) 35%, transparent); color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 75%, var(--ink)); text-decoration: none;
+}
+.g-btn-secondary:focus-visible { background: color-mix(in srgb, var(--accent) 26%, color-mix(in srgb, var(--glass_tint) 50%, transparent)); }
+@media (hover: hover) { .g-btn-secondary:hover { background: color-mix(in srgb, var(--accent) 26%, color-mix(in srgb, var(--glass_tint) 50%, transparent)); } }
+.g-page .g-btn-danger, .g-scope .g-btn-danger {
+  background: color-mix(in srgb, var(--bad) 12%, var(--glass_tint)); color: var(--ink); border-color: var(--bad); text-decoration: none;
+}
+.g-btn-danger:focus-visible { background: var(--bad); color: var(--on_accent); }
+@media (hover: hover) { .g-btn-danger:hover { background: var(--bad); color: var(--on_accent); } }
+.g-btn:focus-visible, .g-input:focus-visible, .g-rail-item:focus-visible, .g-page a:focus-visible {
+  outline: 2px solid var(--ink); outline-offset: 2px;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* ---- form controls: opaque, so the text is always on --bg ------------------------------------------------------------ */
+.g-field { display: flex; flex-direction: column; gap: .25rem; margin-bottom: .7rem; }
+.g-field label { font-size: .85em; color: var(--glass_muted); }
+.g-input {
+  font: inherit; width: 100%; min-height: 2.75rem; padding: .5rem .65rem; color: var(--ink); background: var(--bg);
+  border: 1.5px solid color-mix(in srgb, var(--ink) 55%, transparent); border-radius: calc(var(--glass_radius) * .4px);
+}
+.g-input::placeholder { color: var(--glass_muted); opacity: 1; }
+.g-input:disabled, .g-btn:disabled, .g-btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+.g-input[aria-invalid="true"] { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad); }
+.g-page input[type="checkbox"], .g-page input[type="radio"], .g-scope input[type="checkbox"], .g-scope input[type="radio"] { accent-color: var(--accent); }
+
+/* ---- tag ----------------------------------------------------------------------------------------------------------------- */
+.g-tag {
+  display: inline-block; padding: .12rem .7rem; font-size: .8em; color: var(--ink); background: var(--soft);
+  border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+  border-radius: 999px;
+}
+
+.g-tag.is-done { background: color-mix(in srgb, var(--good) 24%, var(--soft)); }
+.g-tag.is-open { background: color-mix(in srgb, var(--warm) 30%, var(--soft)); }
+
+/* ---- notice -------------------------------------------------------------------------------------------------------------- */
+.g-banner {
+  padding: .6rem .9rem; color: var(--ink); background: color-mix(in srgb, var(--bad) 12%, var(--bg));
+  border: 1px solid var(--bad); border-radius: calc(var(--glass_radius) * .5px);
+}
+
+.g-banner.is-ok { border-color: var(--good); background: color-mix(in srgb, var(--good) 12%, var(--bg)); }
+.g-banner.is-warn { border-color: var(--warm); background: color-mix(in srgb, var(--warm) 16%, var(--bg)); }
+
+/* ---- table: inside ONE .g-dense bubble ---------------------------------------------------------------------------------- */
+.g-table { width: 100%; border-collapse: collapse; }
+.g-table th {
+  text-align: left; font-size: .8em; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--glass_muted); padding: .5rem .6rem; border-bottom: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+}
+.g-table td { padding: .6rem; color: var(--ink); border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); }
+@media (hover: hover) { .g-table tr:hover td { background: color-mix(in srgb, var(--soft) 70%, transparent); } }
+.g-table-wrap { overflow-x: auto; }
+.g-nowrap { white-space: nowrap; }
+
+/* ---- the sidebar's pieces ----------------------------------------------------------------------------------------------- */
+.g-rail { display: flex; flex-direction: column; align-items: center; gap: .35rem; padding: .75rem .5rem; width: 4.25rem; }
+.g-rail-item {
+  display: grid; place-items: center; width: 2.75rem; height: 2.75rem; color: var(--ink); text-decoration: none;
+  border-radius: calc(var(--glass_radius) * .6px);
+  transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), background-color var(--rail_fade, .22s) ease;       /* a soft, slightly springy growth */
+}
+.g-rail-item svg { width: 1.4rem; height: 1.4rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* grows slightly under the pointer and on keyboard focus: a transform, so nothing around it moves */
+.g-rail-item:hover, .g-rail-item:focus-visible { transform: scale(1.16); background: color-mix(in srgb, var(--accent) 26%, color-mix(in srgb, var(--glass_tint) 50%, transparent)); }
+.g-page .g-rail-item[aria-current="page"], .g-scope .g-rail-item[aria-current="page"] { background: var(--accent); color: var(--on_accent); }
+.g-rail-item, .g-side-arrow { -webkit-tap-highlight-color: transparent; }   /* no grey iOS flash behind our own press fill */
+.g-rail-item:active { transform: scale(.94); background: color-mix(in srgb, var(--accent) 44%, color-mix(in srgb, var(--glass_tint) 50%, transparent)); transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), background-color .12s ease; }                 /* touch (and click): a small press instead of the growth */
+@media (hover: none) {
+  .g-rail-item:hover:not(:focus-visible) { transform: none; background: transparent; }
+  .g-rail-item[aria-current="page"]:hover:not(:focus-visible) { background: var(--accent); }
+  .g-side-arrow:hover:not(:focus-visible) { transform: none; background: color-mix(in srgb, var(--glass_tint) 45%, transparent); }
+  .g-side-toggle:checked ~ .g-side .g-rail-item:hover:not(:focus-visible), .g-side-toggle:checked ~ .g-side .g-side-arrow:hover:not(:focus-visible) { transform: none; background: transparent; }
+  /* a finger down is a press, not a hover: it keeps the stronger olive fill (these beat the resets above) */
+  .g-rail-item:hover:active:not(:focus-visible), .g-side-arrow:hover:active:not(:focus-visible),
+  .g-side-toggle:checked ~ .g-side .g-rail-item:hover:active:not(:focus-visible), .g-side-toggle:checked ~ .g-side .g-side-arrow:hover:active:not(:focus-visible) { background: color-mix(in srgb, var(--accent) 44%, color-mix(in srgb, var(--glass_tint) 50%, transparent)); }
+  .g-rail-item:not(:focus-visible), .g-side-arrow:not(:focus-visible) { --rail_fade: .6s; }          /* a finger lifts slowly: the olive press fill fades out over longer than a mouse hover (the press itself still comes on at once) */
+}
+.g-rail-rule { width: 1.75rem; height: 1px; margin: .25rem 0; background: color-mix(in srgb, var(--ink) 20%, transparent); }
+.g-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---- the sidebar: floats on the left at all times; an arrow opens it from icons to icons with titles ------------------------
+ * Markup (no script: the arrow is the label of a checkbox, and the checkbox is the open / closed switch):
+ *   <input type="checkbox" id="g-side-open" class="g-side-toggle" aria-label="Show the menu titles" aria-controls="g-side">
+ *   <nav id="g-side" class="g-bubble g-rail g-side" aria-label="Main menu">
+ *     <label class="g-side-arrow" for="g-side-open"><span class="g-sr-only">Expand or collapse the menu</span><svg>...</svg></label>
+ *     <a class="g-rail-item" href="/page"><svg>...</svg><span class="g-rail-label">Title</span></a> ...
+ *   </nav>
+ * The checkbox and the nav are siblings, outside .g-shell. Put class g-side-pad on <main> so the page keeps clear of the slim bar.
+ * Open, the bar lies over the page (it does not push it). The open / closed choice is not remembered between pages: that needs
+ * a script, which is a later, per-app decision.
+ */
+.g-side-scrim {
+  /* The tap-outside layer. It has no colour and no opacity of its own: an opacity would make it a backdrop root (a blur inside it would see nothing of the page), and a visible colour touching the bottom or top edge made iOS tint its bars from it (the toolbar went opaque black while the menu was open). The dim and the blur are the two pseudo-elements below. */
+  position: fixed; inset: 12px 0; z-index: 19;   /* not quite to the edges: a fixed layer touching the top or bottom edge makes iOS paint its bars opaque */
+  visibility: hidden; pointer-events: none; transition: visibility 0s linear .3s; -webkit-tap-highlight-color: transparent;
+}
+.g-side-toggle:checked ~ .g-side-scrim { visibility: visible; pointer-events: auto; transition-delay: 0s; }
+/* No dim and no blur while the menu is open (owner, 2026-11-16: "strange gray gradient bar near the top when the side bar is open"). The shade eased in from the top
+   edge and the graded blur faded out nine rem down, and together they drew a band under the clock; they were the only layers with an edge. The open bar is glass on its own;
+   the scrim stays as the invisible tap-outside layer. */
+.g-side-toggle { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.g-side {
+  position: fixed; z-index: 20;
+  left: calc(env(safe-area-inset-left, 0px) + .75rem);
+  top: .75rem;       /* pinned to the top; on an iPhone a fixed layer already starts below the status bar */
+  align-items: stretch; gap: .35rem;
+  /* Fully rounded ends: half the slim bar's width, so closed it is a capsule with semicircle ends. Open, the same corner size
+     keeps the arrow and the first and last buttons inside the curve (a half-circle that wide would cut them off). */
+  border-radius: 2.125rem; padding: .875rem .5rem;
+  bottom: .75rem;       /* the whole height of the screen; on a short screen or in landscape the bar scrolls, so nothing is unreachable */
+  overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: none;
+  will-change: width;
+  transition: width .45s cubic-bezier(.4, 0, .2, 1);       /* eased at both ends (a hard start looked like a jump on the phone) */
+  /* A tight shadow that stays inside the .75rem gap above and below the bar (reach 10px, gap 12px). The bubble's own shadow reaches 36px below, and a phone paints a fixed layer only down to its toolbar, so that shadow was cut off in a hard line under the bar. */
+  box-shadow: 0 0 14px -4px var(--glass_shadow), 0 1px 4px var(--glass_shadow);
+}
+.g-side::-webkit-scrollbar { display: none; }
+.g-side-toggle:checked ~ .g-side { width: min(15rem, calc(100vw - 1.5rem - env(safe-area-inset-left, 0px))); }
+.g-side .g-rail-item {
+  display: flex; align-items: center; justify-content: flex-start; gap: .85rem; white-space: nowrap; overflow: hidden;
+  /* the same rule closed and open: slim it comes to a 2.75rem square with the icon centred, open it fills the bar, and the icon
+     never moves, so everything simply follows the bar as it grows (nothing jumps) */
+  width: calc(100% - .5rem); align-self: center; padding: 0 .675rem;
+}
+.g-side .g-rail-item svg { flex: none; }
+/* Open, an item nearly fills the bar (12px each side), so the full growth would push it past the bar's edge: grow less there, which
+   leaves about 8px of glass on each side. Slim, the full growth still leaves about 8px. */
+.g-side-toggle:checked ~ .g-side .g-rail-item:hover, .g-side-toggle:checked ~ .g-side .g-rail-item:focus-visible { transform: scale(1.04); }
+.g-side-toggle:checked ~ .g-side .g-rail-item:active { transform: scale(.97); background: color-mix(in srgb, var(--accent) 44%, color-mix(in srgb, var(--glass_tint) 50%, transparent)); transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), background-color .12s ease; }
+.g-rail-label {
+  max-width: 11rem; opacity: 0; overflow: hidden; text-overflow: ellipsis;
+  transition: opacity .15s ease;                       /* closing: the titles go first (the bar clips them as it narrows; their width is never animated) */
+}
+.g-side-toggle:checked ~ .g-side .g-rail-label {
+  opacity: 1;
+  transition: opacity .3s ease .12s;                    /* opening: they fade in as the bar widens */
+}
+.g-side .g-rail-rule { align-self: center; width: calc(100% - 1rem); }
+/* between the main buttons (top) and the pinned group (bottom): takes up the free height, so the bar can run the whole screen */
+.g-side-spacer { flex: 1 1 auto; min-height: .5rem; }
+.g-side > :not(.g-side-spacer) { flex: none; }      /* on a short screen the buttons keep their size and the bar scrolls, they are never squashed */
+/* the arrow: a small round button when slim; when open it grows into a button the same size and shape as the rest (full width,
+   2.75rem tall), with a title on the left and the arrow, now pointing left, at its right-hand end */
+.g-side-arrow {
+  position: relative; display: block; box-sizing: border-box; width: 2.75rem; height: 2.75rem; align-self: flex-start; margin-bottom: .15rem; cursor: pointer;
+  margin-left: calc(50% - 1.375rem);                    /* closed: centred in the slim bar (a percentage is of the bar's width) */
+  color: var(--ink); border-radius: 1.375rem; border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  background: color-mix(in srgb, var(--glass_tint) 45%, transparent);
+  /* the same press / growth timing as the other buttons (see .g-rail-item), plus the glide into the open shape */
+  transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), background-color var(--rail_fade, .22s) ease, border-color .45s ease,
+    width .45s cubic-bezier(.4, 0, .2, 1), height .45s cubic-bezier(.4, 0, .2, 1), margin-left .45s cubic-bezier(.4, 0, .2, 1), border-radius .45s cubic-bezier(.4, 0, .2, 1);
+}
+.g-side-toggle:checked ~ .g-side .g-side-arrow {
+  width: calc(100% - .5rem); height: 2.75rem; margin-left: .25rem;      /* exactly an item's size, in the same place */
+  border-radius: calc(var(--glass_radius) * .6px);
+  border-color: transparent; background: transparent;                    /* open: no outline and no fill at rest, like the other buttons */
+}
+.g-side-arrow svg {
+  position: absolute; top: 50%; margin-top: -.55rem; right: calc(50% - .55rem);                /* closed: centred */
+  width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform .45s cubic-bezier(.4, 0, .2, 1), right .45s cubic-bezier(.4, 0, .2, 1);
+}
+.g-side-toggle:checked ~ .g-side .g-side-arrow svg { right: calc(.675rem - 1px); transform: rotate(180deg); }   /* the same gap as an icon's, less the 1px border */
+.g-side-arrow .g-rail-label { position: absolute; left: calc(2.925rem - 1px); top: 50%; transform: translateY(-50%); }   /* the same x as the other titles */
+/* open, the arrow button nearly fills the bar like the others, so it grows less on hover (see the items above) */
+.g-side-toggle:checked ~ .g-side .g-side-arrow:hover { transform: scale(1.04); background: color-mix(in srgb, var(--accent) 26%, color-mix(in srgb, var(--glass_tint) 50%, transparent)); }   /* the same hover fill as the other buttons */
+.g-side-toggle:checked ~ .g-side .g-side-arrow:active { transform: scale(.97); background: color-mix(in srgb, var(--accent) 44%, color-mix(in srgb, var(--glass_tint) 50%, transparent)); transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), background-color .12s ease; }
+.g-side-arrow:hover { transform: scale(1.16); background: color-mix(in srgb, var(--accent) 26%, color-mix(in srgb, var(--glass_tint) 50%, transparent)); }       /* the same growth and fill as the other buttons */
+.g-side-arrow:active { transform: scale(.94); background: color-mix(in srgb, var(--accent) 44%, color-mix(in srgb, var(--glass_tint) 50%, transparent)); transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), background-color .12s ease; }
+.g-side-toggle:focus-visible ~ .g-side .g-side-arrow { outline: 2px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 60%, transparent); }
+.g-skip {
+  position: fixed; left: .75rem; top: -5rem; z-index: 40; padding: .6rem 1.1rem; border-radius: 999px; font-weight: 600;
+  background: var(--ink); color: var(--bg); text-decoration: none;
+}
+.g-page .g-skip { color: var(--bg); }
+.g-skip:focus { top: calc(env(safe-area-inset-top, 0px) + .75rem); outline: 2px solid var(--accent); outline-offset: 2px; }
+.g-page [id] { scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 1rem); }
+.g-main.g-side-pad { padding-left: calc(env(safe-area-inset-left, 0px) + 5.5rem); padding-right: calc(env(safe-area-inset-right, 0px) + .75rem); }
+
+@media (prefers-reduced-motion: reduce) {
+  .g-btn, .g-rail-item { transition: none; }
+  .g-rail-item:hover, .g-rail-item:focus-visible { transform: none; }
+  .g-btn:hover, .g-btn:focus-visible { transform: none; }
+  .g-btn:active, .g-rail-item:active { transform: none; }
+  .g-page .g-footbar a, .g-page .g-footbar a:hover, .g-page .g-footbar a:focus-visible, .g-page .g-footbar a:active { transition: none; transform: none; }
+  .g-side, .g-rail-label, .g-side-arrow, .g-side-arrow svg { transition: none; }
+  .g-side-arrow:hover, .g-side-arrow:active { transform: none; }
+  .g-side-scrim, .g-side-scrim::before, .g-side-scrim::after { transition: none; }
+  .g-side-toggle:checked ~ .g-side .g-rail-item:hover, .g-side-toggle:checked ~ .g-side .g-rail-item:focus-visible, .g-side-toggle:checked ~ .g-side .g-rail-item:active,
+  .g-side-toggle:checked ~ .g-side .g-side-arrow:hover, .g-side-toggle:checked ~ .g-side .g-side-arrow:active { transform: none; }
+}
+
+/* the current page is also an outline (colour alone fails 3:1 on some parts of the photo) */
+.g-page .g-rail-item[aria-current="page"], .g-scope .g-rail-item[aria-current="page"] { box-shadow: inset 0 0 0 2px var(--ink); }
+@media (forced-colors: active) {
+  .g-page .g-rail-item[aria-current="page"], .g-scope .g-rail-item[aria-current="page"] { outline: 2px solid Highlight; box-shadow: none; }
+  .g-side { border: 1px solid CanvasText; }
+}
+@media (max-height: 520px) { .g-side { gap: .15rem; padding-block: .5rem; } }                    /* landscape: more of the menu fits before it has to scroll */
+
+/* ---- layout helpers --------------------------------------------------------------------------------------------------------- */
+.g-main { max-width: 1100px; margin: 0 auto; padding: 1rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+.g-main > * { min-width: 0; }
+.g-row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.g-cols { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); }
