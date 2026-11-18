@@ -19,8 +19,14 @@ class OrderRepository(Protocol):
     def set_checkout_session(self, order_id: int, session_id: str) -> None:
         """Remember the provider's checkout session, so the return link can find the order."""
 
-    def record_payment(self, order_id: int, event: PaymentEvent) -> None:
-        """Store what the customer paid and who they are, and move the order to awaiting approval."""
+    def record_payment(self, order_id: int, event: PaymentEvent) -> bool:
+        """Store what the customer paid and who they are, and move the order to awaiting approval, but only if it
+        is still awaiting payment, decided atomically so two servers hearing the same webhook at once cannot both
+        win. Returns whether this call did it."""
+
+    def claim_for_approval(self, order_id: int) -> bool:
+        """Move the order from awaiting approval to approved, atomically. Returns whether this call did it; False
+        means someone else already has (or it was never awaiting approval), so it must not be submitted again."""
 
     def find_fulfilment(self, supplier_order_id: str, order_id: int | None = None,
                         fulfilment_id: int | None = None) -> FulfilmentView | None:

@@ -2,6 +2,8 @@
 order line, and how the customer is told. This is the one place that reads and writes the `shop` order tables
 for the ordering use cases (docs/ARCHITECTURE.md: only persistence may import `shop`)."""
 
+from django.utils import timezone
+
 from shop.emails import send_order_status_update
 from shop.orders import Fulfillment, Order, OrderItem
 from shop.supplier_bridge import line_for, recipient_for
@@ -43,18 +45,20 @@ class DjangoOrderRepository:
         Order.objects.filter(pk=order_id).update(stripe_session_id=session_id)
 
     def record_payment(self, order_id, event):
-        order = Order.objects.get(pk=order_id)
-        order.stripe_session_id = event.session_id
-        order.stripe_payment_intent = event.payment_ref
-        order.email = event.email or order.email
-        order.name = event.name or ""
-        order.shipping_address = event.address or {}
-        order.tax_total = event.tax
-        order.shipping_total = event.shipping
-        order.grand_total = event.total
-        order.items_total = event.items_total
-        order.status = OrderStatus.PENDING_APPROVAL.value
-        order.save()
+        fields = dict(
+            stripe_session_id=event.session_id, stripe_payment_intent=event.payment_ref, name=event.name or "",
+            shipping_address=event.address or {}, tax_total=event.tax, shipping_total=event.shipping,
+            grand_total=event.total, items_total=event.items_total, status=OrderStatus.PENDING_APPROVAL.value,
+            updated=timezone.now(),
+        )
+        if event.email:
+            fields["email"] = event.email
+        # one conditional UPDATE: only the first of two simultaneous webhooks matches the status
+        return Order.objects.filter(pk=order_id, status=OrderStatus.PENDING_PAYMENT.value).update(**fields) == 1
+
+    def claim_for_approval(self, order_id):
+        return Order.objects.filter(pk=order_id, status=OrderStatus.PENDING_APPROVAL.value).update(
+            status=OrderStatus.APPROVED.value, updated=timezone.now()) == 1
 
     def find_fulfilment(self, supplier_order_id, order_id=None, fulfilment_id=None):
         ful = None

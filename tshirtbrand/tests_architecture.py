@@ -14,6 +14,11 @@ from django.test import SimpleTestCase
 
 ROOT_PKG = "tshirtbrand"
 STDLIB = set(sys.stdlib_module_names)
+# Standard-library modules that tie code to one machine or one process. The core must run on any server, so it
+# gets files, time, randomness and shared state only through a port.
+MACHINE_BOUND = {"os", "pathlib", "shutil", "tempfile", "subprocess", "threading", "multiprocessing", "socket",
+                 "sqlite3", "signal", "fcntl", "msvcrt", "ctypes", "sched", "time", "random", "secrets", "uuid",
+                 "logging", "urllib", "http", "smtplib", "ssl", "glob", "fnmatch"}
 REPO = Path(__file__).resolve().parent.parent
 CONSOLE = sorted(p.relative_to(REPO).as_posix() for p in (REPO / "tshirtbrand/entrypoints/console").glob("*.py")
                  if p.name != "__init__.py")
@@ -54,6 +59,8 @@ def _check(layer, context, parts, target):
 
     if layer == "core":
         if not inside:
+            if top in MACHINE_BOUND:
+                return f"core must not assume one machine or process (imports {top!r}); use a port"
             if top in STDLIB:
                 return None
             return f"core must be pure Python (imports {top!r})"
@@ -161,6 +168,13 @@ class CheckerCatchesEachRule(SimpleTestCase):
     def test_core_must_not_import_frameworks_or_vendors(self):
         for line in ("import django", "from django.db import models", "import stripe", "import requests", "from PIL import Image"):
             self.assertEqual(len(self.run_tree({"core/catalogue/model.py": line + "\n"})), 1, line)
+
+    def test_core_must_not_assume_a_local_disk_a_clock_or_one_process(self):
+        for line in ("import os", "from pathlib import Path", "import time", "import threading", "import random",
+                     "import sqlite3", "import subprocess", "import socket", "import tempfile", "import uuid"):
+            self.assertEqual(len(self.run_tree({"core/ordering/usecases.py": line + "\n"})), 1, line)
+        for line in ("import dataclasses", "from decimal import Decimal", "import re", "import json", "import enum"):
+            self.assertEqual(self.run_tree({"core/ordering/usecases.py": line + "\n"}), [], line)
 
     def test_core_must_not_import_shop_adapters_or_entrypoints(self):
         for line in ("import shop.models", "from tshirtbrand.adapters import x", "from tshirtbrand.entrypoints import x"):

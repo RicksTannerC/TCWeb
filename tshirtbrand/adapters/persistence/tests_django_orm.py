@@ -57,6 +57,28 @@ class OrderRepositoryTests(TestCase):
         self.assertEqual(self.repo.order(order_id).payment_ref, "pi_1")
         self.assertEqual(self.repo.order(order_id).recipient.address1, "1 Main")
 
+    def test_only_the_first_of_two_payment_confirmations_wins(self):
+        order_id = self.place()
+        event = PaymentEvent(PaymentEventKind.PAID, str(order_id), "cs_1", "pi_1", email="b@b.test", total=Decimal("80"))
+        self.assertTrue(self.repo.record_payment(order_id, event))
+        later = PaymentEvent(PaymentEventKind.PAID, str(order_id), "cs_2", "pi_2", email="c@b.test", total=Decimal("1"))
+        self.assertFalse(self.repo.record_payment(order_id, later))
+        order = Order.objects.get(pk=order_id)
+        self.assertEqual((order.stripe_session_id, order.email, order.grand_total), ("cs_1", "b@b.test", Decimal("80")))
+
+    def test_a_payment_without_an_email_keeps_the_one_we_have(self):
+        order_id = self.place()
+        self.repo.record_payment(order_id, PaymentEvent(PaymentEventKind.PAID, str(order_id), "cs", "pi", total=Decimal("80")))
+        self.assertEqual(Order.objects.get(pk=order_id).email, "a@b.test")
+
+    def test_only_the_first_claim_for_approval_wins(self):
+        order_id = self.place()
+        self.assertFalse(self.repo.claim_for_approval(order_id))           # still awaiting payment
+        Order.objects.filter(pk=order_id).update(status=O.PENDING_APPROVAL.value)
+        self.assertTrue(self.repo.claim_for_approval(order_id))
+        self.assertFalse(self.repo.claim_for_approval(order_id))
+        self.assertEqual(Order.objects.get(pk=order_id).status, "approved")
+
     def test_an_unknown_order_is_a_lookup_error(self):
         with self.assertRaises(LookupError):
             self.repo.order(999)

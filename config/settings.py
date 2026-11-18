@@ -112,6 +112,13 @@ DATABASES = {
     )
 }
 
+# --- Cache -------------------------------------------------------------
+# Per-process memory by default (fine for one server). With more than one server, point every one of them at the
+# same cache (CACHE_URL=redis://host:6379/1, or dbcache://shop_cache after `manage.py createcachetable`). It only
+# holds things that are safe to lose and to recompute (the print supplier's catalogue); sessions, login lockouts
+# and orders are all in the database, so nothing here has to be shared for the site to be correct.
+CACHES = {"default": env.cache_url("CACHE_URL", default="locmemcache://")}
+
 # --- Auth ------------------------------------------------------------
 
 AUTH_PASSWORD_VALIDATORS = [

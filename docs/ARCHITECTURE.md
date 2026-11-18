@@ -1,7 +1,8 @@
 # Architecture: ports and adapters
 
-Status: **plan, adopted 2026-11-17**. Only the skeleton and the boundary test exist so far. The migration
-order at the bottom says how the rest arrives, one slice at a time, with the shop live throughout.
+Status: **built, 2026-11-17 to 2026-11-18.** Every step of the migration order below is done and the shop runs on it.
+The boundary test (`tshirtbrand/tests_architecture.py`) enforces the rules and keeps each moved slice from sliding
+back. What is deliberately left is listed under each step as "left for later".
 
 ## Why
 
@@ -129,7 +130,10 @@ with the console entry point.
    `entrypoints/webhooks/`; `shop/views.py` is gone and `shop/urls.py` only composes entry points. Public paths and
    provider-registered URLs are pinned by a test. *Left for later:* the supplier webhook secret is still derived in
    `shop/printful.py`; the templates and static files stay in the `shop` app.
-9. **Multi-server readiness:** storage, cache, sessions, jobs behind ports; idempotent webhooks.
+9. **Multi-server readiness: DONE 2026-11-18.** See "Running on more than one server" below. The two places two
+   servers could both act on the same thing (a payment confirmed twice, an order approved twice) are now single
+   conditional database updates, the core is barred from assuming a disk, clock or process, and the cache is a
+   setting (`CACHE_URL`).
 
 Each step is its own set of commits, deployable on its own. If a step turns out to be wrong, it is reverted
 without touching the others.
@@ -140,3 +144,21 @@ without touching the others.
 - The live database and `D:\TCData` are never touched by a refactor step; back up before any real migration.
 - Credentials stay behind the owner's rule: nothing calls Printful, Stripe or any other credentialed service
   without a fresh yes. Contract tests use stubbed transports, never live calls.
+
+## Running on more than one server
+
+Nothing in the core assumes one machine (the boundary test bars it from the file system, clock, randomness, threads,
+sockets and SQLite). What a second server needs is configuration, not code:
+
+| Concern | Where it lives | To run several servers |
+|---|---|---|
+| Orders, listings, sessions, login lockouts, 2FA | the database | `DATABASE_URL=postgres://...` for all of them (SQLite is one machine's file). Restore a backup to Postgres first; this is a data migration the owner approves. |
+| Public images and private print-ready originals | Django `STORAGES` / `PRIVATE_MEDIA_ROOT` (a local folder today) | a shared volume, or an object-store backend: the models only use Django's file API, and the private originals are fetched through `PrivateMediaStorage` in `shop/storage.py`, the one place to swap. |
+| Print supplier catalogue cache | `CACHES` (`CACHE_URL`) | optional: per-process memory is correct, just slower on a cold server. Share one (Redis or a database cache table) to warm them together. |
+| Payment confirmations | `OrderRepository.record_payment` | already safe: a single conditional `UPDATE ... WHERE status='pending_payment'`, so if Stripe's webhook reaches two servers only one confirms the order and sends the email. |
+| Approving an order | `OrderRepository.claim_for_approval` | already safe: the claim is a conditional `UPDATE`, so two clicks (or two servers) never submit the same order to the supplier twice. |
+| Supplier news | `OrderDesk.apply_event` | already safe to repeat: events set a status, and the roll-up only emails when the order's status actually changes. |
+| Background work | none | the site does no background work today (webhooks are handled in the request, backups are a scheduled task). If a queue is ever added it gets a port first. |
+| Webhook secrets | `STRIPE_WEBHOOK_SECRET`, the URL token derived from `SECRET_KEY` | every server must have the same values. |
+
+Not yet safe to repeat (curator-only, rare): two simultaneous *reprints* of one fulfilment create two replacements.

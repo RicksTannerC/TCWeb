@@ -50,8 +50,7 @@ class OrderDesk:
             return None, False
         if order.status != OrderStatus.PENDING_PAYMENT:
             return order.id, False  # already handled
-        self.orders.record_payment(order.id, event)
-        return order.id, True
+        return order.id, self.orders.record_payment(order.id, event)   # False when another server got there first
 
     # ---- approve & submit
 
@@ -59,7 +58,8 @@ class OrderDesk:
         """The curator approved the order: create the fulfilment and send it to the supplier. A supplier that
         refuses leaves a fulfilment in Problem and the order Approved (not cleanly submitted), with the reason."""
         order = self.orders.order(order_id)
-        if order.status != O.PENDING_APPROVAL:
+        # Claim it before anything is sent: two clicks, or two servers, must never both submit the same order.
+        if not self.orders.claim_for_approval(order_id):
             raise ValueError(f"Order {order.reference} is not awaiting approval.")
 
         # One fulfilment per supplier. Launch is single-supplier, so one group.

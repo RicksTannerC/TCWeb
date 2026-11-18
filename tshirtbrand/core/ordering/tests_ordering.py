@@ -105,8 +105,17 @@ class MemoryOrders:
         self.session_id = session_id
 
     def record_payment(self, order_id, event):
+        if self.status != O.PENDING_PAYMENT:
+            return False
         self.paid_by = event
         self.status = O.PENDING_APPROVAL
+        return True
+
+    def claim_for_approval(self, order_id):
+        if self.status != O.PENDING_APPROVAL:
+            return False
+        self.status = O.APPROVED
+        return True
 
     def find_fulfilment(self, supplier_order_id, order_id=None, fulfilment_id=None):
         if supplier_order_id:
@@ -185,6 +194,11 @@ class PlaceAndPayTests(DeskCase):
         self.assertEqual(self.book.status, O.PENDING_APPROVAL)
         self.assertEqual(self.desk.confirm_payment(self.paid()), (1, False))   # the provider told us twice
 
+    def test_when_another_server_wins_the_race_this_one_is_not_a_new_confirmation(self):
+        self.desk.place_order("a@b.test", [self.item(1, "40")])
+        self.book.record_payment = lambda order_id, event: False   # the other server's UPDATE got there first
+        self.assertEqual(self.desk.confirm_payment(self.paid()), (1, False))
+
     def test_a_payment_for_nothing_of_ours_is_ignored(self):
         self.assertEqual(self.desk.confirm_payment(self.paid("not-a-number")), (None, False))
 
@@ -202,6 +216,16 @@ class ApproveTests(DeskCase):
         self.assertEqual((ful.status, ful.supplier, ful.item_ids), (F.SUBMITTED, "memory", (101, 102)))
         self.assertTrue(ful.supplier_order_id)
         self.assertEqual((self.book.status, self.book.note), (O.SUBMITTED, "ok to go"))
+
+    def test_a_second_approval_of_the_same_order_sends_nothing(self):
+        self.desk.approve_and_submit(1)
+        submitted = len(self.supplier.orders)
+        self.book.status = O.PENDING_APPROVAL      # a stale second click still sees the old page
+        self.book.claim_for_approval = lambda order_id: False   # but the other click already claimed it
+        with self.assertRaisesMessage(ValueError, "is not awaiting approval"):
+            self.desk.approve_and_submit(1)
+        self.assertEqual(len(self.supplier.orders), submitted)
+        self.assertEqual(len(self.book.fulfilments), 1)
 
     def test_only_an_order_awaiting_approval_can_be_approved(self):
         self.book.status = O.SHIPPED

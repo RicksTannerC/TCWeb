@@ -11,6 +11,24 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-18 — Step 9 of the restructure: ready for more than one server (nothing deployed)
+
+- **What:** the two places two servers could both act on the same thing are now one atomic database update each:
+  confirming a payment (`record_payment` only matches an order still awaiting payment, so a webhook delivered to two
+  servers confirms the order and sends the email once) and approving an order (`claim_for_approval` moves it to
+  Approved before anything is sent, so two clicks or two servers never submit the same order to the supplier twice;
+  Approved is also the state a refused submission was already left in, so the failure path is unchanged). The
+  boundary test now bars the core from the file system, clock, randomness, threads, sockets and SQLite, so it cannot
+  quietly start assuming one machine. The cache is a setting (`CACHE_URL`, default per-process memory, same as
+  before). `docs/ARCHITECTURE.md` has a table of what lives where and what a second server needs.
+- **Not changed:** no storage move, no database move, no new service. Sessions, login lockouts and 2FA were already
+  in the database; the only per-process state is the supplier catalogue cache, which is safe to lose.
+- **Verified:** 798 tests OK, including tests that the second of two confirmations (and the second of two
+  approvals) is refused at the repository and handled by the use case; no migrations.
+- **Known gap:** two simultaneous reprints of one fulfilment create two replacements (curator-only, rare).
+
+---
+
 ## 2026-11-18 — Step 8 of the restructure: the storefront and the webhooks are entry points
 
 - **What:** `shop/views.py` (the whole public site) is now `tshirtbrand/entrypoints/storefront/` (`pages`, `catalogue`,
