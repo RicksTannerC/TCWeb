@@ -4,7 +4,7 @@ from django.urls import include, path
 
 from shop.public_media import media_patterns
 from shop.sitemaps import SITEMAPS
-from shop.views import robots_txt
+from tshirtbrand.entrypoints.storefront.pages import robots_txt
 
 urlpatterns = [
     path("admin/", admin.site.urls),

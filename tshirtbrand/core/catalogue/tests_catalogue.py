@@ -39,6 +39,9 @@ class KindTests(SimpleTestCase):
     def test_the_kinds_the_shop_sells(self):
         self.assertEqual(sorted(api.KINDS), ["mug", "sticker", "sweatshirt", "tee"])
 
+    def test_only_tees_have_their_own_cards_in_the_shop_grid_today(self):
+        self.assertEqual(api.storefront_kinds(), ["tee"])
+
     def test_a_stickers_page_slug_is_marked(self):
         self.assertEqual(api.kind_for("sticker").slug_suffix, "-sticker")
         self.assertEqual(api.kind_for("tee").slug_suffix, "")

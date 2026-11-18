@@ -27,17 +27,23 @@ class ProductKind:
     slug_suffix: str = ""             # added to a listing's page slug, e.g. "-sticker"
     price_ceiling: Decimal | None = None   # a suggested price above this is flagged on its template
     pricing: PricingRule = STANDARD_PRICING
+    on_storefront: bool = False       # gets its own cards and pages in the shop grid and the sitemap
 
 
 KINDS = {
     k.code: k
     for k in (
-        ProductKind("tee", "T-shirt", price_ceiling=Decimal("40")),
+        ProductKind("tee", "T-shirt", price_ceiling=Decimal("40"), on_storefront=True),
         ProductKind("sticker", "Sticker", slug_suffix="-sticker"),
         ProductKind("sweatshirt", "Sweatshirt"),
         ProductKind("mug", "Mug"),
     )
 }
+
+
+def storefront_kinds():
+    """The stored codes of the product kinds the shop grid and the sitemap show."""
+    return [k.code for k in KINDS.values() if k.on_storefront]
 
 
 def kind_for(code):

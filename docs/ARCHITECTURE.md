@@ -125,7 +125,10 @@ with the console entry point.
    library. The new console design replaces these modules and their templates when the charter arrives.
    *Left for later:* the templates still live under `shop/templates/shop/manage/`; the console's read-only
    display queries still use the models directly.
-8. **Storefront entry point.**
+8. **Storefront and webhook entry points: DONE 2026-11-18.** `entrypoints/storefront/` and
+   `entrypoints/webhooks/`; `shop/views.py` is gone and `shop/urls.py` only composes entry points. Public paths and
+   provider-registered URLs are pinned by a test. *Left for later:* the supplier webhook secret is still derived in
+   `shop/printful.py`; the templates and static files stay in the `shop` app.
 9. **Multi-server readiness:** storage, cache, sessions, jobs behind ports; idempotent webhooks.
 
 Each step is its own set of commits, deployable on its own. If a step turns out to be wrong, it is reverted

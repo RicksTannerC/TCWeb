@@ -1,8 +1,10 @@
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 
+from tshirtbrand.core.catalogue.api import storefront_kinds
+
 from .console import Page
-from .models import Listing, ProductType, Status
+from .models import Listing, Status
 
 
 class StaticSitemap(Sitemap):
@@ -21,7 +23,7 @@ class ListingSitemap(Sitemap):
     changefreq = "weekly"
 
     def items(self):
-        return Listing.objects.filter(status=Status.LIVE, product_type=ProductType.TEE)
+        return Listing.objects.filter(status=Status.LIVE, product_type__in=storefront_kinds())
 
     def lastmod(self, obj):
         return obj.updated

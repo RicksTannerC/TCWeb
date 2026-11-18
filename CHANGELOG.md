@@ -11,6 +11,24 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-18 — Step 8 of the restructure: the storefront and the webhooks are entry points
+
+- **What:** `shop/views.py` (the whole public site) is now `tshirtbrand/entrypoints/storefront/` (`pages`, `catalogue`,
+  `cart`, `checkout`, `customers`) and `tshirtbrand/entrypoints/webhooks/` (`payments`, `suppliers`: the payment
+  confirmation, the print supplier's news and the signed artwork links the supplier fetches), each with its own URL
+  table; `shop/urls.py` only composes the three entry points. Functions moved unchanged; each module's imports were
+  rebuilt from what it uses. Which kinds of product get cards and pages in the shop grid and the sitemap is now a
+  fact on the product kind (`on_storefront`, tees today) instead of a hard-coded "tee" in two places.
+- **Not moved:** every public path, including `/webhooks/stripe/`, `/webhooks/printful/<token>/` and the artwork
+  links, is unchanged (a test pins them), so nothing registered at Stripe or the print supplier needs touching.
+- **Verified:** 792 tests OK; a URL-table test for the public site and the webhooks; the boundary test applies the
+  same rules to these modules (core only through `api`, no vendor SDKs, no image library, no Stripe wire names);
+  no migrations.
+- **Follow-ups:** the supplier webhook's secret in the URL still comes from `shop/printful.py` (it is derived from the
+  site secret; moving it means choosing how the supplier registers its URL); templates stay in `shop/templates/`.
+
+---
+
 ## 2026-11-18 — Step 7 of the restructure: the console is its own entry point, one module per area
 
 - **What:** the 1,300-line `shop/console_views.py` and the order desk in `shop/manage_views.py` are now

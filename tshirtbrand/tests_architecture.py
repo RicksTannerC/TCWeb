@@ -17,6 +17,8 @@ STDLIB = set(sys.stdlib_module_names)
 REPO = Path(__file__).resolve().parent.parent
 CONSOLE = sorted(p.relative_to(REPO).as_posix() for p in (REPO / "tshirtbrand/entrypoints/console").glob("*.py")
                  if p.name != "__init__.py")
+STOREFRONT = sorted(p.relative_to(REPO).as_posix() for sub in ("storefront", "webhooks")
+                    for p in (REPO / "tshirtbrand/entrypoints" / sub).glob("*.py") if p.name != "__init__.py")
 
 
 def _module_parts(path, root):
@@ -255,7 +257,7 @@ class SliceStaysClean(SimpleTestCase):
 class PaymentsSliceStaysClean(SimpleTestCase):
     """Step 3, payments: the shop talks to its payment provider only through tshirtbrand.core.payments."""
 
-    CLEAN = ["shop/payments.py", "shop/views.py", *CONSOLE, "shop/fulfillment.py",
+    CLEAN = ["shop/payments.py", *STOREFRONT, *CONSOLE, "shop/fulfillment.py",
              "shop/orders.py", "shop/cart.py", "shop/emails.py", "shop/admin.py"]
 
     def test_no_stripe_sdk_or_adapter_in_the_shop(self):
@@ -307,7 +309,7 @@ class OrderingSliceStaysClean(SimpleTestCase):
             self.assertFalse(word in text, f"shop/fulfillment.py mentions {word!r}")
 
     def test_the_status_rules_are_not_restated_elsewhere_in_the_shop(self):
-        for rel in (*CONSOLE, "shop/views.py"):
+        for rel in (*CONSOLE, *STOREFRONT):
             text = (REPO / rel).read_text(encoding="utf-8")
             for word in ("_address_looks_complete", "def _rollup", "should_hold"):
                 self.assertFalse(word in text, f"{rel} restates {word!r}")
@@ -317,7 +319,7 @@ class CatalogueSliceStaysClean(SimpleTestCase):
     """Step 4, catalogue and pricing: the pricing rule and per-kind facts live in tshirtbrand.core.catalogue."""
 
     def test_the_old_pricing_constants_and_ceiling_are_gone_from_the_django_app(self):
-        for rel in ("shop/models.py", *CONSOLE, "shop/views.py"):
+        for rel in ("shop/models.py", *CONSOLE, *STOREFRONT):
             text = (REPO / rel).read_text(encoding="utf-8")
             for word in ("PRICING_MULTIPLIER", "PRICING_GUARDRAIL", "TEE_CEILING"):
                 self.assertFalse(word in text, f"{rel} still mentions {word!r}")
@@ -334,7 +336,7 @@ class ArtworkSliceStaysClean(SimpleTestCase):
     """Step 2, artwork and print layout: layout maths and image handling live in tshirtbrand.core.artwork and
     the imaging adapter, so the Django app neither does the maths nor touches an image library."""
 
-    NO_IMAGE_LIBRARY = ["shop/models.py", "shop/views.py", "shop/supplier_bridge.py", "shop/listing_sync.py",
+    NO_IMAGE_LIBRARY = ["shop/models.py", *STOREFRONT, "shop/supplier_bridge.py", "shop/listing_sync.py",
                         "shop/printful_delivery.py"]
     OLD_NAMES = ("placement_payload", "print_file_payload", "print_file_entries", "POSITION_OFFSETS = ")
 

@@ -6,7 +6,7 @@ from .console import Page
 
 
 def cart(request):
-    from .views import checkout_open
+    from tshirtbrand.entrypoints.storefront.checkout import checkout_open
 
     c = Cart(request)
     return {"cart": c, "cart_count": len(c), "checkout_open": checkout_open()}
