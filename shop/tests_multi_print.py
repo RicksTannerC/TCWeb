@@ -14,9 +14,11 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 
 from . import listing_sync, printful
-from .supplier_bridge import line_for
+from tshirtbrand.core.artwork.api import plan_layout
+
+from .supplier_bridge import line_for, print_files_for
 from .models import (
-    Design, Listing, ListingPrint, ListingSize, PrintPlacement, PrintPosition, ProductTemplate, placement_payload,
+    Design, Listing, ListingPrint, ListingSize, PrintPlacement, PrintPosition, ProductTemplate,
 )
 
 def _png():
@@ -34,29 +36,29 @@ PNG = _png()
 
 class PayloadMathTests(TestCase):
     def test_default_is_just_the_placement(self):
-        self.assertEqual(placement_payload("back", 100, PrintPosition.CENTER), {"type": "back"})
+        self.assertIsNone(plan_layout(100, PrintPosition.CENTER))
 
     def test_small_scale_gets_a_position_box(self):
-        p = placement_payload("front", 30, PrintPosition.CENTER)["position"]
-        self.assertEqual((p["area_width"], p["area_height"]), (1800, 2400))
-        self.assertEqual((p["width"], p["height"]), (540, 540))  # 30% of the width, square art
+        p = plan_layout(30, PrintPosition.CENTER)
+        self.assertEqual((p.area_width, p.area_height), (1800, 2400))
+        self.assertEqual((p.width, p.height), (540, 540))  # 30% of the width, square art
 
     def test_the_box_never_leaves_the_print_area(self):
         for pos in PrintPosition.values:
             for scale in (25, 30, 50, 75, 99):
-                p = placement_payload("front", scale, pos)["position"]
-                self.assertGreaterEqual(p["top"], 0, (pos, scale))
-                self.assertGreaterEqual(p["left"], 0, (pos, scale))
-                self.assertLessEqual(p["top"] + p["height"], p["area_height"], (pos, scale))
-                self.assertLessEqual(p["left"] + p["width"], p["area_width"], (pos, scale))
+                p = plan_layout(scale, pos)
+                self.assertGreaterEqual(p.top, 0, (pos, scale))
+                self.assertGreaterEqual(p.left, 0, (pos, scale))
+                self.assertLessEqual(p.top + p.height, p.area_height, (pos, scale))
+                self.assertLessEqual(p.left + p.width, p.area_width, (pos, scale))
 
     def test_upper_presets_sit_in_the_upper_corners(self):
-        ul = placement_payload("front", 30, PrintPosition.TOP_LEFT)["position"]
-        ur = placement_payload("front", 30, PrintPosition.TOP_RIGHT)["position"]
-        self.assertLess(ul["left"], ur["left"])
-        self.assertEqual(ul["top"], ur["top"])
-        self.assertLess(ul["top"] + ul["height"] / 2, ul["area_height"] / 2)  # above the vertical middle
-        self.assertLess(ul["left"] + ul["width"] / 2, ul["area_width"] / 2)  # left of the horizontal middle
+        ul = plan_layout(30, PrintPosition.TOP_LEFT)
+        ur = plan_layout(30, PrintPosition.TOP_RIGHT)
+        self.assertLess(ul.left, ur.left)
+        self.assertEqual(ul.top, ur.top)
+        self.assertLess(ul.top + ul.height / 2, ul.area_height / 2)  # above the vertical middle
+        self.assertLess(ul.left + ul.width / 2, ul.area_width / 2)  # left of the horizontal middle
 
 
 class PrivateBase(TestCase):
@@ -92,48 +94,48 @@ class PrivateBase(TestCase):
 
 class EntriesTests(PrivateBase):
     def test_a_listing_with_no_extras_sends_one_file(self):
-        entries = self.listing().print_file_entries()
-        self.assertEqual([e["type"] for e in entries], ["back"])
+        entries = print_files_for(self.listing())
+        self.assertEqual([e.placement for e in entries], ["back"])
 
     def test_main_and_extra_each_get_their_own_type_position_and_artwork_link(self):
         listing = self.listing(placement="back")
         logo = self.design("Logo")
         ListingPrint.objects.create(listing=listing, placement="front", design=logo, scale_pct=30,
                                     position=PrintPosition.TOP_LEFT)
-        main, extra = listing.print_file_entries()
-        self.assertEqual((main["type"], extra["type"]), ("back", "front"))
-        self.assertNotIn("position", main)
-        self.assertNotIn("position", extra)  # placed in the print file itself
+        main, extra = print_files_for(listing)
+        self.assertEqual((main.placement, extra.placement), ("back", "front"))
+        self.assertIsNone(main.box)
+        self.assertIsNone(extra.box)  # placed in the print file itself
         from .tests_print_area import box_of
         self.assertEqual(box_of(extra)[4], 540)
-        self.assertNotEqual(main["url"], extra["url"])
-        self.assertIn(f"/{logo.pk}/", extra["url"])
-        self.assertIn(f"/{listing.design.pk}/", main["url"])
+        self.assertNotEqual(main.url, extra.url)
+        self.assertIn(f"/{logo.pk}/", extra.url)
+        self.assertIn(f"/{listing.design.pk}/", main.url)
 
     def test_extra_without_its_own_design_reuses_the_main_artwork(self):
         listing = self.listing(placement="back")
         ListingPrint.objects.create(listing=listing, placement="front", scale_pct=30)
-        main, extra = listing.print_file_entries()
-        self.assertIn(f"/{listing.design.pk}/", extra["url"])
+        main, extra = print_files_for(listing)
+        self.assertIn(f"/{listing.design.pk}/", extra.url)
 
     def test_an_extra_whose_design_has_no_artwork_is_skipped(self):
         listing = self.listing(placement="back")
         ListingPrint.objects.create(listing=listing, placement="front", design=self.design("Empty", art=False))
-        self.assertEqual([e["type"] for e in listing.print_file_entries()], ["back"])
+        self.assertEqual([e.placement for e in print_files_for(listing)], ["back"])
 
     def test_an_extra_clashing_with_the_main_placement_is_never_sent(self):
         listing = self.listing(placement="back")
         ListingPrint.objects.create(listing=listing, placement="front", scale_pct=30)
         listing.print_placement = "front"  # main moves onto the extra's side
         listing.save()
-        self.assertEqual([e["type"] for e in listing.print_file_entries()], ["front"])
+        self.assertEqual([e.placement for e in print_files_for(listing)], ["front"])
         self.assertEqual(len(listing.print_conflicts), 1)
 
     def test_the_artwork_links_actually_serve_each_file(self):
         listing = self.listing(placement="back")
         ListingPrint.objects.create(listing=listing, placement="front", design=self.design("Logo"))
-        for e in listing.print_file_entries():
-            r = Client().get(urlsplit(e["url"]).path)
+        for e in print_files_for(listing):
+            r = Client().get(urlsplit(e.url).path)
             self.assertEqual(r.status_code, 200)
             r.close()
 

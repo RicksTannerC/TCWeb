@@ -15,3 +15,10 @@ def get_supplier():
     from tshirtbrand.adapters.suppliers.printful.supplier import PrintfulSupplier
 
     return PrintfulSupplier(printful.get_client(), cache=cache)
+
+
+def get_image_tool():
+    """The image tool the artwork context uses to measure and place print files."""
+    from tshirtbrand.adapters.imaging.pillow.tool import PillowImageTool
+
+    return PillowImageTool()

@@ -17,13 +17,25 @@ def recipient_for(order):
 
 
 def print_files_for(listing):
-    """The listing's print areas (main first) as neutral files."""
+    """The listing's print areas (main first) as neutral files, each with its own freshly signed artwork link.
+
+    A positioned raster print is built into the file itself: the link serves a full-print-area image with the
+    art already placed, because Printful ignores the `position` of a store product's file and centres it.
+    SVG art can't be composed here, so it goes with a box for the supplier to place (best effort). An area
+    whose design has no artwork is skipped."""
+    from .printful_delivery import build_delivery_url
+
     out = []
-    for entry in listing.print_file_entries():
-        pos = entry.get("position")
-        box = PrintBox(area_width=pos["area_width"], area_height=pos["area_height"], left=pos["left"],
-                       top=pos["top"], width=pos["width"], height=pos["height"]) if pos else None
-        out.append(PrintFile(placement=entry["type"], url=entry["url"], box=box))
+    for design, placement, layout in listing.print_jobs():
+        composed = layout is not None and design.can_compose
+        url = build_delivery_url(design, layout=layout if composed else None) if composed else design.print_file_url
+        if not url:
+            continue
+        box = None
+        if layout is not None and not composed:
+            box = PrintBox(area_width=layout.area_width, area_height=layout.area_height, left=layout.left,
+                           top=layout.top, width=layout.width, height=layout.height)
+        out.append(PrintFile(placement=placement, url=url, box=box))
     return tuple(out)
 
 

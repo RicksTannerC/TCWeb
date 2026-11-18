@@ -30,45 +30,44 @@ def make_listing(scale=100, position=PrintPosition.CENTER, placement=PrintPlacem
 class PrintFilePayloadTests(TestCase):
     def test_default_scale_and_center_is_just_the_placement_no_position_math(self):
         listing = make_listing()
-        self.assertEqual(listing.print_file_payload(), {"type": "front"})
+        self.assertIsNone(listing.main_layout())
 
     def test_uses_the_templates_placement(self):
         listing = make_listing(placement=PrintPlacement.BACK)
-        self.assertEqual(listing.print_file_payload()["type"], "back")
+        self.assertEqual(listing.effective_print_placement, "back")
 
     def test_smaller_scale_adds_a_position_object(self):
         listing = make_listing(scale=50)
-        payload = listing.print_file_payload()
-        self.assertIn("position", payload)
-        pos = payload["position"]
-        self.assertEqual(pos["width"], pos["height"])
-        self.assertEqual(pos["width"], round(pos["area_width"] * 0.5))
+        pos = listing.main_layout()
+        self.assertIsNotNone(pos)
+        self.assertEqual(pos.width, pos.height)
+        self.assertEqual(pos.width, round(pos.area_width * 0.5))
 
     def test_center_is_actually_centered(self):
         listing = make_listing(scale=50, position=PrintPosition.CENTER)
-        pos = listing.print_file_payload()["position"]
-        self.assertEqual(pos["left"] + pos["width"] / 2, pos["area_width"] / 2)
-        self.assertEqual(pos["top"] + pos["height"] / 2, pos["area_height"] / 2)
+        pos = listing.main_layout()
+        self.assertEqual(pos.left + pos.width / 2, pos.area_width / 2)
+        self.assertEqual(pos.top + pos.height / 2, pos.area_height / 2)
 
     def test_higher_moves_up_lower_moves_down(self):
-        higher = make_listing(scale=50, position=PrintPosition.HIGHER).print_file_payload()["position"]
-        lower = make_listing(scale=50, position=PrintPosition.LOWER).print_file_payload()["position"]
-        self.assertLess(higher["top"], lower["top"])
+        higher = make_listing(scale=50, position=PrintPosition.HIGHER).main_layout()
+        lower = make_listing(scale=50, position=PrintPosition.LOWER).main_layout()
+        self.assertLess(higher.top, lower.top)
 
     def test_left_and_right_move_the_expected_direction(self):
-        left = make_listing(scale=50, position=PrintPosition.LEFT).print_file_payload()["position"]
-        right = make_listing(scale=50, position=PrintPosition.RIGHT).print_file_payload()["position"]
-        self.assertLess(left["left"], right["left"])
+        left = make_listing(scale=50, position=PrintPosition.LEFT).main_layout()
+        right = make_listing(scale=50, position=PrintPosition.RIGHT).main_layout()
+        self.assertLess(left.left, right.left)
 
     def test_scale_stored_out_of_range_is_still_clamped_at_payload_time(self):
         listing = make_listing(scale=100)
         listing.print_scale_pct = 5  # bypasses the view's own clamp, e.g. set directly
-        payload = listing.print_file_payload()
-        self.assertEqual(payload["position"]["width"], round(payload["position"]["area_width"] * 0.25))
+        pos = listing.main_layout()
+        self.assertEqual(pos.width, round(pos.area_width * 0.25))
 
     def test_full_scale_but_off_center_still_gets_a_position(self):
         listing = make_listing(scale=100, position=PrintPosition.HIGHER)
-        self.assertIn("position", listing.print_file_payload())
+        self.assertIsNotNone(listing.main_layout())
 
 
 class SyncPayloadIncludesPositioningTests(TestCase):

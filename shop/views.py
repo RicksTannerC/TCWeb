@@ -309,21 +309,22 @@ def printful_artwork(request, pk, token):
     """Serve a design's private original to Printful's servers via a signed,
     expiring link (see printful_delivery.py). Deliberately not staff-only:
     Printful can't sign in, so the token itself is the only gate."""
-    from .print_files import compose
+    from tshirtbrand.bootstrap import get_image_tool
+
     from .printful_delivery import verify_link
 
     found = verify_link(pk, token)
     if found is None:
         raise Http404("This link is invalid or has expired.")
-    design, box = found
+    design, layout = found
     try:
         handle = design.artwork.open("rb")
     except FileNotFoundError:
         raise Http404("The artwork file is missing.")
-    if box:
+    if layout:
         try:
             with handle:
-                png = compose(handle, box)
+                png = get_image_tool().compose(handle.read(), layout)
         except (ValueError, OSError):
             raise Http404("The artwork couldn't be placed.")
         response = HttpResponse(png, content_type="image/png")

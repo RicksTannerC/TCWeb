@@ -11,6 +11,29 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-17 — Step 2 of the restructure: print layout and image handling leave the models
+
+- **What:** where a print sits on its print area is now pure code in `tshirtbrand.core.artwork`: `plan_layout`
+  (scale + position preset + the real print-area size + the art's shape -> a `Layout` box, or None when the print
+  is full size and centred), `print_signature` (the fingerprint that flags "changed since sent"), `aspect_of`
+  (shape of the visible design) and the SVG size reader. Looking at and building image files sits behind an
+  `ImageTool` port with a Pillow adapter (`adapters/imaging/pillow`), picked in `bootstrap.get_image_tool()`.
+  `Listing` now answers `main_layout()`, `layout_for(...)` and `print_jobs()` with neutral objects; the
+  supplier bridge turns those into neutral `PrintFile`s (composed link for raster art, a box for SVG), so the
+  Printful-shaped `placement_payload` dicts and `print_file_entries()` are gone. The signed artwork link now
+  carries a `Layout`. Behaviour is unchanged: same boxes, same fingerprints, same print file bytes.
+- **Files:** new `tshirtbrand/core/artwork/`, `tshirtbrand/adapters/imaging/`; changed `shop/models.py`,
+  `shop/supplier_bridge.py`, `shop/printful_delivery.py`, `shop/views.py`, `tshirtbrand/bootstrap.py`; removed
+  `shop/print_files.py`; `docs/ARCHITECTURE.md`. Layout and image tests moved to the core/adapter (pure maths and
+  fingerprint tests with a stub image tool; Pillow tests with generated images) and the shop tests now read
+  neutral objects. The boundary test also keeps the models, views and bridge free of any image library and of
+  the old names.
+- **Verified:** full suite 654 tests OK; `makemigrations --check` reports no changes.
+- **Follow-ups:** none for this step. The position bug itself is a Printful-side behaviour (it ignores `position`
+  on store products, hence the composed file), and is still to be confirmed on Printful's own preview.
+
+---
+
 ## 2026-11-17 — Step 1 of the restructure: the print supplier is a port (Printful is one adapter)
 
 - **What:** everything the shop asks of its print supplier now goes through one neutral interface,

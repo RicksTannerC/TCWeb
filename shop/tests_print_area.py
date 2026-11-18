@@ -13,7 +13,11 @@ from django.test import TestCase, override_settings
 from tshirtbrand.bootstrap import get_supplier
 
 from . import printful
-from .models import DEFAULT_PRINT_AREA, Design, Listing, ListingPrint, PrintPosition, ProductTemplate, placement_payload
+from tshirtbrand.bootstrap import get_image_tool
+from tshirtbrand.core.artwork.api import DEFAULT_PRINT_AREA, Layout, plan_layout
+
+from .models import Design, Listing, ListingPrint, PrintPosition, ProductTemplate
+from .supplier_bridge import print_files_for
 
 REAL_REPLY = {
     "product_id": 586,
@@ -40,7 +44,8 @@ def box_of(entry):
     """The [area_w, area_h, left, top, width, height] a composed print's link carries."""
     from django.core import signing
 
-    token = entry["url"].rstrip("/").rsplit("/", 1)[1]
+    url = entry["url"] if isinstance(entry, dict) else entry.url  # a neutral PrintFile or the wire dict
+    token = url.rstrip("/").rsplit("/", 1)[1]
     return signing.loads(token, salt="shop.printful-artwork")["box"]
 
 
@@ -60,7 +65,7 @@ class AreaLookupTests(TestCase):
     def area(self, placement, client, blueprint="586"):
         with mock.patch.object(printful, "get_client", return_value=client):
             found = get_supplier().print_area(blueprint, placement)
-        return (found.width, found.height) if found else DEFAULT_PRINT_AREA  # the fallback Listing.payload_for applies
+        return (found.width, found.height) if found else DEFAULT_PRINT_AREA  # the fallback Listing.layout_for applies
 
     def test_reads_the_size_of_each_placement(self):
         c = self.stub()
@@ -87,35 +92,35 @@ class AreaLookupTests(TestCase):
 
 class PayloadShapeTests(TestCase):
     def test_wide_art_keeps_its_shape(self):
-        p = placement_payload("front", 30, PrintPosition.TOP_LEFT, area=(1800, 2400), aspect=2.0)["position"]
-        self.assertEqual((p["width"], p["height"]), (540, 270))
+        p = plan_layout(30, PrintPosition.TOP_LEFT, area=(1800, 2400), aspect=2.0)
+        self.assertEqual((p.width, p.height), (540, 270))
 
     def test_tall_art_is_limited_by_the_area_height_share(self):
-        p = placement_payload("front", 30, PrintPosition.CENTER, area=(1800, 2400), aspect=0.2)["position"]
-        self.assertEqual(p["height"], 720)
-        self.assertEqual(p["width"], 144)
+        p = plan_layout(30, PrintPosition.CENTER, area=(1800, 2400), aspect=0.2)
+        self.assertEqual(p.height, 720)
+        self.assertEqual(p.width, 144)
 
     def test_the_box_stays_inside_every_area_for_odd_art(self):
         for aspect in (0.1, 0.5, 1.0, 3.0, 10.0):
             for pos in PrintPosition.values:
                 for scale in (25, 50, 100):
-                    p = placement_payload("front", scale, pos, area=(600, 525), aspect=aspect)
-                    box = p.get("position")
+                    p = plan_layout(scale, pos, area=(600, 525), aspect=aspect)
+                    box = p
                     if box:
-                        self.assertGreaterEqual(box["top"], 0)
-                        self.assertGreaterEqual(box["left"], 0)
-                        self.assertLessEqual(box["top"] + box["height"], 525, (aspect, pos, scale))
-                        self.assertLessEqual(box["left"] + box["width"], 600, (aspect, pos, scale))
+                        self.assertGreaterEqual(box.top, 0)
+                        self.assertGreaterEqual(box.left, 0)
+                        self.assertLessEqual(box.top + box.height, 525, (aspect, pos, scale))
+                        self.assertLessEqual(box.left + box.width, 600, (aspect, pos, scale))
 
     def test_a_corner_preset_lands_in_that_corner_of_the_real_area(self):
-        p = placement_payload("front", 30, PrintPosition.TOP_RIGHT, area=(1800, 2400))["position"]
-        self.assertGreater(p["left"] + p["width"] / 2, 900)
-        self.assertLess(p["top"] + p["height"] / 2, 1200)
+        p = plan_layout(30, PrintPosition.TOP_RIGHT, area=(1800, 2400))
+        self.assertGreater(p.left + p.width / 2, 900)
+        self.assertLess(p.top + p.height / 2, 1200)
 
     def test_nonsense_aspect_is_treated_as_square(self):
         for bad in (0, -1, None):
-            p = placement_payload("front", 30, PrintPosition.CENTER, aspect=bad)["position"]
-            self.assertEqual(p["width"], p["height"])
+            p = plan_layout(30, PrintPosition.CENTER, aspect=bad)
+            self.assertEqual(p.width, p.height)
 
 
 class ArtworkAspectTests(TestCase):
@@ -167,9 +172,9 @@ class EndToEndTests(TestCase):
         client = mock.MagicMock(is_mock=False)
         client.print_files.return_value = REAL_REPLY
         with mock.patch.object(printful, "get_client", return_value=client):
-            main_entry, front = listing.print_file_entries()
-        self.assertNotIn("position", main_entry)
-        self.assertNotIn("position", front)  # built into the file, not left to Printful
+            main_entry, front = print_files_for(listing)
+        self.assertIsNone(main_entry.box)
+        self.assertIsNone(front.box)  # built into the file, not left to Printful
         area_w, area_h, left, top, width, height = box_of(front)
         self.assertEqual((area_w, area_h), (1800, 2400))
         self.assertEqual((width, height), (540, 270))  # 2:1 logo, 30% of the width
@@ -218,7 +223,7 @@ class ComposedFileTests(TestCase):
 
     def fetch(self, entry):
         from urllib.parse import urlsplit
-        return self.client.get(urlsplit(entry["url"]).path)
+        return self.client.get(urlsplit(entry.url).path)
 
     def test_the_link_serves_a_print_area_sized_png_with_the_art_where_chosen(self):
         from PIL import Image
@@ -227,7 +232,7 @@ class ComposedFileTests(TestCase):
         client = mock.MagicMock(is_mock=False)
         client.print_files.return_value = REAL_REPLY
         with mock.patch.object(printful, "get_client", return_value=client):
-            _, front = listing.print_file_entries()
+            _, front = print_files_for(listing)
         r = self.fetch(front)
         self.assertEqual((r.status_code, r["Content-Type"]), (200, "image/png"))
         img = Image.open(io.BytesIO(b"".join(r.streaming_content) if r.streaming else r.content)).convert("RGBA")
@@ -240,12 +245,12 @@ class ComposedFileTests(TestCase):
 
     def test_an_unpositioned_print_is_the_plain_file(self):
         listing = self.listing_with_front(("l.png", png(100, 100)), scale_pct=100)
-        _, front = listing.print_file_entries()
+        _, front = print_files_for(listing)
         r = self.fetch(front)
         self.assertEqual(r.status_code, 200)
         r.close()  # a streamed file stays open (and locked on Windows) until closed
         self.assertNotIn("box", __import__("django.core.signing", fromlist=["x"]).loads(
-            front["url"].rstrip("/").rsplit("/", 1)[1], salt="shop.printful-artwork"))
+            front.url.rstrip("/").rsplit("/", 1)[1], salt="shop.printful-artwork"))
 
     def test_svg_art_falls_back_to_a_position(self):
         svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>'
@@ -253,14 +258,14 @@ class ComposedFileTests(TestCase):
         client = mock.MagicMock(is_mock=False)
         client.print_files.return_value = REAL_REPLY
         with mock.patch.object(printful, "get_client", return_value=client):
-            _, front = listing.print_file_entries()
-        self.assertIn("position", front)
+            _, front = print_files_for(listing)
+        self.assertIsNotNone(front.box)
 
     def test_a_tampered_or_stale_link_is_refused(self):
         listing = self.listing_with_front(("l.png", png(100, 100)), scale_pct=30, position=PrintPosition.TOP_LEFT)
-        _, front = listing.print_file_entries()
+        _, front = print_files_for(listing)
         from urllib.parse import urlsplit
-        path = urlsplit(front["url"]).path
+        path = urlsplit(front.url).path
         self.assertEqual(self.client.get(path[:-6] + "xxxxx/").status_code, 404)
         design = listing.prints.get().design
         design.artwork.save("new.png", ContentFile(png(50, 50)), save=True)  # replaced since the link was made
@@ -282,7 +287,7 @@ class VisibleDesignTests(TestCase):
     def test_visible_size_ignores_the_transparent_margin(self):
         from PIL import Image
 
-        from .print_files import visible_box, visible_size
+        from tshirtbrand.adapters.imaging.pillow.tool import visible_box, visible_size_of as visible_size
 
         im = Image.open(io.BytesIO(self.padded()))
         self.assertEqual(visible_box(im), (100, 50, 301, 151))
@@ -293,7 +298,7 @@ class VisibleDesignTests(TestCase):
     def test_a_faint_fringe_is_not_counted(self):
         from PIL import Image
 
-        from .print_files import visible_box
+        from tshirtbrand.adapters.imaging.pillow.tool import visible_box
 
         im = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
         im.putpixel((2, 2), (0, 0, 0, 3))      # near invisible
@@ -303,10 +308,8 @@ class VisibleDesignTests(TestCase):
     def test_the_composed_print_places_the_visible_design_not_the_canvas(self):
         from PIL import Image
 
-        from .print_files import compose
-
-        box = [1800, 2400, 1260, 0, 540, 270]   # a 2:1 slot in the upper right
-        out = Image.open(io.BytesIO(compose(io.BytesIO(self.padded()), box))).convert("RGBA")
+        layout = Layout.from_list([1800, 2400, 1260, 0, 540, 270])   # a 2:1 slot in the upper right
+        out = Image.open(io.BytesIO(get_image_tool().compose(self.padded(), layout))).convert("RGBA")
         solid = out.getchannel("A").getbbox()
         self.assertEqual(solid, (1260, 0, 1800, 270))   # the design fills its slot to the edge
 

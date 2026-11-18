@@ -14,6 +14,8 @@ from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
 
+from tshirtbrand.core.artwork import api as artwork
+
 from .storage import get_private_storage
 
 
@@ -61,8 +63,8 @@ class PrintPlacement(models.TextChoices):
 class PrintPosition(models.TextChoices):
     """A simple, curator-facing proxy for where the art sits within its
     placement area -- not Printful's raw pixel coordinates. See
-    Listing.print_position_payload() for how this becomes an actual
-    position sent to Printful."""
+    tshirtbrand.core.artwork.plan_layout for how this becomes a box on the
+    print area."""
     CENTER = "center", "Centered"
     HIGHER = "higher", "Higher"
     LOWER = "lower", "Lower"
@@ -201,57 +203,6 @@ class ProductTemplate(models.Model):
         return raw.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
-# Where each position preset nudges a print, as a fraction of its placement
-# area (0.5, 0.5 = dead center). Left/right/upper are as you look at the shirt.
-POSITION_OFFSETS = {
-    PrintPosition.CENTER: (0.5, 0.5),
-    PrintPosition.HIGHER: (0.5, 0.3),
-    PrintPosition.LOWER: (0.5, 0.7),
-    PrintPosition.LEFT: (0.3, 0.5),
-    PrintPosition.RIGHT: (0.7, 0.5),
-    PrintPosition.TOP_LEFT: (0.3, 0.25),
-    PrintPosition.TOP_RIGHT: (0.7, 0.25),
-}
-
-
-# Printful's front and back print area on the shirts in use (Comfort Colors 1717, Bella + Canvas
-# 3001), read from its printfiles info: 1800 x 2400 px. Used when the real figure can't be fetched.
-DEFAULT_PRINT_AREA = (1800, 2400)
-
-
-def placement_payload(placement, scale_pct, position, area=DEFAULT_PRINT_AREA, aspect=1.0):
-    """One print area in the shape Printful's `files[]` entries expect: `type`,
-    plus a `position` object of area/width/height/top/left, all in pixels.
-
-    `area` must be the placement's real print-file size (Printful measures the
-    box against it; a wrong area makes it ignore the offset and center the
-    print). `aspect` is the artwork's width / height, so the box keeps the
-    art's shape instead of squashing it. `scale_pct` is how wide the art runs
-    across the area (capped so it also fits the area's height). The default
-    (100%, centered) needs no positioning fields at all. The box is kept
-    inside the area (a print can't hang off the shirt).
-    """
-    if scale_pct >= 100 and position == PrintPosition.CENTER:
-        return {"type": placement}
-    cx, cy = POSITION_OFFSETS.get(position, (0.5, 0.5))
-    scale = max(25, min(100, scale_pct)) / 100
-    area_w, area_h = (int(area[0]), int(area[1])) if area else DEFAULT_PRINT_AREA
-    aspect = aspect if aspect and aspect > 0 else 1.0
-    width = scale * area_w
-    height = width / aspect
-    if height > scale * area_h:
-        height = scale * area_h
-        width = height * aspect
-    width, height = min(area_w, round(width)), min(area_h, round(height))
-    top = max(0, min(area_h - height, round(cy * area_h - height / 2)))
-    left = max(0, min(area_w - width, round(cx * area_w - width / 2)))
-    return {
-        "type": placement,
-        "position": {"area_width": area_w, "area_height": area_h, "width": width, "height": height,
-                     "top": top, "left": left},
-    }
-
-
 class Design(models.Model):
     """The artwork. Parent of its listings."""
 
@@ -319,29 +270,9 @@ class Design(models.Model):
                 head = fh.read()
         except OSError:
             return 1.0
-        import io
-        import re
+        from tshirtbrand.bootstrap import get_image_tool
 
-        try:
-            from PIL import Image
-
-            from .print_files import visible_size
-
-            with Image.open(io.BytesIO(head)) as im:
-                w, h = visible_size(im.convert("RGBA") if im.mode in ("P", "LA", "RGBa") else im)
-            return w / h if w and h else 1.0
-        except Exception:  # noqa: BLE001 - not a raster image; try SVG
-            pass
-        text = head[:4096].decode("utf-8", "ignore")
-        box = re.search(r'viewBox\s*=\s*["\']\s*[-\d.]+[ ,]+[-\d.]+[ ,]+([\d.]+)[ ,]+([\d.]+)', text)
-        if box:
-            w, h = float(box.group(1)), float(box.group(2))
-        else:
-            wm, hm = (re.search(rf'<svg[^>]*\s{k}\s*=\s*["\']([\d.]+)', text) for k in ("width", "height"))
-            if not (wm and hm):
-                return 1.0
-            w, h = float(wm.group(1)), float(hm.group(1))
-        return w / h if w > 0 and h > 0 else 1.0
+        return artwork.aspect_of(head, get_image_tool())
 
     @property
     def print_file_url(self):
@@ -397,7 +328,7 @@ class Listing(models.Model):
 
     # Simple, curator-editable positioning within the template's placement
     # area (front/back/etc. — see ProductTemplate.print_placement). Not
-    # Printful's raw pixel coordinates; see print_position_payload().
+    # raw pixel coordinates; see core.artwork.plan_layout.
     # Blank = use the template's placement. Lets one template (e.g. a tee) carry
     # some designs on the front and others on the back.
     print_placement = models.CharField(
@@ -450,8 +381,6 @@ class Listing(models.Model):
     def is_connected(self):
         return bool(self.printful_product_id)
 
-    _POSITION_OFFSETS = POSITION_OFFSETS
-
     @property
     def printful_changes_not_sent(self):
         """What differs between this listing and the product on Printful,
@@ -489,24 +418,24 @@ class Listing(models.Model):
     def effective_print_placement(self):
         return self.print_placement or self.template.print_placement or PrintPlacement.FRONT
 
-    def print_file_payload(self):
-        """The MAIN print's placement, scale and position (see placement_payload)."""
-        return self.payload_for(self.design, self.effective_print_placement, self.print_scale_pct, self.print_position)
+    def main_layout(self):
+        """Where the MAIN print sits (a core.artwork Layout), or None when it is full size and centred."""
+        return self.layout_for(self.design, self.effective_print_placement, self.print_scale_pct, self.print_position)
 
-    def payload_for(self, design, placement, scale_pct, position):
-        """placement_payload with this shirt's real print-area size and the artwork's shape.
-        Only a positioned print needs them, so the common centered full-size case makes no lookup."""
+    def layout_for(self, design, placement, scale_pct, position):
+        """The box for one print, using this shirt's real print-area size and the artwork's shape.
+        Only a positioned print needs them, so the common centred full-size case makes no lookup."""
         if scale_pct >= 100 and position == PrintPosition.CENTER:
-            return placement_payload(placement, scale_pct, position)
+            return None
         from tshirtbrand.bootstrap import get_supplier
 
         try:
             found = get_supplier().print_area(self.template.printful_blueprint_id, placement)
         except Exception:  # noqa: BLE001 - a failed lookup must never block a send
             found = None
-        return placement_payload(
-            placement, scale_pct, position,
-            area=(found.width, found.height) if found else DEFAULT_PRINT_AREA,
+        return artwork.plan_layout(
+            scale_pct, position,
+            area=(found.width, found.height) if found else artwork.DEFAULT_PRINT_AREA,
             aspect=design.artwork_aspect())
 
     @property
@@ -524,53 +453,24 @@ class Listing(models.Model):
 
     def print_signature(self):
         """A stable fingerprint of every print area, to notice when the layout
-        changed after the product was sent to Printful."""
-        # "g2" marks a positioned print as built with the real print-area size (before that, the
-        # position was measured against a fake square and Printful centered it), so a listing
-        # sent the old way shows as needing a re-send.
-        # "g3" marks a positioned print as built into the print file itself (g2 sent a position
-        # Printful ignored), and ":v<n>" a replaced artwork file.
-        def geometry(scale, position):
-            return "" if scale >= 100 and position == PrintPosition.CENTER else ":g3"
-
+        changed after the product was sent to the supplier."""
         def art(design):
-            return f"d{design.pk}" + (f"v{design.artwork_version}" if design.artwork_version else "")
+            return artwork.art_key(design.pk, design.artwork_version)
 
-        parts = [f"{self.effective_print_placement}:{self.print_scale_pct}:{self.print_position}:{art(self.design)}"
-                 + geometry(self.print_scale_pct, self.print_position)]
-        parts += [f"{p.placement}:{p.scale_pct}:{p.position}:{art(p.design or self.design)}"
-                  + geometry(p.scale_pct, p.position) for p in self.extra_prints]
-        return "|".join(sorted(parts))[:255]
+        specs = [artwork.PrintSpec(self.effective_print_placement, self.print_scale_pct, self.print_position,
+                                   art(self.design))]
+        specs += [artwork.PrintSpec(p.placement, p.scale_pct, p.position, art(p.design or self.design))
+                  for p in self.extra_prints]
+        return artwork.print_signature(specs)
 
-    def print_file_entries(self):
-        """Every print area as a Printful `files[]` entry (main first), each with
-        its own freshly signed artwork link. An area whose design has no artwork
-        is skipped; so is an extra that clashes with the main placement."""
-        entries = []
-        for design, payload in [(self.design, self.print_file_payload())] + [
-                (p.design or self.design, p.file_payload()) for p in self.extra_prints]:
-            entry = self._entry(design, payload)
-            if entry:
-                entries.append(entry)
-        return entries
-
-    @staticmethod
-    def _entry(design, payload):
-        """One `files[]` entry. A positioned print is built into the file itself: we send a
-        full-print-area image with the art already placed, because Printful ignores the
-        `position` of a store product's file and centers it. SVG art can't be composed here, so
-        it still goes with a `position` (best effort)."""
-        from .printful_delivery import build_delivery_url
-
-        position = payload.get("position")
-        composed = bool(position) and design.can_compose
-        url = build_delivery_url(design, layout=position) if composed else design.print_file_url
-        if not url:
-            return None
-        entry = {"url": url, "type": payload["type"]}
-        if position and not composed:
-            entry["position"] = position
-        return entry
+    def print_jobs(self):
+        """Every print area to send, main first, as (design, placement, layout or None). An extra that
+        clashes with the main placement is left out (see print_conflicts)."""
+        jobs = [(self.design, self.effective_print_placement, self.main_layout())]
+        for p in self.extra_prints:
+            design = p.design or self.design
+            jobs.append((design, p.placement, self.layout_for(design, p.placement, p.scale_pct, p.position)))
+        return jobs
 
     @property
     def landed_cost(self):
@@ -625,9 +525,6 @@ class ListingPrint(models.Model):
 
     def __str__(self):
         return f"{self.listing} \u2014 {self.get_placement_display()}"
-
-    def file_payload(self):
-        return self.listing.payload_for(self.design or self.listing.design, self.placement, self.scale_pct, self.position)
 
 
 class ListingSize(models.Model):

@@ -92,8 +92,14 @@ with the console entry point.
    still builds Printful-shaped dicts that `supplier_bridge` converts (moves with step 2); model fields are still
    named `printful_*` (renamed with the persistence adapter, step 6); `get_supplier()` always picks Printful
    (a settings switch arrives with the first second real printer).
-2. **Artwork / print layout.** `placement_payload`, `visible_box`, `compose`, `print_signature` are already
-   nearly pure; move them first, they are the easiest win and the area with the most recent churn.
+2. **Artwork / print layout: DONE 2026-11-17.** `core/artwork` (`plan_layout`, `Layout`, `print_signature`,
+   `aspect_of`, `ImageTool` port), `adapters/imaging/pillow` (visible-design measuring and the composed print
+   file), `bootstrap.get_image_tool()`. `Listing` exposes `main_layout()`, `layout_for()` and `print_jobs()`;
+   `supplier_bridge.print_files_for` builds the neutral files. The boundary test keeps the models, views and
+   bridge free of Pillow and of the old Printful-shaped names.
+   *Left for later steps:* the signed artwork-link code is still `shop/printful_delivery.py` (moves with the
+   storage/webhook entry points, steps 8-9); `Design.artwork` is still a Django file field (persistence, step 6);
+   `PrintPlacement`/`PrintPosition` remain Django choices classes whose values the core treats as plain strings.
 3. **Payments port** (Stripe, mock).
 4. **Catalogue and pricing** (templates, listings, margins), including the product-kind abstraction.
 5. **Ordering and fulfilment use cases** out of `console_views.py` / `manage_views.py` / `orders.py`.

@@ -240,3 +240,26 @@ class SliceStaysClean(SimpleTestCase):
             text = (REPO / rel).read_text(encoding="utf-8")
             for word in ("sync_variant_id", "sync_product", "create_sync_product", "get_sync_product", "state_code"):
                 self.assertFalse(word in text, f"{rel} mentions the vendor wire name {word!r}")
+
+
+class ArtworkSliceStaysClean(SimpleTestCase):
+    """Step 2, artwork and print layout: layout maths and image handling live in tshirtbrand.core.artwork and
+    the imaging adapter, so the Django app neither does the maths nor touches an image library."""
+
+    NO_IMAGE_LIBRARY = ["shop/models.py", "shop/views.py", "shop/supplier_bridge.py", "shop/listing_sync.py",
+                        "shop/printful_delivery.py"]
+    OLD_NAMES = ("placement_payload", "print_file_payload", "print_file_entries", "POSITION_OFFSETS = ")
+
+    def test_no_image_library_in_the_models_views_or_bridge(self):
+        imports_of = SliceStaysClean.imports_of
+        for rel in self.NO_IMAGE_LIBRARY:
+            for name in imports_of(self, rel):
+                bare = name.lstrip(".")
+                self.assertFalse(bare.split(".")[0] == "PIL" or bare.endswith("print_files"),
+                                 f"{rel} imports {name}: use tshirtbrand.bootstrap.get_image_tool()")
+
+    def test_the_old_layout_names_are_gone(self):
+        for rel in self.NO_IMAGE_LIBRARY + ["shop/console_views.py", "shop/manage_views.py"]:
+            text = (REPO / rel).read_text(encoding="utf-8")
+            for word in self.OLD_NAMES:
+                self.assertFalse(word in text, f"{rel} still mentions {word!r}")

@@ -254,14 +254,14 @@ class RefreshSizesAndPlacementTests(TestCase):
         self.form(listing, print_placement="back")
         listing.refresh_from_db()
         self.assertEqual(listing.print_placement, "back")
-        self.assertEqual(listing.print_file_payload()["type"], "back")
+        self.assertEqual(listing.effective_print_placement, "back")
 
     def test_blank_falls_back_to_the_templates_placement(self):
         listing = self.connected_listing()
         self.form(listing, print_placement="back")
         self.form(listing, print_placement="")
         listing.refresh_from_db()
-        self.assertEqual(listing.print_file_payload()["type"], "front")
+        self.assertEqual(listing.effective_print_placement, "front")
 
     def test_invalid_or_missing_placement_keeps_the_previous_value(self):
         listing = self.connected_listing()
