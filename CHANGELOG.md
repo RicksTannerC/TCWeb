@@ -11,6 +11,30 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-18 — Console redesign, phase 2: listings, the editor, one Printful action, versions (nothing deployed)
+
+- **What:** (1) The Listings page and the listing editor are in the glass look. The status dropdown is kept, restyled.
+  (2) **Quick-create:** a Front and a Back slot take dropped or chosen files; front plus back makes a shirt with the
+  back design as its back print (and a sticker of the front), a back alone makes a back-printed shirt, several fronts
+  make one listing each; the template can be chosen and the sticker left out. (3) **One Printful action** replaces Match
+  sizes, Send, Re-send and Refresh sizes: it sends, or builds the new version when the listing is already there, matching
+  sizes first when needed, and the page then checks for Printful's preview by itself (20 s, up to five times, read-only,
+  only after you press Update). (4) **Versions:** products are named `Title 1.0.0` (whole listing . front print . back
+  print) so the old one to delete is easy to find; see `docs/CONSOLE_DESIGN.md`. In-place update was researched: possible
+  in Printful's v1 API but unverified, so not used.
+- **Migration:** `shop/migrations/0019_listing_versions.py` adds five columns to listings (version numbers and the sent
+  front/back fingerprints). Additive, with defaults. **Back up the database before running `migrate` on the live one.**
+- **Files:** `tshirtbrand/core/catalogue` (`Version`, `next_version`, `product_name`, `ProductDesk.send`),
+  `tshirtbrand/adapters/persistence/django_orm/listings.py`, `shop/models.py`, `tshirtbrand/entrypoints/console/listings.py`
+  and `urls.py`, templates `listings.html`, `listing_edit.html`, `_preview_panel.html`, static `console.css`/`console.js`.
+- **Verified:** full suite OK; new tests for the version rules, the update action (Printful stubbed, the old product never
+  touched), the preview polling and quick-create; looked at in the built-in browser on the scratch database at phone and
+  desktop width. Nothing contacted Printful.
+- **Follow-ups:** phases 3 to 5. The old Printful routes (`match-printful-sizes`, `resend-to-printful`, `refresh-*`) still
+  exist but have no buttons; remove them with the last phase.
+
+---
+
 ## 2026-11-18 — Console redesign, phase 1: the glass shell, side bar and dashboard (nothing deployed)
 
 - **What:** the console is moving to the "glass" look from the design handoff (mountain photo, frosted bubbles, a floating

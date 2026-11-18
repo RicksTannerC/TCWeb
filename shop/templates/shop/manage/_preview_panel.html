@@ -1,0 +1,20 @@
+<div id="c-preview"{% if waiting %} hx-post="{% url 'shop:manage_listing_preview_panel' listing.pk %}?wait=1&amp;n={{ waiting }}" hx-trigger="load delay:20s" hx-swap="outerHTML"{% endif %}>
+  {% if listing.preview_images %}
+    <div class="c-previews">
+      {% for p in listing.preview_images %}
+        <figure class="c-preview">
+          <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer"><img src="{{ p.url }}" alt="Printful's render: {{ p.label }}" loading="lazy" referrerpolicy="no-referrer" /></a>
+          <figcaption class="g-muted g-small">{{ p.label }}</figcaption>
+        </figure>
+      {% endfor %}
+    </div>
+    <p class="g-muted g-small">Printful's own render of your art on the shirt, as last read
+      {{ listing.printful_preview_checked|date:"M j, g:i a" }}. Check the placement, size and color before you list it.</p>
+  {% elif waiting %}
+    <p class="g-muted">Printful is still drawing the preview. This checks again by itself every 20 seconds.</p>
+  {% else %}
+    <p class="g-muted">No preview yet. Printful draws it a minute or so after a product is made.</p>
+  {% endif %}
+  {% if error %}<div class="g-banner" role="alert">{{ error }}</div>{% endif %}
+  <button type="button" class="g-btn g-btn-secondary" hx-post="{% url 'shop:manage_listing_preview_panel' listing.pk %}" hx-target="#c-preview" hx-swap="outerHTML">Check for the preview</button>
+</div>

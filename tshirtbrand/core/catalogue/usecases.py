@@ -3,7 +3,9 @@ previews and sizes back. The listing store and the supplier are handed in."""
 
 from tshirtbrand.core.fulfilment.api import ProductSpec, SupplierError, VariantSpec
 
-from .model import label_of_variant, match_product_variants, product_external_id, variant_external_id
+from .model import (
+    label_of_variant, match_product_variants, next_version, product_external_id, product_name, variant_external_id,
+)
 from .ports import ListingRepository
 
 
@@ -24,8 +26,11 @@ class ProductDesk:
         # the call rather than stored anywhere.
         files = self.listings.print_files(listing_id)
         ext = product_external_id(listing.slug, replace, stamp)
+        # The product's name carries a version so the copies in the supplier's store can be told apart (and the old
+        # ones found and deleted). A rebuild moves it on according to what changed; the first send is 1.0.0.
+        version = next_version(listing.version, listing.changes) if replace else listing.version
         spec = ProductSpec(
-            name=listing.title,
+            name=product_name(listing.title, version),
             external_id=ext,
             variants=tuple(
                 VariantSpec(external_id=variant_external_id(ext, s.label), catalog_variant_id=s.catalog_variant_id,
@@ -35,6 +40,7 @@ class ProductDesk:
         )
         record = self.supplier.create_product(spec, color=listing.color)
         self.listings.set_product(listing_id, record.product_id)
+        self.listings.set_version(listing_id, version)
 
         # A size's variant id belongs to ONE supplier product. On a re-send the old product's ids must not survive
         # (an order would be made from the old shirt), so clear them and fill in the new product's.

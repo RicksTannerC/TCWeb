@@ -4,7 +4,7 @@ from django.utils import timezone
 
 from shop.models import Listing
 from shop.supplier_bridge import print_files_for
-from tshirtbrand.core.catalogue.api import ListingView, SizeView
+from tshirtbrand.core.catalogue.api import ListingView, SizeView, Version
 
 
 class DjangoListingRepository:
@@ -21,6 +21,8 @@ class DjangoListingRepository:
             product_id=listing.printful_product_id, status=listing.status,
             sizes=tuple(SizeView(label=s.label, price=s.price, catalog_variant_id=s.printful_catalog_variant_id or "",
                                  variant_id=s.printful_variant_id or "") for s in listing.sizes.all()),
+            version=Version(listing.version_whole, listing.version_front, listing.version_back),
+            changes=listing.changes_since_sent(),
         )
 
     def print_files(self, listing_id):
@@ -30,6 +32,11 @@ class DjangoListingRepository:
         listing = self._get(listing_id)
         listing.printful_product_id = product_id
         listing.save(update_fields=["printful_product_id", "updated"])
+
+    def set_version(self, listing_id, version):
+        listing = self._get(listing_id)
+        listing.version_whole, listing.version_front, listing.version_back = version.whole, version.front, version.back
+        listing.save(update_fields=["version_whole", "version_front", "version_back", "updated"])
 
     def clear_variant_ids(self, listing_id):
         self._get(listing_id).sizes.update(printful_variant_id="")
@@ -52,5 +59,7 @@ class DjangoListingRepository:
         listing.printful_sent_color = listing.color
         listing.printful_sent_placement = listing.effective_print_placement
         listing.printful_sent_prints = listing.print_signature()
+        listing.printful_sent_front, listing.printful_sent_back = listing.print_signature_by_side()
         listing.save(update_fields=["status", "updated", "printful_sent_blueprint_id", "printful_sent_color",
-                                    "printful_sent_placement", "printful_sent_prints"])
+                                    "printful_sent_placement", "printful_sent_prints", "printful_sent_front",
+                                    "printful_sent_back"])

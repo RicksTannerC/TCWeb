@@ -99,6 +99,35 @@ class SizeView:
 
 
 @dataclass(frozen=True)
+class Version:
+    """Which build of a listing's product this is at the supplier, shown in its name so the curator can tell the
+    copies apart. `whole` counts changes to the listing as a whole (shirt, color, sizes, anything not below),
+    `front` changes to the front print, `back` changes to the back print."""
+
+    whole: int = 1
+    front: int = 0
+    back: int = 0
+
+    def __str__(self):
+        return f"{self.whole}.{self.front}.{self.back}"
+
+
+def next_version(version, changes):
+    """The version a rebuilt product gets. `changes` is what differs from what the supplier has: "whole", "front",
+    "back". A whole-listing change (or a rebuild with nothing else to show for it) starts the front and back
+    counts again; otherwise only the side that changed counts up."""
+    changed = set(changes)
+    if "whole" in changed or not changed & {"front", "back"}:
+        return Version(version.whole + 1, 0, 0)
+    return Version(version.whole, version.front + ("front" in changed), version.back + ("back" in changed))
+
+
+def product_name(title, version):
+    """The name the product carries at the supplier: the title and its version, e.g. "Relativity 1.1.0"."""
+    return f"{title} {version}"
+
+
+@dataclass(frozen=True)
 class ListingView:
     id: int
     slug: str
@@ -107,6 +136,8 @@ class ListingView:
     product_id: str                # the supplier's product, "" until sent
     status: str                    # "draft", "hidden" or "live"
     sizes: tuple                   # SizeView, ...
+    version: Version = Version()   # the build the supplier's product currently is
+    changes: tuple = ()            # what differs from that build: "whole", "front", "back"
 
     @property
     def is_connected(self):

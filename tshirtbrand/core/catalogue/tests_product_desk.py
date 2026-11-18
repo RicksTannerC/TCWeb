@@ -11,7 +11,7 @@ from tshirtbrand.core.fulfilment.api import (
 )
 
 from . import api
-from .api import ListingView, ProductDesk, SizeView
+from .api import ListingView, ProductDesk, SizeView, Version
 
 
 class MemoryListings:
@@ -20,12 +20,16 @@ class MemoryListings:
             1, "pillars", "Pillars", "Black", product_id, status,
             tuple(SizeView(label, Decimal("40"), catalog_variant_id=f"cat-{label}") for label in sizes))
         self.previews, self.sent_status, self.files_asked = None, None, 0
+        self.version, self.changes = Version(), ()
         self.variant_ids = {s.label: s.variant_id for s in self.view.sizes}
 
     def listing(self, listing_id):
         sizes = tuple(SizeView(s.label, s.price, s.catalog_variant_id, self.variant_ids[s.label]) for s in self.view.sizes)
         return ListingView(self.view.id, self.view.slug, self.view.title, self.view.color, self.view.product_id,
-                           self.view.status, sizes)
+                           self.view.status, sizes, self.version, self.changes)
+
+    def set_version(self, listing_id, version):
+        self.version = version
 
     def print_files(self, listing_id):
         self.files_asked += 1
@@ -101,7 +105,7 @@ class SendTests(SimpleTestCase):
     def test_sending_builds_the_product_from_the_listing_and_stores_the_ids(self):
         record = self.desk.send(1)
         spec = self.supplier.created[0]
-        self.assertEqual((spec.name, spec.external_id), ("Pillars", "pillars"))
+        self.assertEqual((spec.name, spec.external_id), ("Pillars 1.0.0", "pillars"))
         self.assertEqual([(v.external_id, v.catalog_variant_id, v.retail_price) for v in spec.variants],
                          [("pillars::S", "cat-S", Decimal("40")), ("pillars::M", "cat-M", Decimal("40"))])
         self.assertTrue(all(v.files == spec.variants[0].files and v.files for v in spec.variants))
@@ -128,6 +132,31 @@ class SendTests(SimpleTestCase):
         self.assertEqual(self.supplier.created[-1].external_id, "pillars-r5")
         self.assertEqual(self.listings.variant_ids, {"S": "", "M": "new-M"})   # S must not keep the old product's id
         self.assertEqual(self.listings.view.product_id, "999")
+
+    def test_a_rebuild_moves_the_version_on_by_what_changed(self):
+        cases = [
+            (("whole",), "2.0.0"), (("front",), "1.3.0"), (("back",), "1.2.1"), (("front", "back"), "1.3.1"),
+            (("whole", "front"), "2.0.0"), ((), "2.0.0"),          # nothing placed: the whole listing counts as changed
+        ]
+        for changes, expected in cases:
+            self.listings = MemoryListings(product_id="555")
+            self.listings.version, self.listings.changes = Version(1, 2, 0), changes
+            ProductDesk(self.listings, RecordingSupplier()).send(1, replace=True, stamp=7)
+            self.assertEqual(str(self.listings.version), expected, changes)
+
+    def test_a_rebuild_is_named_with_its_new_version_and_the_first_send_with_the_current_one(self):
+        self.listings.version, self.listings.changes = Version(2, 0, 3), ("front",)
+        self.desk.send(1)
+        self.assertEqual(self.supplier.created[-1].name, "Pillars 2.0.3")
+        self.desk.send(1, replace=True, stamp=8)
+        self.assertEqual(self.supplier.created[-1].name, "Pillars 2.1.3")
+
+    def test_a_refused_rebuild_keeps_the_version(self):
+        self.listings.version = Version(1, 0, 0)
+        self.supplier.create_product = lambda spec, color="": (_ for _ in ()).throw(SupplierError("no"))
+        with self.assertRaises(SupplierError):
+            self.desk.send(1, replace=True, stamp=1)
+        self.assertEqual(str(self.listings.version), "1.0.0")
 
     def test_a_summary_only_reply_is_read_back_for_the_sizes_and_previews(self):
         self.supplier.created_reply = None

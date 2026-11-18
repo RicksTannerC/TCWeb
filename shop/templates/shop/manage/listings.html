@@ -1,60 +1,99 @@
 {% extends "shop/manage/base.html" %}
 {% block title %}Listings{% endblock %}
 
-{% block console %}
-<div class="cluster" style="justify-content:space-between;">
-  <h1>Listings</h1>
-</div>
-
+{% block page %}
 {% if not has_templates %}
-<div class="panel" role="status">
-  <strong>No product templates yet.</strong>
-  Uploads make a listing from each template (garment, costs, sizes), so
-  <a href="{% url 'shop:manage_template_new' %}">set one up</a> before dropping files.
-</div>
+  <div class="g-banner is-warn" role="status">
+    <strong>No product templates yet.</strong>
+    Uploads make a listing from each template (garment, costs, sizes), so
+    <a href="{% url 'shop:manage_template_new' %}">set one up</a> before dropping files.
+  </div>
 {% endif %}
 
-<form class="dropzone panel" method="post" action="{% url 'shop:manage_listings_intake' %}"
-      enctype="multipart/form-data"
-      x-data="{ over:false }" @dragover.prevent="over=true" @dragleave.prevent="over=false"
-      @drop.prevent="over=false; $refs.input.files = $event.dataTransfer.files"
-      :class="{ 'is-over': over }">
-  {% csrf_token %}
-  <p><strong>Drop print-ready files here</strong> &mdash; one draft design per file (tee + sticker), not connected to Printful.</p>
-  <input type="file" name="artwork" x-ref="input" multiple accept="image/*,.svg" />
-  <button type="submit" class="btn btn--sm">Create drafts</button>
-</form>
+<section class="g-dense c-stack">
+  <div class="c-head">
+    <h1>Listings</h1>
+    <span class="g-muted g-small">{% for label, n in counts.items %}{{ n }} {{ label|lower }}{% if not forloop.last %} &middot; {% endif %}{% endfor %}</span>
+  </div>
 
-{% for label, items in groups %}
-  <h2>{{ label }} <span class="faint tnum">({{ items|length }})</span></h2>
-  {% if items %}
-    <ul class="listing-rows" role="list">
-      {% for l in items %}
-        <li class="panel listing-row">
-          <span class="listing-row__thumb">
-            {% with img=l.primary_image %}
-              {% if img %}<img src="{{ img.image.url }}" alt="" />{% elif l.design.artwork %}<img src="{% url 'shop:manage_design_artwork' l.design.pk %}" alt="" />{% else %}<span>{{ l.design.title }}</span>{% endif %}
-            {% endwith %}
-          </span>
-          <span class="listing-row__meta">
-            <a href="{% url 'shop:manage_listing_edit' l.pk %}"><strong>{{ l.design.title }}</strong></a>
-            <span class="faint">{{ l.get_product_type_display }}{% if l.color %} &middot; {{ l.color }}{% endif %} &middot; ${{ l.price }}
-              {% if l.is_connected %}&middot; <span class="ok-text">Printful ✓</span>{% else %}&middot; <span class="faint">not on Printful</span>{% endif %}
-              {% if not l.design.rights_recorded %}&middot; <span class="faint" title="Where the artwork came from, and a dated conflict search, aren't recorded yet">rights not recorded</span>{% endif %}
-            </span>
-          </span>
-          <form method="post" action="{% url 'shop:manage_listing_status' l.pk %}" class="cluster">
-            {% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.get_full_path }}" />
-            <select name="status" onchange="this.form.submit()">
-              {% for val, lbl in status_choices %}<option value="{{ val }}" {% if l.status == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
-            </select>
-          </form>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="muted">None.</p>
-  {% endif %}
-{% endfor %}
+  <details class="c-new"{% if not has_listings %} open{% endif %}>
+    <summary class="g-btn g-btn-primary">+ New listing</summary>
+    <form class="c-drop" method="post" action="{% url 'shop:manage_listings_intake' %}" enctype="multipart/form-data" x-data="cDrop">
+      {% csrf_token %}
+      <div class="c-drop__slots">
+        <label class="c-slot" :class="{ 'is-over': over.front, 'has-file': count.front }"
+               @dragover.prevent="over.front = true" @dragleave.prevent="over.front = false" @drop.prevent="drop('front', $event)">
+          <input type="file" name="front" x-ref="front" multiple accept="image/*,.svg" @change="changed('front')" aria-describedby="hint-front" />
+          <template x-if="preview.front"><img :src="preview.front" alt="" /></template>
+          <b>Front design</b>
+          <span id="hint-front" class="g-muted g-small" data-hint="Drop a file, or tap to choose. Several files make several listings." x-text="names.front || $el.dataset.hint">Drop a file, or tap to choose. Several files make several listings.</span>
+        </label>
+        <label class="c-slot" :class="{ 'is-over': over.back, 'has-file': count.back, 'is-off': batch }"
+               @dragover.prevent="over.back = !batch" @dragleave.prevent="over.back = false" @drop.prevent="drop('back', $event)">
+          <input type="file" name="back" x-ref="back" accept="image/*,.svg" :disabled="batch" @change="changed('back')" aria-describedby="hint-back" />
+          <template x-if="preview.back"><img :src="preview.back" alt="" /></template>
+          <b>Back design <span class="g-muted g-small">(optional)</span></b>
+          <span id="hint-back" class="g-muted g-small" data-hint="Printed on the back of the same shirt." x-text="batch ? 'A back goes with one front.' : (names.back || $el.dataset.hint)">Printed on the back of the same shirt.</span>
+        </label>
+      </div>
+      <div class="c-drop__opts">
+        <div class="g-field">
+          <label for="drop-title">Title</label>
+          <input class="g-input" id="drop-title" name="title" maxlength="120" placeholder="From the file name" :disabled="batch" />
+        </div>
+        <div class="g-field">
+          <label for="drop-template">Made on</label>
+          <select class="g-input" id="drop-template" name="template">
+            {% for t in make_templates %}<option value="{{ t.pk }}"{% if t.pk == default_template_id %} selected{% endif %}>{{ t.name }}</option>{% endfor %}
+          </select>
+        </div>
+        {% if has_sticker_template %}
+          <div class="c-check">
+            <input type="hidden" name="sticker" value="0" />
+            <label><input type="checkbox" name="sticker" value="1" checked /> Also make a sticker of the front</label>
+          </div>
+        {% endif %}
+        <button type="submit" class="g-btn g-btn-primary" :disabled="!hasFiles">Create drafts</button>
+      </div>
+      <p class="g-muted g-small">Each file becomes a draft listing, not on Printful yet. Add the sizes, color and price in the editor, then send it.</p>
+    </form>
+  </details>
+
+  {% for label, items in groups %}
+    <div class="c-group">
+      <h2 class="c-label">{{ label }} ({{ items|length }})</h2>
+      {% if items %}
+        <ul class="c-list">
+          {% for l in items %}
+            <li class="c-row">
+              <a class="c-thumb" href="{% url 'shop:manage_listing_edit' l.pk %}" tabindex="-1" aria-hidden="true">
+                {% with img=l.primary_image %}
+                  {% if img %}<img src="{{ img.image.url }}" alt="" />{% elif l.design.artwork %}<img src="{% url 'shop:manage_design_artwork' l.design.pk %}" alt="" />{% else %}<span>{{ l.design.title }}</span>{% endif %}
+                {% endwith %}
+              </a>
+              <div class="c-row__main">
+                <a class="c-name" href="{% url 'shop:manage_listing_edit' l.pk %}">{{ l.design.title }}</a>
+                <span class="g-muted g-small">
+                  {{ l.get_product_type_display }}{% if l.color %} &middot; {{ l.color }}{% endif %} &middot; ${{ l.price }}
+                  {% if l.is_connected %}&middot; On Printful as {{ l.version }}{% else %}&middot; Not on Printful{% endif %}
+                  {% if not l.design.rights_recorded %}&middot; <span title="Where the artwork came from, and a dated conflict search, aren't recorded yet">rights not recorded</span>{% endif %}
+                </span>
+                {% if l.printful_changes_not_sent %}<span><span class="g-tag is-wait">Printful is out of date</span></span>{% endif %}
+              </div>
+              <form method="post" action="{% url 'shop:manage_listing_status' l.pk %}" class="c-status">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+                <select class="g-input" name="status" aria-label="Status of {{ l.design.title }}" onchange="this.form.submit()">
+                  {% for val, lbl in status_options %}<option value="{{ val }}"{% if l.status == val %} selected{% endif %}>{{ lbl }}</option>{% endfor %}
+                </select>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="g-muted">None.</p>
+      {% endif %}
+    </div>
+  {% endfor %}
+</section>
 {% endblock %}

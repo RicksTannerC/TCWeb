@@ -34,6 +34,7 @@ from shop.models import (
 from shop.orders import OrderItem
 from shop.storage import get_private_storage
 from tshirtbrand.bootstrap import get_image_tool, get_supplier
+from tshirtbrand.core.catalogue.api import Version, next_version, product_name
 from tshirtbrand.core.fulfilment.api import SupplierError
 
 logger = logging.getLogger(__name__)
@@ -41,10 +42,13 @@ logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------ listings
 
+SHORT_STATUS = [(Status.DRAFT, "Draft"), (Status.HIDDEN, "Hidden"), (Status.LIVE, "Live")]
+
 @staff_member_required
 def listings(request):
     status = request.GET.get("status", "")
-    qs = Listing.objects.select_related("design", "collection").prefetch_related("images")
+    qs = Listing.objects.select_related("design", "collection", "template").prefetch_related(
+        "images", "prints__design")
     if status in Status.values:
         qs = qs.filter(status=status)
     groups = {
@@ -57,7 +61,18 @@ def listings(request):
         "status": status,
         "status_choices": Status.choices,
         "has_templates": ProductTemplate.objects.exists(),
+        "has_listings": Listing.objects.exists(),
+        "counts": {label: Listing.objects.filter(status=value).count() for value, label in SHORT_STATUS},
+        "make_templates": _make_templates(),
+        "default_template_id": getattr(ProductTemplate.objects.filter(product_type=ProductType.TEE).first(), "pk", None),
+        "status_options": SHORT_STATUS,
+        "has_sticker_template": ProductTemplate.objects.filter(product_type=ProductType.STICKER).exists(),
     })
+
+
+def _make_templates():
+    """The templates a new listing can be made from: everything but stickers (a sticker is made alongside)."""
+    return list(ProductTemplate.objects.exclude(product_type=ProductType.STICKER).order_by("product_type", "name"))
 
 
 def _is_image(f):
@@ -101,26 +116,57 @@ def _title_from_filename(name):
     return stem[:120] or "Untitled"
 
 
+def _new_listing(design, tpl, *, placement=""):
+    """A draft listing of `design` from template `tpl`, priced at the suggested price, with the template's sizes."""
+    listing = Listing.objects.create(
+        design=design, template=tpl, product_type=tpl.product_type, status=Status.DRAFT,
+        base_cost=tpl.base_cost, shipping_est=tpl.shipping_est, print_placement=placement,
+    )
+    listing.price = listing.suggested_price
+    listing.save(update_fields=["price"])
+    for i, size in enumerate(tpl.default_sizes or []):
+        ListingSize.objects.create(
+            listing=listing, label=size["label"],
+            width_in=size.get("width_in"), height_in=size.get("height_in"), sort_order=i,
+        )
+    return listing
+
+
 @staff_member_required
 @require_POST
 def listings_intake(request):
-    """Drop one or more print-ready files -> a draft Design + a listing per template.
+    """Quick-create. Drop one or more FRONT designs, and optionally a BACK design, and get draft listings.
 
-    Each file is all-or-nothing: if anything fails for one file, nothing is kept
-    for it (no half-made design, no stray file on disk) and the rest carry on.
+    - front files only: one design per file, titled from the file name (or the Title field when there is one file);
+    - front + back (one front file): one design and a shirt listing with the back design as its back print;
+    - back only: a shirt listing whose main print is on the back.
+    A sticker listing is made beside each shirt listing unless turned off (a sticker has no back).
+
+    Each design is all-or-nothing: if anything fails, nothing is kept for it (no half-made design, no stray file on
+    disk) and the rest carry on.
     """
-    files = request.FILES.getlist("artwork")
-    if not files:
-        messages.error(request, "No files received.")
+    fronts = [f for f in request.FILES.getlist("front") + request.FILES.getlist("artwork") if f]
+    back = request.FILES.get("back")
+    if not fronts and not back:
+        messages.error(request, "No files received. Drop a front design, a back design, or both.")
+        return redirect("shop:manage_listings")
+    if len(fronts) > 1 and back:
+        messages.error(request, "A back design goes with one front design. Drop several fronts without a back, "
+                                "or one front with its back. Nothing was uploaded.")
         return redirect("shop:manage_listings")
 
-    templates = [
-        t for t in (
-            ProductTemplate.objects.filter(product_type=ProductType.TEE).first(),
-            ProductTemplate.objects.filter(product_type=ProductType.STICKER).first(),
-        ) if t
-    ]
-    if not templates:
+    chosen = (request.POST.get("template") or "").strip()
+    if chosen:
+        main_tpl = ProductTemplate.objects.exclude(product_type=ProductType.STICKER).filter(
+            pk=chosen if chosen.isdigit() else 0).first()
+        if main_tpl is None:
+            messages.error(request, "That isn't a template a listing can be made from. Nothing was uploaded.")
+            return redirect("shop:manage_listings")
+    else:
+        main_tpl = ProductTemplate.objects.filter(product_type=ProductType.TEE).first()
+    sticker_tpl = (ProductTemplate.objects.filter(product_type=ProductType.STICKER).first()
+                   if request.POST.get("sticker", "1") != "0" else None)
+    if main_tpl is None and sticker_tpl is None:
         messages.error(
             request,
             "Set up a product template first. Uploads create a listing from each template "
@@ -128,39 +174,51 @@ def listings_intake(request):
         )
         return redirect(reverse("shop:manage_catalogue_setup") + "#templates")
 
-    made, duplicates, not_images, failed = 0, 0, [], []
-    for f in files:
-        if not _is_artwork(f):
-            not_images.append(f.name)
+    typed_title = (request.POST.get("title") or "").strip()[:120]
+    jobs = []   # (front or None, back or None)
+    for f in fronts:
+        jobs.append((f, back if len(fronts) == 1 else None))
+    if not fronts:
+        jobs.append((None, back))
+
+    made, duplicates, not_images, failed, used = 0, 0, [], [], []
+    for front, back_file in jobs:
+        lead = front or back_file
+        if not _is_artwork(lead) or (front and back_file and not _is_artwork(back_file)):
+            not_images.extend(f.name for f in (front, back_file) if f is not None and not _is_artwork(f))
             continue
-        title = _title_from_filename(f.name)
+        title = typed_title if (typed_title and len(jobs) == 1) else _title_from_filename(lead.name)
         duplicate = Design.objects.filter(title=title).exists()
-        saved_name = None
+        saved = []
         try:
             with transaction.atomic():
                 design = Design.objects.create(title=title, story="")
-                design.artwork.save(f.name, f, save=True)
-                saved_name = design.artwork.name
-                for tpl in templates:
-                    listing = Listing.objects.create(
-                        design=design, template=tpl, product_type=tpl.product_type,
-                        status=Status.DRAFT, base_cost=tpl.base_cost, shipping_est=tpl.shipping_est,
-                    )
-                    listing.price = listing.suggested_price
-                    listing.save(update_fields=["price"])
-                    for i, size in enumerate(tpl.default_sizes or []):
-                        ListingSize.objects.create(
-                            listing=listing, label=size["label"],
-                            width_in=size.get("width_in"), height_in=size.get("height_in"), sort_order=i,
-                        )
+                design.artwork.save(lead.name, lead, save=True)
+                saved.append(design.artwork.name)
+                back_only = front is None
+                if main_tpl is not None:
+                    if back_only:
+                        _new_listing(design, main_tpl, placement=PrintPlacement.BACK)
+                    elif back_file is not None:
+                        listing = _new_listing(design, main_tpl, placement=PrintPlacement.FRONT)
+                        back_design = Design.objects.create(title=f"{title} \u2014 back"[:120])
+                        back_design.artwork.save(back_file.name, back_file, save=True)
+                        saved.append(back_design.artwork.name)
+                        ListingPrint.objects.create(listing=listing, placement=PrintPlacement.BACK, design=back_design,
+                                                    sort_order=0)
+                    else:
+                        _new_listing(design, main_tpl)
+                if sticker_tpl is not None and not back_only:
+                    _new_listing(design, sticker_tpl)
         except Exception:  # noqa: BLE001 - report it, keep going with the other files
-            logger.exception("Design intake failed for %r", f.name)
-            failed.append(f.name)
-            if saved_name:  # the database rolled back; don't leave the file behind
-                get_private_storage().delete(saved_name)
+            logger.exception("Design intake failed for %r", lead.name)
+            failed.append(lead.name)
+            for name in saved:   # the database rolled back; don't leave the files behind
+                get_private_storage().delete(name)
             continue
         made += 1
         duplicates += duplicate
+        used.append(title)
 
     if made:
         messages.success(request, f"Created {made} draft design(s). Not connected to Printful yet.")
@@ -180,7 +238,8 @@ def listings_intake(request):
             request,
             "Couldn't add: " + ", ".join(failed) + ". Nothing was saved for those; the error is in the server log.",
         )
-    if any(t.landed_cost == 0 for t in templates):
+    templates = [t for t in (main_tpl, sticker_tpl) if t is not None]
+    if made and any(t.landed_cost == 0 for t in templates):
         messages.warning(
             request,
             "A template has $0 costs, so its new listings are priced at $0. Set the costs on the Templates page.",
@@ -320,8 +379,18 @@ def listing_edit(request, pk):
             pass  # fall back to the free-text color field below; never break the page over this
     current_color = next((o for o in color_options if o["name"] == listing.color), None)
 
+    connected = listing.is_connected
+    version = Version(listing.version_whole, listing.version_front, listing.version_back)
+    legacy = connected and not (listing.printful_sent_front or listing.printful_sent_back)
+    changes = listing.changes_since_sent()
     return render(request, "shop/manage/listing_edit.html", {
         "listing": listing,
+        "status_options": SHORT_STATUS,
+        "printful_changes": listing.printful_changes_not_sent,
+        # what the product is called on Printful now (a product sent before versions were recorded has no number)
+        "printful_current_name": (listing.design.title if legacy else product_name(listing.design.title, version)) if connected else "",
+        "printful_next_name": product_name(listing.design.title, next_version(version, changes)) if connected else "",
+        "waiting": 1 if (connected and request.GET.get("preview") == "wait" and not listing.preview_images) else 0,
         "template_choices": ProductTemplate.objects.filter(product_type=listing.product_type),
         "has_orders": OrderItem.objects.filter(listing=listing).exists(),
         "collections": Collection.objects.all(),
@@ -666,13 +735,9 @@ def listing_refresh_printful_sizes(request, pk):
     return redirect("shop:manage_listing_edit", pk=pk)
 
 
-@staff_member_required
-@require_POST
-def listing_match_printful_sizes(request, pk):
-    """Look up this listing's color + sizes against its template's chosen
-    Printful product, filling in each size's real variant id. A real outbound
-    Printful call, made only when the curator clicks this button."""
-    listing = get_object_or_404(Listing.objects.select_related("template"), pk=pk)
+def _match_sizes(request, listing):
+    """Look up this listing's color + sizes against its template's chosen Printful product and fill in each size's
+    real variant id, saying what happened. A real outbound Printful call. Returns True when every size matched."""
     blueprint_id = listing.template.printful_blueprint_id
     if not blueprint_id:
         messages.error(
@@ -680,10 +745,10 @@ def listing_match_printful_sizes(request, pk):
             "This listing's template has no Printful product chosen yet — "
             "set one on the Catalogue setup page first.",
         )
-        return redirect("shop:manage_listing_edit", pk=pk)
+        return False
     if not listing.color:
         messages.error(request, "Set this listing's color first, then match sizes.")
-        return redirect("shop:manage_listing_edit", pk=pk)
+        return False
 
     sizes = list(listing.sizes.all())
     try:
@@ -691,7 +756,7 @@ def listing_match_printful_sizes(request, pk):
             blueprint_id, listing.color, [s.label for s in sizes])
     except SupplierError as exc:
         messages.error(request, str(exc))
-        return redirect("shop:manage_listing_edit", pk=pk)
+        return False
 
     for s in sizes:
         if s.label in matches:
@@ -713,7 +778,86 @@ def listing_match_printful_sizes(request, pk):
             f"No sizes matched color “{listing.color}”. Printful has these colors "
             f"for this product: {', '.join(available_colors) or 'none found'}.",
         )
+    return bool(matches) and not unmatched
+
+
+@staff_member_required
+@require_POST
+def listing_match_printful_sizes(request, pk):
+    """Match sizes on their own. A real outbound Printful call, made only when this is posted (the editor no
+    longer has a button for it: Update Printful does this step itself)."""
+    listing = get_object_or_404(Listing.objects.select_related("template"), pk=pk)
+    _match_sizes(request, listing)
     return redirect("shop:manage_listing_edit", pk=pk)
+
+
+@staff_member_required
+@require_POST
+def listing_update_printful(request, pk):
+    """The one Printful action. Brings Printful in step with the listing as it is now, doing whichever steps are
+    needed, in order: match any size that has no Printful variant yet, send the product (a first send, or a new
+    version when it is already there) and read the size ids back if the reply lacked them. The page then asks for
+    Printful's preview on its own (see listing_preview_panel). Real Printful calls, made only when this is posted.
+
+    Printful's API can only build a product afresh, so an update is a NEW product named "Title 1.1.0" (the numbers
+    say what changed: whole listing . front print . back print); the old one is left in the store for the curator
+    to delete, and the message names it."""
+    listing = get_object_or_404(Listing.objects.select_related("template", "design"), pk=pk)
+    back = redirect("shop:manage_listing_edit", pk=pk)
+    simulated = get_supplier().simulated
+    if not listing.template.printful_blueprint_id and not simulated:
+        messages.error(request, "This listing's template has no Printful product chosen yet — "
+                                "set one on the Catalogue setup page first.")
+        return back
+
+    if not simulated and listing_sync.missing_catalog_sizes(listing):
+        if not _match_sizes(request, listing):
+            messages.error(request, "Nothing was sent to Printful, because not every size could be matched.")
+            return back
+
+    was_connected = listing.is_connected
+    version = Version(listing.version_whole, listing.version_front, listing.version_back)
+    legacy = was_connected and not (listing.printful_sent_front or listing.printful_sent_back)
+    old_id = listing.printful_product_id
+    old_name = (listing.design.title if legacy else product_name(listing.design.title, version)) if was_connected else ""
+    try:
+        listing_sync.sync_listing(listing, replace=was_connected)
+    except SupplierError as exc:
+        messages.error(request, f"Printful wouldn't {'create the new product' if was_connected else 'take the product'}: {exc}")
+        return back
+
+    new_name = product_name(listing.design.title, Version(listing.version_whole, listing.version_front, listing.version_back))
+    if was_connected:
+        messages.success(
+            request,
+            f"Printful now has “{new_name}” (product {listing.printful_product_id}). The old one, “{old_name}” "
+            f"(product {old_id}), is still in your Printful store — delete it there once you've checked the new one.")
+    else:
+        messages.success(request, f"Sent to Printful as “{new_name}”.")
+    _warn_if_sizes_lack_ids(request, listing)
+    return redirect(reverse("shop:manage_listing_edit", args=[pk]) + "?preview=wait#printful")
+
+
+@staff_member_required
+@require_POST
+def listing_preview_panel(request, pk):
+    """The preview panel, read afresh from Printful (a read-only call) and returned for htmx to swap in. After an
+    update the panel asks again on its own, every 20 seconds, up to five times, because Printful draws the preview
+    a minute or so after a product is made; `n` counts the asks."""
+    listing = get_object_or_404(Listing, pk=pk)
+    try:
+        n = max(0, int(request.GET.get("n", "0")))
+    except ValueError:
+        n = 0
+    error = ""
+    try:
+        found = listing_sync.refresh_preview(listing)
+    except SupplierError as exc:
+        found, error = 0, str(exc)
+    waiting = n + 1 if (not found and not error and request.GET.get("wait") and n < 5) else 0
+    return render(request, "shop/manage/_preview_panel.html", {
+        "listing": listing, "waiting": waiting, "error": error, "checked": True,
+    })
 
 
 @staff_member_required

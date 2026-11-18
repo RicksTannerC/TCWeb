@@ -13,7 +13,7 @@ from django.test import Client, TestCase, override_settings
 from PIL import Image
 
 from tshirtbrand.entrypoints.console.catalogue_setup import format_sizes, parse_sizes
-from .models import Design, Listing, ListingSize, ProductTemplate, ProductType, Status, unique_slug
+from .models import Design, Listing, ListingPrint, ListingSize, PrintPlacement, ProductTemplate, ProductType, Status, unique_slug
 
 TEE_SIZES = [{"label": "M", "width_in": 20, "height_in": 29}, {"label": "L", "width_in": 22, "height_in": 30}]
 
@@ -120,6 +120,58 @@ class IntakeTests(TestCase):
         self.assertEqual(listings.count(), 2)
         tee = listings.get(product_type=ProductType.TEE)
         self.assertEqual((tee.status, tee.price, tee.sizes.count()), (Status.DRAFT, Decimal("40"), 2))
+
+    def quick(self, **data):
+        return self.c.post("/manage/listings/intake/", data)
+
+    def test_a_front_and_a_back_make_one_shirt_with_a_back_print_and_a_sticker_of_the_front(self):
+        r = self.quick(front=png("relativity.png"), back=png("relativity-back.png", "blue"), title="Relativity")
+        self.assertRedirects(r, "/manage/listings/", fetch_redirect_response=False)
+        design = Design.objects.get(title="Relativity")
+        tee = Listing.objects.get(design=design, product_type=ProductType.TEE)
+        self.assertEqual(tee.effective_print_placement, PrintPlacement.FRONT)
+        back = ListingPrint.objects.get(listing=tee)
+        self.assertEqual((back.placement, back.design.title), (PrintPlacement.BACK, "Relativity — back"))
+        self.assertTrue(back.design.artwork.name.startswith("designs/"))
+        self.assertEqual(tee.extra_prints, [back])
+        sticker = Listing.objects.get(design=design, product_type=ProductType.STICKER)
+        self.assertEqual(sticker.prints.count(), 0)                     # a sticker has no back
+        self.assertEqual(len(self.files_on_disk()), 2)
+
+    def test_a_back_alone_makes_a_shirt_printed_on_the_back_and_no_sticker(self):
+        self.quick(back=png("only-back.png"))
+        listing = Listing.objects.get()
+        self.assertEqual((listing.product_type, listing.effective_print_placement, listing.design.title),
+                         (ProductType.TEE, PrintPlacement.BACK, "Only Back"))
+        self.assertEqual(listing.prints.count(), 0)
+
+    def test_several_fronts_with_a_back_is_refused_and_nothing_is_kept(self):
+        r = self.quick(front=[png("a.png"), png("b.png")], back=png("c.png"))
+        self.assertEqual((Design.objects.count(), Listing.objects.count(), self.files_on_disk()), (0, 0, []))
+        self.assertTrue(any("one front design" in m for _, m in self.msgs(r)))
+
+    def test_the_title_field_names_a_single_design_but_not_a_batch(self):
+        self.quick(front=png("a.png"), title="Named")
+        self.quick(front=[png("b.png"), png("c.png")], title="Ignored")
+        self.assertEqual(sorted(Design.objects.values_list("title", flat=True)), ["B", "C", "Named"])
+
+    def test_a_sticker_can_be_left_out(self):
+        self.quick(front=png("a.png"), sticker="0")
+        self.assertEqual(list(Listing.objects.values_list("product_type", flat=True)), [ProductType.TEE])
+
+    def test_another_template_can_be_chosen_and_a_sticker_template_cannot(self):
+        mug = ProductTemplate.objects.create(name="Mug", product_type=ProductType.MUG, default_sizes=[{"label": "11oz"}])
+        self.quick(front=png("a.png"), template=str(mug.pk), sticker="0")
+        self.assertEqual(Listing.objects.get().template, mug)
+        r = self.quick(front=png("b.png"), template=str(self.sticker.pk))
+        self.assertEqual(Design.objects.count(), 1)
+        self.assertTrue(any("isn't a template" in m for _, m in self.msgs(r)))
+
+    def test_a_bad_back_file_skips_the_whole_set(self):
+        bad = SimpleUploadedFile("notes.txt", b"not an image", content_type="text/plain")
+        r = self.quick(front=png("a.png"), back=bad)
+        self.assertEqual((Design.objects.count(), self.files_on_disk()), (0, []))
+        self.assertTrue(any("notes.txt" in m for _, m in self.msgs(r)))
 
     def test_uploading_the_same_file_again_no_longer_errors(self):
         for _ in range(3):

@@ -4,9 +4,9 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from shop.models import Design, Listing, ListingSize, ProductTemplate, Status
+from shop.models import Design, Listing, ListingPrint, ListingSize, ProductTemplate, Status
 from shop.orders import Fulfillment, Order
-from tshirtbrand.core.catalogue.api import ListingView
+from tshirtbrand.core.catalogue.api import ListingView, Version
 from tshirtbrand.core.fulfilment.api import Preview
 from tshirtbrand.core.ordering.api import FulfilmentChange, FulfilmentStatus as F, NewItem, OrderStatus as O
 from tshirtbrand.core.payments.api import PaymentEvent, PaymentEventKind
@@ -153,3 +153,42 @@ class ListingRepositoryTests(TestCase):
         self.assertEqual((listing.status, listing.printful_sent_blueprint_id, listing.printful_sent_color,
                           listing.printful_sent_placement), ("hidden", "71", "Black", "front"))
         self.assertEqual(listing.printful_sent_prints, listing.print_signature())
+
+    def sent(self):
+        listing = make_listing()
+        self.repo.set_product(listing.pk, "477")
+        self.repo.mark_sent(listing.pk, "hidden")
+        listing.refresh_from_db()
+        return listing
+
+    def test_a_listing_just_sent_has_no_changes_and_the_first_version(self):
+        listing = self.sent()
+        view = self.repo.listing(listing.pk)
+        self.assertEqual((view.changes, view.version), ((), Version(1, 0, 0)))
+        self.assertTrue(listing.printful_sent_front and listing.printful_sent_back == "")
+
+    def test_the_version_is_stored(self):
+        listing = self.sent()
+        self.repo.set_version(listing.pk, Version(2, 1, 3))
+        self.assertEqual((self.repo.listing(listing.pk).version, Listing.objects.get(pk=listing.pk).version), (Version(2, 1, 3), "2.1.3"))
+
+    def test_a_change_is_placed_on_the_front_the_back_or_the_whole_listing(self):
+        listing = self.sent()
+        listing.print_scale_pct = 60
+        listing.save()
+        self.assertEqual(self.repo.listing(listing.pk).changes, ("front",))
+        ListingPrint.objects.create(listing=listing, placement="back", scale_pct=100)
+        self.assertEqual(self.repo.listing(listing.pk).changes, ("front", "back"))
+        listing.color = "White"
+        listing.save()
+        self.assertEqual(self.repo.listing(listing.pk).changes, ("whole", "front", "back"))
+
+    def test_a_listing_sent_before_sides_were_recorded_reports_a_change_as_the_whole_listing(self):
+        listing = self.sent()
+        Listing.objects.filter(pk=listing.pk).update(printful_sent_front="", printful_sent_back="")
+        self.assertEqual(self.repo.listing(listing.pk).changes, ())     # in step: the combined fingerprint still matches
+        Listing.objects.filter(pk=listing.pk).update(print_scale_pct=50)
+        self.assertEqual(self.repo.listing(listing.pk).changes, ("whole",))
+
+    def test_a_listing_not_on_the_supplier_has_no_changes(self):
+        self.assertEqual(self.repo.listing(make_listing().pk).changes, ())

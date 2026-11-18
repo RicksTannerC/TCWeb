@@ -57,8 +57,8 @@ Everything the handoff lists under "known gaps" is filled the smallest way that 
 
 1. **Shell, side bar, dashboard** (done): base template, assets, theme switch, dashboard. Other pages keep their content
    inside one legacy bubble.
-2. **Listings and the listing editor:** one status strip and one Printful action, folded sections, dropdown status
-   restyled, the new quick-create drop system (front and back designs).
+2. **Listings and the listing editor** (done): one Printful strip with one action (Send / Update), folded sections, the
+   status dropdown restyled, the quick-create drop (front and back designs), product versions (below).
 3. **Orders** (queue and order page).
 4. **Money, Content, Setup** (templates, collections, pages, messages).
 5. **Sign-in step (`two_factor.html`), cleanup:** delete `console-legacy.css`, remove the console-only rules left in
@@ -75,8 +75,40 @@ python manage.py collectstatic --noinput
 then restart the site. A page that names a new static file before `collectstatic` has run fails to render (WhiteNoise's
 manifest has no entry for it); the test suite has the same dependency on this machine.
 
-## Printful product names (decided in phase 2)
+## Printful product names and versions
 
-Recorded here when phase 2 settles it. The scheme you asked for, if the product cannot be updated in place: a version
-in the title, `1.0.0`, where the first number is a change to the whole listing, the second is the front print, and the
-third is the back print, shown on the console and on Printful so the product to delete is obvious.
+**Why versions.** Printful's v1 API has `PUT /store/products/{id}` (modify a sync product) and it accepts partial
+updates, but the public documentation does not say whether a `files` array on a variant replaces or merges, and a
+`sync_variants` array deletes any variant left out of it. v2 has no product management at all. Nothing has been
+verified against a real product, so the console does **not** use it: an update builds a **new** product, as the
+re-send always did, and leaves the old one in the Printful store to be deleted by hand. To make the old one easy to
+find, every product carries a version in its name.
+
+**The name.** `<title> <whole>.<front>.<back>`, for example `Relativity 1.1.0`. The same text is shown in the console.
+
+| Number | Counts changes to | Examples |
+|---|---|---|
+| first (whole) | the listing as a whole | shirt, color, or a rebuild with nothing else to show for it; also a change to a product sent before sides were recorded |
+| second (front) | the front print | its artwork, size or position |
+| third (back) | the back print (every print that is not the front) | its artwork, size or position, or adding or removing it |
+
+A whole-listing change starts the front and back counts again (`2.0.0`). A front-only change is `1.1.0`, back-only
+`1.0.1`, both `1.1.1`. The first send of a listing is `1.0.0`. The version moves only when a new product is actually
+created, never when a send is refused. A product sent before versions existed is named just `<title>`; the message
+after its first update says so, and its next version is `2.0.0`.
+
+**Where it lives.** `Listing.version_whole/front/back`, plus `printful_sent_front` / `printful_sent_back` (the print
+fingerprints split by side, recorded on every send). The rules are in `tshirtbrand/core/catalogue` (`Version`,
+`next_version`, `product_name`); the persistence adapter works out which side changed.
+
+**Trying an in-place update later.** It needs a supervised test on one throwaway product (you approve the call): send
+a `PUT` with all variant ids and changed files, read the product back, and compare. Only then should the console offer
+"update in place".
+
+## The one Printful action
+
+The listing editor has one button for Printful. It sends the listing if it is not on Printful, otherwise builds the new
+version, and matches sizes first when any size has no Printful variant yet. It replaces Match sizes, Send, Re-send and
+Refresh sizes (their URLs still exist). After an update the page asks Printful for the preview by itself, every 20
+seconds, up to five times (read-only calls made because you pressed Update); opening the page alone never calls
+Printful.

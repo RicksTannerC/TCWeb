@@ -12,6 +12,7 @@ EXPECTED_NAMES = {
     "manage_listing_print_add", "manage_listing_print_update", "manage_listing_delete", "manage_listing_replace_artwork",
     "manage_listing_print_replace_artwork", "manage_listing_print_delete", "manage_listing_resend_printful",
     "manage_listing_refresh_preview", "manage_listing_refresh_printful_sizes", "manage_listing_status",
+    "manage_listing_update_printful", "manage_listing_preview_panel",
     "manage_listing_add_image", "manage_listing_mockups", "manage_image_move", "manage_image_delete",
     "manage_design_artwork", "manage_catalogue_setup", "manage_collections", "manage_collection_create",
     "manage_collection_edit", "manage_collection_toggle", "manage_collection_toggle_landing", "manage_money",

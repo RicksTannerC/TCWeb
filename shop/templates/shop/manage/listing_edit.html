@@ -1,427 +1,367 @@
 {% extends "shop/manage/base.html" %}
 {% block title %}{{ listing.design.title }}{% endblock %}
 
-{% block console %}
-<p class="eyebrow"><a href="{% url 'shop:manage_listings' %}">&larr; Listings</a></p>
-<div class="cluster" style="justify-content:space-between;">
-  <h1>{{ listing.design.title }}</h1>
-  <span class="tag">{{ listing.get_product_type_display }} &middot; {{ listing.get_status_display }}</span>
-</div>
-
+{% block page %}
 {% if listing.status == 'live' and not listing.design.rights_recorded %}
-  <p class="form-note faint">Rights not fully recorded for this design (where it came from, and a dated
-    conflict search). It's live, so it's worth filling in under <em>Design</em> below.</p>
+  <div class="g-banner is-warn">Rights not fully recorded for this design (where it came from, and a dated conflict search). It's live, so it's worth filling in under <em>Rights</em> below.</div>
 {% endif %}
 
 {% if sizes_without_ids %}
-  <p class="form-note error"><strong>Orders for this listing will fail.</strong> It is on Printful, but
+  <div class="g-banner" role="alert"><strong>Orders for this listing will fail.</strong> It is on Printful, but
     {{ sizes_without_ids|join:", " }} {% if sizes_without_ids|length == 1 %}has{% else %}have{% endif %} no Printful size id yet.
-    Press <em>Refresh sizes from Printful</em> in the Printful section below{% if listing.status == 'live' %}, and consider
-    hiding the listing until you have{% endif %}.</p>
+    Press <em>Update Printful</em> below{% if listing.status == 'live' %}, and consider hiding the listing until you have{% endif %}.</div>
 {% endif %}
 
-{% if listing.printful_changes_not_sent %}
-  <p class="form-note error"><strong>Printful still has the old version.</strong> You've changed
-    {{ listing.printful_changes_not_sent|join:", " }} since this was sent. Match sizes, then use
-    <em>Re-send to Printful</em> below &mdash; editing here doesn't change the product on Printful.</p>
+{% if printful_changes %}
+  <div class="g-banner is-warn"><strong>Printful still has the old version.</strong> You've changed
+    {{ printful_changes|join:", " }} since this was sent. Use <em>Update Printful</em> below &mdash; editing here doesn't change the product on Printful.</div>
 {% elif listing.printful_sent_state_unknown %}
-  <p class="form-note faint">This was sent to Printful before the console tracked what it was sent as. If you've
-    changed the shirt, color or placement since, match sizes and use <em>Re-send to Printful</em> below.</p>
+  <div class="g-banner is-info">This was sent to Printful before the console tracked what it was sent as. If you've
+    changed the shirt, color or placement since, use <em>Update Printful</em> below.</div>
 {% endif %}
 
 {% if not_us_produced %}
-  <p class="form-note error"><strong>Not made in the US.</strong> Printful shows this product
+  <div class="g-banner" role="alert"><strong>Not made in the US.</strong> Printful shows this product
     ({{ listing.template.printful_blueprint_name|default:"the linked product" }}) as available outside the US only,
     so US orders would be produced overseas &mdash; slower, pricier, and possibly subject to customs.
-    Pick a US-produced product on the template.</p>
+    Pick a US-produced product on the template.</div>
 {% endif %}
 
-<form method="post" class="edit-grid">
-  {% csrf_token %}
-
-  <div class="panel stack">
-    <h2>Design</h2>
-    <div class="field"><label for="title">Title</label>
-      <input id="title" name="title" value="{{ listing.design.title }}" /></div>
-    <div class="field"><label for="story">Story</label>
-      <textarea id="story" name="story" rows="3">{{ listing.design.story }}</textarea></div>
-    <div class="field"><label for="origin">Where this artwork came from</label>
-      <select id="origin" name="origin">
-        {% for value, label in design_origins %}<option value="{{ value }}" {% if listing.design.origin == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select></div>
-    <div class="field"><label for="ip_checked_on">Conflict search done on</label>
-      <input id="ip_checked_on" name="ip_checked_on" type="date" value="{{ listing.design.ip_checked_on|date:'Y-m-d' }}" />
-      <span class="faint">Trademark and copyright. Private &mdash; never shown on the shop.</span></div>
-    <div class="field"><label for="ip_notes">Rights notes</label>
-      <textarea id="ip_notes" name="ip_notes" rows="3" placeholder="Source files, licence, receipts, what you searched and found">{{ listing.design.ip_notes }}</textarea></div>
-    <div class="field"><label for="tags">Tags (comma-separated)</label>
-      <input id="tags" name="tags" value="{% for t in listing.design.tags.all %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %}" />
-      <span class="faint">In use: {% for t in all_tags %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+<section class="g-bubble c-stack">
+  <div class="c-head">
+    <div>
+      <p class="g-muted g-small c-crumb"><a href="{% url 'shop:manage_listings' %}">&larr; Listings</a></p>
+      <h1>{{ listing.design.title }}</h1>
+      <span class="g-muted g-small">{{ listing.get_product_type_display }}{% if listing.color %} &middot; {{ listing.color }}{% endif %} &middot; ${{ listing.price }}</span>
     </div>
+    <form method="post" action="{% url 'shop:manage_listing_status' listing.pk %}" class="c-status">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}" />
+      <label class="g-sr-only" for="status">Status</label>
+      <select class="g-input" id="status" name="status" onchange="this.form.submit()">
+        {% for val, lbl in status_options %}<option value="{{ val }}"{% if listing.status == val %} selected{% endif %}>{{ lbl }}</option>{% endfor %}
+      </select>
+    </form>
   </div>
 
-  <div class="panel stack">
-    <h2>Listing</h2>
-    <div class="field"><label for="template">Shirt (template)</label>
-      <select id="template" name="template">
-        {% for t in template_choices %}<option value="{{ t.pk }}" {% if t.pk == listing.template_id %}selected{% endif %}>{{ t.name }}{% if t.printful_blueprint_name %} &mdash; {{ t.printful_blueprint_name }}{% endif %}</option>{% endfor %}
-      </select>
-      <span class="faint">Changing it picks a different Printful product. Save, choose its color, match sizes, then
-        send it to Printful again. Costs reset to the template's estimates. New templates are made on the
-        <a href="{% url 'shop:manage_catalogue_setup' %}#templates">Catalogue setup page</a>.</span></div>
-    <div class="field"><label for="color">Color</label>
-      {% if color_options %}
-        <div class="color-picker" x-data="ttsColorPicker()" @click.outside="open = false" @keydown.escape="open = false"
-             data-value="{{ listing.color }}" data-swatch="{{ current_color.swatch }}" data-image="{{ current_color.image }}"
-             data-product-url="{{ printful_product_url }}">
-          <input type="hidden" id="color" name="color" value="{{ listing.color }}" :value="value" />
-          <button type="button" class="color-picker__trigger" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="listbox">
-            <span class="swatch" :class="{ 'swatch--none': !swatch }" :style="swatch ? 'background:' + swatch : ''"></span>
-            <span class="color-picker__name" x-text="value || '\u2014 choose a color'"></span>
-            <span class="color-picker__caret">&#9662;</span>
-          </button>
-          <ul class="color-picker__menu" role="listbox" x-show="open" x-cloak>
-            <li><button type="button" role="option" class="color-picker__opt" data-name="" @click="pick($el)">
-              <span class="swatch swatch--none"></span><span class="color-picker__name">&mdash;</span></button></li>
-            {% for o in color_options %}
-              <li><button type="button" role="option" class="color-picker__opt" data-name="{{ o.name }}"
-                          data-swatch="{{ o.swatch }}" data-image="{{ o.image }}" @click="pick($el)">
-                <span class="swatch{% if not o.swatch %} swatch--none{% endif %}"{% if o.swatch %} style="background:{{ o.swatch }}"{% endif %}></span>
-                <span class="color-picker__name">{{ o.name }}</span></button></li>
-            {% endfor %}
-          </ul>
-          <div class="color-preview" x-show="image || link" x-cloak>
-            <img x-show="image" :src="image" alt="This color on the Printful blank" width="140" height="140"
-                 loading="lazy" referrerpolicy="no-referrer" />
-            <a x-show="link" :href="link" target="_blank" rel="noopener noreferrer">See this color on Printful &#8599;</a>
-          </div>
-        </div>
-        {% if listing.color and not current_color %}
-          <p class="form-note error"><strong>&ldquo;{{ listing.color }}&rdquo;</strong> is not a real Printful color for this
-            shirt &mdash; pick one from the list.</p>
-        {% endif %}
-        <p class="faint">From {{ listing.template.printful_blueprint_name|default:"the linked Printful product" }}'s real color options;
-          swatches are Printful's own color values.</p>
-        <script>
-          function ttsColorPicker() {
-            return {
-              open: false, value: '', swatch: '', image: '', base: '',
-              init() {
-                var d = this.$el.dataset;
-                this.value = d.value || ''; this.swatch = d.swatch || ''; this.image = d.image || ''; this.base = d.productUrl || '';
-              },
-              pick(el) {
-                this.value = el.dataset.name || ''; this.swatch = el.dataset.swatch || ''; this.image = el.dataset.image || '';
-                this.open = false;
-              },
-              get link() {
-                return this.base ? this.base + (this.value ? '?color=' + encodeURIComponent(this.value) : '') : '';
-              }
-            };
-          }
-        </script>
+  <div class="g-well c-printful" id="printful">
+    <div class="c-printful__head">
+      <h2 class="c-label">Printful</h2>
+      {% if listing.is_connected %}
+        <span class="g-tag {% if printful_changes %}is-wait{% else %}is-done{% endif %}">{{ printful_current_name }} &middot; {% if printful_changes %}out of date{% else %}in step{% endif %}</span>
       {% else %}
-        <input id="color" name="color" value="{{ listing.color }}" />
-        {% if listing.template.printful_blueprint_id %}
-          <p class="faint">Couldn't reach Printful for its color list just now &mdash; type it in for now.</p>
-        {% endif %}
+        <span class="g-tag">Not on Printful yet</span>
       {% endif %}
     </div>
-    <div class="row-2">
-      <div class="field"><label for="base_cost">Base cost <span class="faint">(include any tax Printful charges you)</span></label>
-        <input id="base_cost" name="base_cost" type="number" step="0.01" value="{{ listing.base_cost }}" /></div>
-      <div class="field"><label for="shipping_est">Ship est.</label>
-        <input id="shipping_est" name="shipping_est" type="number" step="0.01" value="{{ listing.shipping_est }}" /></div>
-    </div>
-    <div class="row-2">
-      <div class="field"><label for="price">Retail price</label>
-        <input id="price" name="price" type="number" step="0.01" value="{{ listing.price }}" /></div>
-      <div class="field"><label for="competitor_price">Competitor price</label>
-        <input id="competitor_price" name="competitor_price" type="number" step="0.01" value="{{ listing.competitor_price|default_if_none:'' }}" /></div>
-    </div>
-    <p class="faint">Suggested ${{ listing.suggested_price }} &middot; margin ${{ listing.margin_dollars }} ({{ listing.margin_multiple }}&times;)
-      {% if listing.below_guardrail %}<span class="form-note error">below 2.0&times; guardrail</span>{% endif %}</p>
-    <div class="field"><label for="collection">Collection</label>
-      <select id="collection" name="collection">
-        <option value="">—</option>
-        {% for c in collections %}<option value="{{ c.id }}" {% if listing.collection_id == c.id %}selected{% endif %}>{{ c.name }}{% if c.is_base %} (base){% endif %}</option>{% endfor %}
-      </select>
-    </div>
-    <div class="field"><label for="print_placement">Main print goes on the</label>
-      <select id="print_placement" name="print_placement">
-        <option value="" {% if not listing.print_placement %}selected{% endif %}>Template default ({{ listing.template.get_print_placement_display|default:"Front" }})</option>
-        {% for value, label in placement_choices %}<option value="{{ value }}" {% if listing.print_placement == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select>
-      {% if listing.is_connected %}<p class="faint">Already on Printful &mdash; Printful keeps the placement this was sent with, so a change here only affects listings sent from now on.</p>{% endif %}
-    </div>
-    <div class="row-2">
-      <div class="field"><label for="print_scale_pct">Print size</label>
-        <input id="print_scale_pct" name="print_scale_pct" type="number" min="25" max="100" step="5"
-               value="{{ listing.print_scale_pct }}" />
-        <span class="faint">% of the {{ listing.template.get_print_placement_display|default:"placement" }} area</span></div>
-      <div class="field"><label for="print_position">Print position</label>
-        <select id="print_position" name="print_position">
-          {% for value, label in print_positions %}<option value="{{ value }}" {% if listing.print_position == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-        </select></div>
-    </div>
-  </div>
-
-  <div class="panel stack">
-    <h2>Sizes</h2>
-    {% for s in listing.sizes.all %}
-      <div class="row-2">
-        <span>{{ s.label }}{% if s.measurements %} &mdash; {{ s.measurements }}{% endif %}
-          <span class="faint">{% if s.printful_variant_id %}&middot; on Printful #{{ s.printful_variant_id }}{% endif %}{% if s.printful_catalog_variant_id %}&middot; matched #{{ s.printful_catalog_variant_id }}{% endif %}{% if not s.printful_variant_id and not s.printful_catalog_variant_id %}&middot; not matched to Printful{% endif %}</span>
-        </span>
-        <input name="size_price_{{ s.id }}" type="number" step="0.01" placeholder="inherits ${{ listing.price }}"
-               value="{{ s.price_override|default_if_none:'' }}" />
-      </div>
-    {% empty %}<p class="muted">No sizes — this listing can't go live.</p>{% endfor %}
-  </div>
-
-  <div class="stack" style="grid-column:1/-1;">
-    <button type="submit" class="btn">Save</button>
-  </div>
-</form>
-
-<div class="panel stack" id="artwork">
-  <h2>Artwork</h2>
-  <p class="faint">The main print's file:
-    {% if listing.design.artwork %}<a href="{% url 'shop:manage_design_artwork' listing.design.pk %}" target="_blank" rel="noopener">view current</a>{% else %}none yet{% endif %}.
-    Replacing it keeps the size and position above.
-    {% if listing.design.listings.count > 1 %}This design is shared with other listings, which will use the new file too.{% endif %}
-    {% if listing.is_connected %}Printful keeps the old file until you match sizes and re-send.{% endif %}</p>
-  <form method="post" action="{% url 'shop:manage_listing_replace_artwork' listing.pk %}" enctype="multipart/form-data" class="cluster">
-    {% csrf_token %}
-    <input type="file" name="artwork" accept="image/*" required />
-    <button type="submit" class="btn btn--sm btn--ghost">Replace artwork</button>
-  </form>
-</div>
-
-<div class="panel stack" id="print-areas">
-  <h2>Additional print areas</h2>
-  <p class="faint">The main print above goes on the <strong>{{ listing.effective_print_placement|title }}</strong>.
-    Add another to print a second design elsewhere &mdash; for example a large back print with a small front
-    design. Printful charges for every print area, so update <em>Base cost</em> above to match. Left, right and
-    upper are as you look at the shirt, not the wearer.</p>
-  {% if listing.print_conflicts %}
-    <p class="form-note error">An additional print is on the same side as the main print, so it is not being
-      sent. Remove it, or move the main print.</p>
-  {% endif %}
-  {% for p in prints %}
-    <div class="cluster print-row">
-      <form method="post" action="{% url 'shop:manage_listing_print_update' listing.pk p.pk %}" class="cluster">
-        {% csrf_token %}
-        <strong>{{ p.get_placement_display }}</strong>
-        <span class="faint">{% if p.design %}<a href="{% url 'shop:manage_design_artwork' p.design.pk %}" target="_blank" rel="noopener">{{ p.design.title }}</a>{% else %}same artwork as the main print{% endif %}</span>
-        <label class="faint">Size % <input name="scale_pct" type="number" min="25" max="100" step="5" value="{{ p.scale_pct }}" style="width:5rem;" /></label>
-        <select name="position" aria-label="Position">
-          {% for value, label in print_positions %}<option value="{{ value }}" {% if p.position == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-        </select>
-        <button type="submit" class="btn btn--sm btn--ghost">Save</button>
-      </form>
-      <form method="post" action="{% url 'shop:manage_listing_print_replace_artwork' listing.pk p.pk %}"
-            enctype="multipart/form-data" class="cluster">
-        {% csrf_token %}
-        <input type="file" name="artwork" accept="image/*" required aria-label="New artwork for the {{ p.get_placement_display|lower }} print" />
-        <button type="submit" class="btn btn--sm btn--ghost">Replace artwork</button>
-      </form>
-      <form method="post" action="{% url 'shop:manage_listing_print_delete' listing.pk p.pk %}"
-            onsubmit="return confirm('Remove the {{ p.get_placement_display|lower }} print?')">
-        {% csrf_token %}
-        <button type="submit" class="linkish">remove</button>
-      </form>
-    </div>
-  {% empty %}
-    <p class="muted">No additional print areas.</p>
-  {% endfor %}
-  {% if free_placements %}
-    <form method="post" action="{% url 'shop:manage_listing_print_add' listing.pk %}" enctype="multipart/form-data" class="stack">
-      {% csrf_token %}
-      <h3>Add a print area</h3>
-      <div class="row-2">
-        <div class="field"><label for="new_placement">Goes on the</label>
-          <select id="new_placement" name="placement">
-            {% for value, label in free_placements %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-          </select></div>
-        <div class="field"><label for="new_position">Position</label>
-          <select id="new_position" name="position">
-            {% for value, label in print_positions %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-          </select></div>
-      </div>
-      <div class="row-2">
-        <div class="field"><label for="new_scale">Size (% of the area)</label>
-          <input id="new_scale" name="scale_pct" type="number" min="25" max="100" step="5" value="30" /></div>
-        <div class="field"><label for="new_artwork">Artwork</label>
-          <input id="new_artwork" name="artwork" type="file" accept="image/*" /></div>
-      </div>
-      <div class="field"><label for="new_design">&hellip;or reuse artwork already uploaded</label>
-        <select id="new_design" name="design">
-          <option value="">Same artwork as the main print</option>
-          {% for d in artwork_designs %}<option value="{{ d.pk }}">{{ d.title }}</option>{% endfor %}
-        </select>
-        <span class="faint">An uploaded file wins over this choice.</span></div>
-      <button type="submit" class="btn btn--sm">Add print area</button>
-    </form>
-  {% else %}
-    <p class="faint">Both sides are in use.</p>
-  {% endif %}
-</div>
-
-<div class="panel stack" id="imagery">
-  <h2>Imagery</h2>
-  {% if listing.images.count > 1 %}
-    <p class="faint">This is the order shoppers see in the carousel. The first image is the cover &mdash; the
-      picture on the shop tile, in the cart and on the landing page.</p>
-  {% endif %}
-  <div class="image-strip">
-    {% for img in listing.images.all %}
-      <figure class="image-cell">
-        {% if img.image %}<img src="{{ img.image.url }}" alt="{{ img.alt_text }}" />{% else %}<span class="faint">(no file)</span>{% endif %}
-        <figcaption class="faint">{{ forloop.counter }}{% if forloop.first %} &middot; <strong>Cover</strong>{% endif %} &middot; {{ img.get_kind_display }}</figcaption>
-        {% if listing.images.count > 1 %}
-          <form method="post" action="{% url 'shop:manage_image_move' img.pk %}" class="image-move">
-            {% csrf_token %}
-            <button type="submit" name="direction" value="earlier" class="btn btn--sm btn--ghost"
-                    aria-label="Move image {{ forloop.counter }} earlier" {% if forloop.first %}disabled{% endif %}>&larr;</button>
-            <button type="submit" name="direction" value="later" class="btn btn--sm btn--ghost"
-                    aria-label="Move image {{ forloop.counter }} later" {% if forloop.last %}disabled{% endif %}>&rarr;</button>
-            {% if not forloop.first %}<button type="submit" name="direction" value="first" class="linkish">make cover</button>{% endif %}
-          </form>
-        {% endif %}
-        <form method="post" action="{% url 'shop:manage_image_delete' img.pk %}">{% csrf_token %}<button class="linkish" type="submit">delete</button></form>
-      </figure>
-    {% empty %}<p class="muted">No images yet.</p>{% endfor %}
-  </div>
-  <div class="cluster">
-    <form method="post" action="{% url 'shop:manage_listing_add_image' listing.pk %}" enctype="multipart/form-data" class="cluster">
-      {% csrf_token %}
-      <input type="file" name="image" accept="image/*" multiple />
-      <select name="kind">
-        {% for v, l in image_kinds %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
-      </select>
-      <button type="submit" class="btn btn--sm btn--ghost">Upload</button>
-    </form>
-    {% if is_mock %}
-    <form method="post" action="{% url 'shop:manage_listing_mockups' listing.pk %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn--sm btn--ghost">Generate mockups (mock)</button>
-    </form>
+    {% if not listing.template.printful_blueprint_id and not listing.is_connected %}
+      <p class="g-muted">This design's template has no Printful product chosen yet &mdash; set one on the <a href="{% url 'shop:manage_catalogue_setup' %}#templates">Catalogue setup page</a> first.</p>
     {% else %}
-    <p class="faint">Mockups from Printful aren't built yet &mdash; upload product photos with the Upload button.</p>
+      <form method="post" action="{% url 'shop:manage_listing_update_printful' listing.pk %}" class="c-printful__act"
+            {% if listing.is_connected %}onsubmit="return confirm('Create a new product on Printful from this listing as it is now ({{ printful_next_name|escapejs }})? The current one ({{ printful_current_name|escapejs }}) stays in your Printful store for you to delete.')"{% endif %}>
+        {% csrf_token %}
+        <button type="submit" class="g-btn {% if not listing.is_connected or printful_changes or sizes_without_ids %}g-btn-primary{% else %}g-btn-secondary{% endif %}">
+          {% if not listing.is_connected %}Send to Printful{% elif printful_changes %}Update Printful &rarr; {{ printful_next_name }}{% else %}Rebuild on Printful &rarr; {{ printful_next_name }}{% endif %}
+        </button>
+        <span class="g-muted g-small">
+          {% if listing.is_connected %}Builds a new product ({{ printful_next_name }}) and switches to it; the old one stays in your Printful store.
+          {% else %}Creates the product from this listing's art and sizes.{% endif %}
+          Matches sizes first if needed. Real Printful calls, made only when you press this.
+        </span>
+      </form>
+    {% endif %}
+    {% if listing.is_connected %}
+      <details class="c-fold" id="printful-preview"{% if listing.preview_images or waiting %} open{% endif %}>
+        <summary>How it looks on Printful</summary>
+        {% include "shop/manage/_preview_panel.html" with listing=listing waiting=waiting %}
+      </details>
     {% endif %}
   </div>
-</div>
+</section>
 
-{% if listing.is_connected %}
-<div class="panel stack" id="printful-preview">
-  <h2>How it looks on Printful</h2>
-  {% if listing.preview_images %}
-    <div class="image-strip">
-      {% for p in listing.preview_images %}
-        <figure class="image-cell image-cell--wide">
-          <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer"><img src="{{ p.url }}" alt="Printful's render: {{ p.label }}"
-             loading="lazy" referrerpolicy="no-referrer" /></a>
-          <figcaption class="faint">{{ p.label }}</figcaption>
-        </figure>
-      {% endfor %}
-    </div>
-    <p class="faint">Printful's own render of your art on the shirt, as last read
-      {{ listing.printful_preview_checked|date:"M j, g:i a" }}. Check the placement, size and color
-      here before you list it.</p>
-  {% else %}
-    <p class="muted">No preview yet. Printful draws it a minute or so after a product is sent &mdash;
-      press <em>Refresh preview</em>.</p>
-  {% endif %}
-  <form method="post" action="{% url 'shop:manage_listing_refresh_preview' listing.pk %}">
+<section class="g-dense c-stack">
+  <form method="post" class="c-form">
     {% csrf_token %}
-    <button type="submit" class="btn btn--ghost btn--sm">Refresh preview</button>
-  </form>
-  <p class="faint">A read-only call to your Printful account, made when you click this (the product is also
-    read, and the preview kept, whenever you send it or refresh its sizes).</p>
-</div>
-{% endif %}
+    <div class="c-cols">
+      <div class="g-well c-stack">
+        <h2 class="c-label">Design</h2>
+        <div class="g-field"><label for="title">Title</label>
+          <input class="g-input" id="title" name="title" value="{{ listing.design.title }}" /></div>
+        <div class="g-field"><label for="story">Story</label>
+          <textarea class="g-input" id="story" name="story" rows="3">{{ listing.design.story }}</textarea></div>
+        <div class="g-field"><label for="tags">Tags (comma-separated)</label>
+          <input class="g-input" id="tags" name="tags" value="{% for t in listing.design.tags.all %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %}" />
+          <span class="g-muted g-small">In use: {% for t in all_tags %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+        </div>
+        <details class="c-fold" id="rights"{% if not listing.design.rights_recorded %} open{% endif %}>
+          <summary>Rights {% if not listing.design.rights_recorded %}<span class="g-tag is-wait">not recorded</span>{% endif %}</summary>
+          <div class="g-field"><label for="origin">Where this artwork came from</label>
+            <select class="g-input" id="origin" name="origin">
+              {% for value, label in design_origins %}<option value="{{ value }}" {% if listing.design.origin == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select></div>
+          <div class="g-field"><label for="ip_checked_on">Conflict search done on</label>
+            <input class="g-input" id="ip_checked_on" name="ip_checked_on" type="date" value="{{ listing.design.ip_checked_on|date:'Y-m-d' }}" />
+            <span class="g-muted g-small">Trademark and copyright. Private &mdash; never shown on the shop.</span></div>
+          <div class="g-field"><label for="ip_notes">Rights notes</label>
+            <textarea class="g-input" id="ip_notes" name="ip_notes" rows="3" placeholder="Source files, licence, receipts, what you searched and found">{{ listing.design.ip_notes }}</textarea></div>
+        </details>
+      </div>
 
-<div class="panel stack">
-  <h2>Printful &amp; publishing</h2>
-  {% if not listing.template.printful_blueprint_id %}
-    <p class="faint">This design's template has no Printful product chosen yet —
-      set one on the <a href="{% url 'shop:manage_catalogue_setup' %}#templates">Catalogue setup page</a> first.</p>
-  {% else %}
-    <form method="post" action="{% url 'shop:manage_listing_match_printful_sizes' listing.pk %}">
+      <div class="g-well c-stack">
+        <h2 class="c-label">Listing</h2>
+        <div class="g-field"><label for="template">Shirt (template)</label>
+          <select class="g-input" id="template" name="template">
+            {% for t in template_choices %}<option value="{{ t.pk }}" {% if t.pk == listing.template_id %}selected{% endif %}>{{ t.name }}{% if t.printful_blueprint_name %} &mdash; {{ t.printful_blueprint_name }}{% endif %}</option>{% endfor %}
+          </select>
+          <span class="g-muted g-small">Changing it picks a different Printful product. Save, choose its color, then Update Printful. Costs reset to the template's estimates. New templates are made on the
+            <a href="{% url 'shop:manage_catalogue_setup' %}#templates">Catalogue setup page</a>.</span></div>
+        <div class="g-field"><label for="color">Color</label>
+          {% if color_options %}
+            <div class="color-picker" x-data="ttsColorPicker()" @click.outside="open = false" @keydown.escape="open = false"
+                 data-value="{{ listing.color }}" data-swatch="{{ current_color.swatch }}" data-image="{{ current_color.image }}"
+                 data-product-url="{{ printful_product_url }}">
+              <input type="hidden" id="color" name="color" value="{{ listing.color }}" :value="value" />
+              <button type="button" class="color-picker__trigger" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="listbox">
+                <span class="swatch" :class="{ 'swatch--none': !swatch }" :style="swatch ? 'background:' + swatch : ''"></span>
+                <span class="color-picker__name" x-text="value || '— choose a color'"></span>
+                <span class="color-picker__caret">&#9662;</span>
+              </button>
+              <ul class="color-picker__menu" role="listbox" x-show="open" x-cloak>
+                <li><button type="button" role="option" class="color-picker__opt" data-name="" @click="pick($el)">
+                  <span class="swatch swatch--none"></span><span class="color-picker__name">&mdash;</span></button></li>
+                {% for o in color_options %}
+                  <li><button type="button" role="option" class="color-picker__opt" data-name="{{ o.name }}"
+                              data-swatch="{{ o.swatch }}" data-image="{{ o.image }}" @click="pick($el)">
+                    <span class="swatch{% if not o.swatch %} swatch--none{% endif %}"{% if o.swatch %} style="background:{{ o.swatch }}"{% endif %}></span>
+                    <span class="color-picker__name">{{ o.name }}</span></button></li>
+                {% endfor %}
+              </ul>
+              <div class="color-preview" x-show="image || link" x-cloak>
+                <img x-show="image" :src="image" alt="This color on the Printful blank" width="140" height="140"
+                     loading="lazy" referrerpolicy="no-referrer" />
+                <a x-show="link" :href="link" target="_blank" rel="noopener noreferrer">See this color on Printful &#8599;</a>
+              </div>
+            </div>
+            {% if listing.color and not current_color %}
+              <div class="g-banner"><strong>&ldquo;{{ listing.color }}&rdquo;</strong> is not a real Printful color for this
+                shirt &mdash; pick one from the list.</div>
+            {% endif %}
+            <span class="g-muted g-small">From {{ listing.template.printful_blueprint_name|default:"the linked Printful product" }}'s real color options;
+              swatches are Printful's own color values.</span>
+            <script>
+              function ttsColorPicker() {
+                return {
+                  open: false, value: '', swatch: '', image: '', base: '',
+                  init() {
+                    var d = this.$el.dataset;
+                    this.value = d.value || ''; this.swatch = d.swatch || ''; this.image = d.image || ''; this.base = d.productUrl || '';
+                  },
+                  pick(el) {
+                    this.value = el.dataset.name || ''; this.swatch = el.dataset.swatch || ''; this.image = el.dataset.image || '';
+                    this.open = false;
+                  },
+                  get link() {
+                    return this.base ? this.base + (this.value ? '?color=' + encodeURIComponent(this.value) : '') : '';
+                  }
+                };
+              }
+            </script>
+          {% else %}
+            <input id="color" class="g-input" name="color" value="{{ listing.color }}" />
+            {% if listing.template.printful_blueprint_id %}
+              <span class="g-muted g-small">Couldn't reach Printful for its color list just now &mdash; type it in for now.</span>
+            {% endif %}
+          {% endif %}
+        </div>
+        <div class="c-pair">
+          <div class="g-field"><label for="base_cost">Base cost <span class="g-muted">(incl. any tax Printful charges)</span></label>
+            <input class="g-input" id="base_cost" name="base_cost" type="number" step="0.01" value="{{ listing.base_cost }}" /></div>
+          <div class="g-field"><label for="shipping_est">Ship est.</label>
+            <input class="g-input" id="shipping_est" name="shipping_est" type="number" step="0.01" value="{{ listing.shipping_est }}" /></div>
+          <div class="g-field"><label for="price">Retail price</label>
+            <input class="g-input" id="price" name="price" type="number" step="0.01" value="{{ listing.price }}" /></div>
+          <div class="g-field"><label for="competitor_price">Competitor price</label>
+            <input class="g-input" id="competitor_price" name="competitor_price" type="number" step="0.01" value="{{ listing.competitor_price|default_if_none:'' }}" /></div>
+        </div>
+        <p class="g-muted g-small">Suggested ${{ listing.suggested_price }} &middot; margin ${{ listing.margin_dollars }} ({{ listing.margin_multiple }}&times;)
+          {% if listing.below_guardrail %}<span class="g-tag is-bad">below 2.0&times; guardrail</span>{% endif %}</p>
+        <div class="g-field"><label for="collection">Collection</label>
+          <select class="g-input" id="collection" name="collection">
+            <option value="">—</option>
+            {% for c in collections %}<option value="{{ c.id }}" {% if listing.collection_id == c.id %}selected{% endif %}>{{ c.name }}{% if c.is_base %} (base){% endif %}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="g-well c-stack">
+        <h2 class="c-label">Main print</h2>
+        <div class="g-field"><label for="print_placement">Main print goes on the</label>
+          <select class="g-input" id="print_placement" name="print_placement">
+            <option value="" {% if not listing.print_placement %}selected{% endif %}>Template default ({{ listing.template.get_print_placement_display|default:"Front" }})</option>
+            {% for value, label in placement_choices %}<option value="{{ value }}" {% if listing.print_placement == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          {% if listing.is_connected %}<span class="g-muted g-small">Already on Printful &mdash; Printful keeps the placement this was sent with, so a change here only reaches Printful when you update it.</span>{% endif %}
+        </div>
+        <div class="c-pair">
+          <div class="g-field"><label for="print_scale_pct">Size <span class="g-muted">(% of the {{ listing.template.get_print_placement_display|default:"placement" }} area)</span></label>
+            <input class="g-input" id="print_scale_pct" name="print_scale_pct" type="number" min="25" max="100" step="5" value="{{ listing.print_scale_pct }}" /></div>
+          <div class="g-field"><label for="print_position">Position</label>
+            <select class="g-input" id="print_position" name="print_position">
+              {% for value, label in print_positions %}<option value="{{ value }}" {% if listing.print_position == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select></div>
+        </div>
+        <h2 class="c-label">Sizes</h2>
+        {% for s in listing.sizes.all %}
+          <div class="c-size">
+            <span>{{ s.label }}{% if s.measurements %} <span class="g-muted g-small">{{ s.measurements }}</span>{% endif %}
+              <span class="g-muted g-small">{% if s.printful_variant_id %}&middot; on Printful #{{ s.printful_variant_id }}{% endif %}{% if s.printful_catalog_variant_id %} &middot; matched #{{ s.printful_catalog_variant_id }}{% endif %}{% if not s.printful_variant_id and not s.printful_catalog_variant_id %}&middot; not matched yet{% endif %}</span>
+            </span>
+            <input class="g-input" name="size_price_{{ s.id }}" type="number" step="0.01" aria-label="Price for {{ s.label }}" placeholder="inherits ${{ listing.price }}"
+                   value="{{ s.price_override|default_if_none:'' }}" />
+          </div>
+        {% empty %}<p class="g-muted">No sizes — this listing can't go live.</p>{% endfor %}
+      </div>
+    </div>
+    <div class="g-row"><button type="submit" class="g-btn g-btn-primary">Save</button></div>
+  </form>
+
+  <details class="c-fold" id="artwork">
+    <summary>Artwork</summary>
+    <p class="g-muted">The main print's file:
+      {% if listing.design.artwork %}<a href="{% url 'shop:manage_design_artwork' listing.design.pk %}" target="_blank" rel="noopener">view current</a>{% else %}none yet{% endif %}.
+      Replacing it keeps the size and position above.
+      {% if listing.design.listings.count > 1 %}This design is shared with other listings, which will use the new file too.{% endif %}
+      {% if listing.is_connected %}Printful keeps the old file until you update it.{% endif %}</p>
+    <form method="post" action="{% url 'shop:manage_listing_replace_artwork' listing.pk %}" enctype="multipart/form-data" class="g-row">
       {% csrf_token %}
-      <button type="submit" class="btn btn--ghost btn--sm">Match sizes to Printful variants</button>
+      <input class="g-input c-file" type="file" name="artwork" accept="image/*" required aria-label="New main artwork" />
+      <button type="submit" class="g-btn g-btn-secondary">Replace artwork</button>
     </form>
-    <p class="faint">Looks up {{ listing.template.printful_blueprint_name|default:listing.template.printful_blueprint_id }}
-      in color &ldquo;{{ listing.color|default:"(not set)" }}&rdquo; and fills in each size's real Printful variant, above.
-      A real, read-only call to your Printful account, made only when you click this.</p>
-  {% endif %}
-  {% if listing.is_connected %}
-    <p class="ok-text">Connected — product {{ listing.printful_product_id }}</p>
-    <div class="btn-popup-wrap">
-      <form method="post" action="{% url 'shop:manage_listing_resend_printful' listing.pk %}"
-            onsubmit="return ttsResendSubmit(event, this)">
+  </details>
+
+  <details class="c-fold" id="print-areas"{% if prints or listing.print_conflicts %} open{% endif %}>
+    <summary>Additional print areas {% if prints %}<span class="g-tag">{{ prints|length }}</span>{% endif %}</summary>
+    <p class="g-muted">The main print above goes on the <strong>{{ listing.effective_print_placement|title }}</strong>.
+      Add another to print a second design elsewhere &mdash; for example a back print with a small front
+      design. Printful charges for every print area, so update <em>Base cost</em> to match. Left, right and
+      upper are as you look at the shirt, not the wearer.</p>
+    {% if listing.print_conflicts %}
+      <div class="g-banner">An additional print is on the same side as the main print, so it is not being
+        sent. Remove it, or move the main print.</div>
+    {% endif %}
+    {% for p in prints %}
+      <div class="g-well c-stack c-print">
+        <strong>{{ p.get_placement_display }}</strong>
+        <span class="g-muted g-small">{% if p.design %}<a href="{% url 'shop:manage_design_artwork' p.design.pk %}" target="_blank" rel="noopener">{{ p.design.title }}</a>{% else %}same artwork as the main print{% endif %}</span>
+        <form method="post" action="{% url 'shop:manage_listing_print_update' listing.pk p.pk %}" class="g-row">
+          {% csrf_token %}
+          <label class="g-muted g-small" for="scale-{{ p.pk }}">Size %</label>
+          <input class="g-input c-num" id="scale-{{ p.pk }}" name="scale_pct" type="number" min="25" max="100" step="5" value="{{ p.scale_pct }}" />
+          <select class="g-input c-auto" name="position" aria-label="Position">
+            {% for value, label in print_positions %}<option value="{{ value }}" {% if p.position == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="g-btn g-btn-secondary">Save</button>
+        </form>
+        <form method="post" action="{% url 'shop:manage_listing_print_replace_artwork' listing.pk p.pk %}" enctype="multipart/form-data" class="g-row">
+          {% csrf_token %}
+          <input class="g-input c-file" type="file" name="artwork" accept="image/*" required aria-label="New artwork for the {{ p.get_placement_display|lower }} print" />
+          <button type="submit" class="g-btn g-btn-secondary">Replace artwork</button>
+        </form>
+        <form method="post" action="{% url 'shop:manage_listing_print_delete' listing.pk p.pk %}"
+              onsubmit="return confirm('Remove the {{ p.get_placement_display|lower }} print?')">
+          {% csrf_token %}
+          <button type="submit" class="g-btn g-btn-danger">Remove this print</button>
+        </form>
+      </div>
+    {% empty %}
+      <p class="g-muted">No additional print areas.</p>
+    {% endfor %}
+    {% if free_placements %}
+      <form method="post" action="{% url 'shop:manage_listing_print_add' listing.pk %}" enctype="multipart/form-data" class="c-stack">
         {% csrf_token %}
-        <button type="submit" class="btn btn--sm{% if unmatched_sizes %} btn--needs-match{% endif %}"
-                {% if unmatched_sizes %}data-unmatched="{{ unmatched_sizes|join:', ' }}"{% endif %}>Re-send to Printful</button>
+        <h2 class="c-label">Add a print area</h2>
+        <div class="c-pair">
+          <div class="g-field"><label for="new_placement">Goes on the</label>
+            <select class="g-input" id="new_placement" name="placement">
+              {% for value, label in free_placements %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select></div>
+          <div class="g-field"><label for="new_position">Position</label>
+            <select class="g-input" id="new_position" name="position">
+              {% for value, label in print_positions %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select></div>
+          <div class="g-field"><label for="new_scale">Size (% of the area)</label>
+            <input class="g-input" id="new_scale" name="scale_pct" type="number" min="25" max="100" step="5" value="30" /></div>
+          <div class="g-field"><label for="new_artwork">Artwork</label>
+            <input class="g-input c-file" id="new_artwork" name="artwork" type="file" accept="image/*" /></div>
+        </div>
+        <div class="g-field"><label for="new_design">&hellip;or reuse artwork already uploaded</label>
+          <select class="g-input" id="new_design" name="design">
+            <option value="">Same artwork as the main print</option>
+            {% for d in artwork_designs %}<option value="{{ d.pk }}">{{ d.title }}</option>{% endfor %}
+          </select>
+          <span class="g-muted g-small">An uploaded file wins over this choice.</span></div>
+        <div class="g-row"><button type="submit" class="g-btn g-btn-secondary">Add print area</button></div>
       </form>
-      <div class="btn-popup" id="resend-popup" role="status" hidden></div>
-    </div>
-    <p class="faint">Builds a <strong>new</strong> Printful product from this listing as it is now (shirt, color,
-      placement, art) and switches to it. The old product is left in your Printful store for you to delete.
-      Match sizes first. A real call to your Printful account, made only when you click this.</p>
-    <script>
-      function ttsResendSubmit(event, form) {
-        var btn = form.querySelector('button[data-unmatched]');
-        if (btn) {
-          event.preventDefault();
-          var popup = document.getElementById('resend-popup');
-          popup.textContent = 'Match sizes to Printful variants first — no match yet for: ' + btn.dataset.unmatched + '.';
-          popup.hidden = false;
-          clearTimeout(popup._ttsTimer);
-          popup._ttsTimer = setTimeout(function () { popup.hidden = true; }, 4000);
-          return false;
-        }
-        return confirm('Create a new product on Printful from this listing as it is now? The old one stays in your Printful store.');
-      }
-    </script>
-    <form method="post" action="{% url 'shop:manage_listing_refresh_printful_sizes' listing.pk %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn--ghost btn--sm">Refresh sizes from Printful</button>
-    </form>
-    <p class="faint">Re-reads this product from Printful and stores each size's real variant id, so orders
-      use the right ones. A real, read-only call to your Printful account, made only when you click this.</p>
-  {% else %}
-    <form method="post" action="{% url 'shop:manage_listing_printful' listing.pk %}">
-      {% csrf_token %}
-      <button type="submit" class="btn">Send to Printful</button>
-    </form>
-  {% endif %}
-  <form method="post" action="{% url 'shop:manage_listing_status' listing.pk %}" class="cluster">
-    {% csrf_token %}
-    <input type="hidden" name="next" value="{{ request.path }}" />
-    {% if listing.status != 'live' %}<button name="status" value="live" class="btn btn--ghost">Publish (go live)</button>{% endif %}
-    {% if listing.status == 'live' %}<button name="status" value="hidden" class="btn btn--ghost">Unpublish</button>{% endif %}
-    {% if listing.status == 'draft' %}<button name="status" value="hidden" class="btn btn--ghost btn--sm">Mark ready (hidden)</button>{% endif %}
-  </form>
-</div>
+    {% else %}
+      <p class="g-muted">Both sides are in use.</p>
+    {% endif %}
+  </details>
 
-<div class="panel stack" id="delete-listing">
-  <h2>Delete</h2>
-  {% if listing.status == 'live' %}
-    <p class="faint">This listing is live. Unpublish it above before it can be deleted.</p>
-  {% elif has_orders %}
-    <p class="faint">This listing has been ordered, and the order history and reprints depend on it, so it can't be
-      deleted. Set it to hidden to keep it off the shop.</p>
-  {% else %}
-    <form method="post" action="{% url 'shop:manage_listing_delete' listing.pk %}"
-          onsubmit="return confirm('Delete {{ listing.design.title|escapejs }} for good? Its artwork is deleted too unless the design has other listings.')">
+  <details class="c-fold" id="imagery">
+    <summary>Imagery {% if listing.images.count %}<span class="g-tag">{{ listing.images.count }}</span>{% endif %}</summary>
+    {% if listing.images.count > 1 %}
+      <p class="g-muted">This is the order shoppers see in the carousel. The first image is the cover &mdash; the
+        picture on the shop tile, in the cart and on the landing page.</p>
+    {% endif %}
+    <div class="c-images">
+      {% for img in listing.images.all %}
+        <figure class="g-well c-image">
+          {% if img.image %}<img src="{{ img.image.url }}" alt="{{ img.alt_text }}" />{% else %}<span class="g-muted">(no file)</span>{% endif %}
+          <figcaption class="g-muted g-small">{{ forloop.counter }}{% if forloop.first %} &middot; <strong>Cover</strong>{% endif %} &middot; {{ img.get_kind_display }}</figcaption>
+          {% if listing.images.count > 1 %}
+            <form method="post" action="{% url 'shop:manage_image_move' img.pk %}" class="g-row">
+              {% csrf_token %}
+              <button type="submit" name="direction" value="earlier" class="g-btn g-btn-secondary c-icon"
+                      aria-label="Move image {{ forloop.counter }} earlier" {% if forloop.first %}disabled{% endif %}>&larr;</button>
+              <button type="submit" name="direction" value="later" class="g-btn g-btn-secondary c-icon"
+                      aria-label="Move image {{ forloop.counter }} later" {% if forloop.last %}disabled{% endif %}>&rarr;</button>
+              {% if not forloop.first %}<button type="submit" name="direction" value="first" class="g-btn g-btn-secondary">Make cover</button>{% endif %}
+            </form>
+          {% endif %}
+          <form method="post" action="{% url 'shop:manage_image_delete' img.pk %}">{% csrf_token %}<button class="g-btn g-btn-danger" type="submit">Delete</button></form>
+        </figure>
+      {% empty %}<p class="g-muted">No images yet.</p>{% endfor %}
+    </div>
+    <form method="post" action="{% url 'shop:manage_listing_add_image' listing.pk %}" enctype="multipart/form-data" class="g-row">
       {% csrf_token %}
-      <button type="submit" class="btn btn--ghost btn--sm">Delete this listing</button>
+      <input class="g-input c-file" type="file" name="image" accept="image/*" multiple aria-label="Images to upload" />
+      <select class="g-input c-auto" name="kind" aria-label="Kind of image">
+        {% for v, l in image_kinds %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="g-btn g-btn-secondary">Upload</button>
+      {% if is_mock %}
+        <button type="submit" class="g-btn g-btn-secondary" formaction="{% url 'shop:manage_listing_mockups' listing.pk %}" formenctype="application/x-www-form-urlencoded">Generate mockups (mock)</button>
+      {% endif %}
     </form>
-    <p class="faint">Removes the listing, its sizes and images, and the design with its artwork if nothing else uses it.
-      {% if listing.is_connected %}The Printful product ({{ listing.printful_product_id }}) is <strong>not</strong>
-      deleted; remove it in Printful yourself.{% endif %}</p>
-  {% endif %}
-</div>
+    {% if not is_mock %}<p class="g-muted g-small">Mockups from Printful aren't built yet &mdash; upload product photos with the Upload button.</p>{% endif %}
+  </details>
+
+  <details class="c-fold" id="delete-listing">
+    <summary>Delete</summary>
+    {% if listing.status == 'live' %}
+      <p class="g-muted">This listing is live. Set it to Hidden above before it can be deleted.</p>
+    {% elif has_orders %}
+      <p class="g-muted">This listing has been ordered, and the order history and reprints depend on it, so it can't be
+        deleted. Set it to hidden to keep it off the shop.</p>
+    {% else %}
+      <form method="post" action="{% url 'shop:manage_listing_delete' listing.pk %}"
+            onsubmit="return confirm('Delete {{ listing.design.title|escapejs }} for good? Its artwork is deleted too unless the design has other listings.')">
+        {% csrf_token %}
+        <button type="submit" class="g-btn g-btn-danger">Delete this listing</button>
+      </form>
+      <p class="g-muted g-small">Removes the listing, its sizes and images, and the design with its artwork if nothing else uses it.
+        {% if listing.is_connected %}The Printful product ({{ listing.printful_product_id }}) is <strong>not</strong>
+        deleted; remove it in Printful yourself.{% endif %}</p>
+    {% endif %}
+  </details>
+</section>
 {% endblock %}

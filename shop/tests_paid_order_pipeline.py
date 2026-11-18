@@ -230,12 +230,18 @@ class RefreshSizesAndPlacementTests(TestCase):
         r = self.refresh(listing, [])
         self.assertContains(r, "isn&#x27;t connected")
 
-    def test_refresh_button_only_shows_on_connected_listings(self):
+    def test_the_one_update_button_says_send_or_update_by_whether_the_listing_is_on_printful(self):
         listing = self.connected_listing()
-        self.assertContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Refresh sizes from Printful")
+        page = self.c.get(f"/manage/listings/{listing.pk}/")
+        self.assertContains(page, f"/manage/listings/{listing.pk}/update-printful/")
+        self.assertContains(page, "Rebuild on Printful")
+        self.assertNotContains(page, "Refresh sizes from Printful")   # no separate buttons any more
         listing.printful_product_id = ""
         listing.save()
-        self.assertNotContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Refresh sizes from Printful")
+        self.assertNotContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Send to Printful")   # no Printful product chosen yet
+        listing.template.printful_blueprint_id = "71"
+        listing.template.save()
+        self.assertContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Send to Printful")
 
     def test_mock_client_supports_refresh(self):
         listing = self.connected_listing()
@@ -625,12 +631,15 @@ class ResendToPrintfulTests(TestCase):
         self.assertContains(page, "before the console tracked")
         self.assertNotContains(page, "Printful still has the old version")
 
-    def test_resend_button_only_on_sent_listings(self):
+    def test_the_page_offers_update_only_on_sent_listings_and_never_the_old_buttons(self):
         listing = self.sent_listing()
-        self.assertContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Re-send to Printful")
+        page = self.c.get(f"/manage/listings/{listing.pk}/")
+        self.assertContains(page, "Rebuild on Printful")
+        for gone in ("Re-send to Printful", "Match sizes to Printful variants", "Refresh sizes from Printful"):
+            self.assertNotContains(page, gone)
         listing.printful_product_id = ""
         listing.save()
-        self.assertNotContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Re-send to Printful")
+        self.assertNotContains(self.c.get(f"/manage/listings/{listing.pk}/"), "Rebuild on Printful")
 
 
 class UnsentIdMigrationTests(TestCase):
@@ -671,23 +680,13 @@ class ResendButtonLooksInactiveTests(TestCase):
                                    printful_catalog_variant_id="2" if matched else "")
         return listing
 
-    def test_button_is_muted_and_carries_the_unmatched_sizes_when_not_matched(self):
+    def test_the_update_button_no_longer_needs_the_sizes_matched_by_hand(self):
+        # Update Printful matches sizes itself, so there is no muted button or popup telling you to do it first
         listing = self.listing(matched=False)
         page = self.c.get(f"/manage/listings/{listing.pk}/").content.decode()
-        self.assertIn("btn--needs-match", page)
-        self.assertIn('data-unmatched="S, M"', page)
-
-    def test_button_is_normal_once_sizes_are_matched(self):
-        listing = self.listing(matched=True)
-        page = self.c.get(f"/manage/listings/{listing.pk}/").content.decode()
-        self.assertNotIn("btn--needs-match", page)
-        self.assertNotIn('data-unmatched="', page)
-
-    def test_popup_element_and_handler_are_on_the_page(self):
-        listing = self.listing(matched=False)
-        page = self.c.get(f"/manage/listings/{listing.pk}/").content.decode()
-        self.assertIn('id="resend-popup"', page)
-        self.assertIn("ttsResendSubmit", page)
+        for gone in ("btn--needs-match", "data-unmatched", "resend-popup", "ttsResendSubmit"):
+            self.assertNotIn(gone, page)
+        self.assertIn("update-printful", page)
 
 
 @override_settings(STAFF_2FA_REQUIRED=False)

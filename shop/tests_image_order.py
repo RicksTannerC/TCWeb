@@ -153,7 +153,7 @@ class ImageOrderTests(TestCase):
         listing = self.listing()
         html = self.c.get(f"/manage/listings/{listing.pk}/").content.decode()
         self.assertIn("<strong>Cover</strong>", html)
-        self.assertEqual(html.count("make cover"), 2)  # every image but the first
+        self.assertEqual(html.count("Make cover"), 2)  # every image but the first
         self.assertIn('aria-label="Move image 1 earlier" disabled', html)
         self.assertIn('aria-label="Move image 3 later" disabled', html)
         self.assertIn('id="imagery"', html)

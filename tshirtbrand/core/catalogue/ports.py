@@ -23,6 +23,9 @@ class ListingRepository(Protocol):
     def store_previews(self, listing_id: int, previews: tuple) -> None:
         """Keep the supplier's own render of the listing (Preview values) and when it was read."""
 
+    def set_version(self, listing_id: int, version) -> None:
+        """Remember which build (a Version) the supplier's product now is."""
+
     def mark_sent(self, listing_id: int, status: str) -> None:
         """Set the status and remember what was sent (shirt, colour, placement, print layout) so a later change
         shows as needing a re-send."""

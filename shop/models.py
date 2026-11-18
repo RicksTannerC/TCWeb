@@ -326,6 +326,14 @@ class Listing(models.Model):
     # A fingerprint of every print area (placement, size, position, artwork) at
     # the time it was sent -- see print_signature().
     printful_sent_prints = models.CharField(max_length=255, blank=True)
+    # The same fingerprint split by side (front, and everything else), so a later change can be told to be on the
+    # front or on the back. Blank on a listing sent before these were recorded.
+    printful_sent_front = models.CharField(max_length=255, blank=True)
+    printful_sent_back = models.CharField(max_length=255, blank=True)
+    # Which build of the product Printful has, shown in its name: whole listing . front print . back print.
+    version_whole = models.PositiveSmallIntegerField(default=1)
+    version_front = models.PositiveSmallIntegerField(default=0)
+    version_back = models.PositiveSmallIntegerField(default=0)
     # Printful's own render of the art on the blank, as last read from the product:
     # [{"label": ..., "url": "https://..."}]. For checking placement/size/colour before listing.
     printful_preview = models.JSONField(default=list, blank=True)
@@ -404,6 +412,29 @@ class Listing(models.Model):
         return out
 
     @property
+    def version(self):
+        return f"{self.version_whole}.{self.version_front}.{self.version_back}"
+
+    def changes_since_sent(self):
+        """What differs from the product on Printful, as a tuple of "whole" (shirt, color, or a change we can't
+        place), "front" and "back". Empty when in step or not on Printful."""
+        if not self.is_connected:
+            return ()
+        changes = []
+        if (self.printful_sent_blueprint_id and self.template.printful_blueprint_id != self.printful_sent_blueprint_id) or (
+                self.printful_sent_color and self.color != self.printful_sent_color):
+            changes.append("whole")
+        front, back = self.print_signature_by_side()
+        if self.printful_sent_front or self.printful_sent_back:
+            if front != self.printful_sent_front:
+                changes.append("front")
+            if back != self.printful_sent_back:
+                changes.append("back")
+        elif self.printful_changes_not_sent:
+            changes.append("whole")   # sent before the sides were recorded: something changed, but not which side
+        return tuple(changes)
+
+    @property
     def preview_images(self):
         """The stored Printful preview, without entries that aren't really images (an old read can
         hold the bare CDN host Printful sends as a thumbnail before it has drawn one)."""
@@ -454,9 +485,7 @@ class Listing(models.Model):
         main = self.effective_print_placement
         return [p for p in self.prints.all() if p.placement == main]
 
-    def print_signature(self):
-        """A stable fingerprint of every print area, to notice when the layout
-        changed after the product was sent to the supplier."""
+    def _print_specs(self):
         def art(design):
             return artwork.art_key(design.pk, design.artwork_version)
 
@@ -464,7 +493,18 @@ class Listing(models.Model):
                                    art(self.design))]
         specs += [artwork.PrintSpec(p.placement, p.scale_pct, p.position, art(p.design or self.design))
                   for p in self.extra_prints]
-        return artwork.print_signature(specs)
+        return specs
+
+    def print_signature(self):
+        """A stable fingerprint of every print area, to notice when the layout
+        changed after the product was sent to the supplier."""
+        return artwork.print_signature(self._print_specs())
+
+    def print_signature_by_side(self):
+        """(front, back): the fingerprint of the front print area, and of every other one."""
+        specs = self._print_specs()
+        return (artwork.print_signature([s for s in specs if s.placement == PrintPlacement.FRONT]),
+                artwork.print_signature([s for s in specs if s.placement != PrintPlacement.FRONT]))
 
     def print_jobs(self):
         """Every print area to send, main first, as (design, placement, layout or None). An extra that

@@ -21,10 +21,11 @@
   <link rel="stylesheet" href="{% static 'shop/console/glass.css' %}" />
   <link rel="stylesheet" href="{% static 'shop/console/console.css' %}" />
   <link rel="stylesheet" href="{% static 'shop/console/console-legacy.css' %}" />
+  {# console.js first: it registers the Alpine components before Alpine starts #}
+  <script src="{% static 'shop/console/console.js' %}" defer></script>
+  <script src="{% static 'shop/console/glass-menu.js' %}" defer></script>
   <script src="{% static 'shop/vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'shop/vendor/alpine.min.js' %}" defer></script>
-  <script src="{% static 'shop/console/glass-menu.js' %}" defer></script>
-  <script src="{% static 'shop/console/console.js' %}" defer></script>
 </head>
 <body id="top" class="g-page console" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   <div class="g-edgefade" aria-hidden="true"></div>
