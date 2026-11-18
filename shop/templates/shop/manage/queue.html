@@ -1,29 +1,40 @@
 {% extends "shop/manage/base.html" %}
 {% block title %}Orders{% endblock %}
 
-{% block console %}
-<h1>Orders</h1>
+{% block page %}
+{% if awaiting %}
+  <div class="g-banner is-warn"><strong>{{ awaiting }}</strong> order{{ awaiting|pluralize }} awaiting your approval.</div>
+{% endif %}
+{% if problems %}
+  <div class="g-banner" role="alert"><strong>{{ problems }}</strong> fulfillment{{ problems|pluralize }} with a problem.</div>
+{% endif %}
 
-<div class="desk-stats">
-  <div class="panel"><span class="desk-stat">{{ awaiting }}</span><span class="faint">awaiting approval</span></div>
-  <div class="panel"><span class="desk-stat {% if problems %}is-problem{% endif %}">{{ problems }}</span><span class="faint">fulfillments with a problem</span></div>
-</div>
+<section class="g-dense c-stack">
+  <div class="c-head">
+    <h1>Orders</h1>
+    <span class="g-muted g-small">{{ awaiting }} awaiting approval &middot; {{ problems }} with a problem</span>
+  </div>
 
-{% for label, orders in groups %}
-  <h2>{{ label }}</h2>
-  <ul class="desk-list" role="list">
-    {% for o in orders %}
-      <li class="panel desk-row">
-        <a href="{% url 'shop:manage_order' o.pk %}"><strong>{{ o.reference }}</strong></a>
-        <span class="faint">{{ o.email }}</span>
-        <span class="faint tnum">{{ o.items.count }} item{{ o.items.count|pluralize }}</span>
-        <span class="price">${{ o.grand_total }}</span>
-        <span class="faint tnum">margin ${{ o.margin }}</span>
-        <span class="faint">{{ o.created|date:"j M, H:i" }}</span>
-      </li>
-    {% endfor %}
-  </ul>
-{% empty %}
-  <p class="muted">No orders yet.</p>
-{% endfor %}
+  {% for label, orders in groups %}
+    <div class="c-group">
+      <h2 class="c-label">{{ label }} ({{ orders|length }})</h2>
+      <ul class="c-list">
+        {% for o in orders %}
+          <li class="c-row c-order">
+            <div class="c-row__main">
+              <a class="c-name" href="{% url 'shop:manage_order' o.pk %}">{{ o.reference }}</a>
+              <span class="g-muted g-small">{{ o.email }} &middot; {{ o.items.count }} item{{ o.items.count|pluralize }} &middot; {{ o.created|date:"j M, H:i" }}</span>
+            </div>
+            <div class="c-order__money">
+              <strong>${{ o.grand_total }}</strong>
+              <span class="g-muted g-small">margin ${{ o.margin }}</span>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% empty %}
+    <p class="g-muted">No orders yet.</p>
+  {% endfor %}
+</section>
 {% endblock %}

@@ -2,136 +2,140 @@
 
 {% block title %}{{ order.reference }}{% endblock %}
 
-{% block console %}
-<section class="stack manage-order">
-  <p class="eyebrow"><a href="{% url 'shop:manage_queue' %}">&larr; Orders</a></p>
-  <div class="cluster" style="justify-content:space-between;">
-    <h1>{{ order.reference }}</h1>
-    <span class="tag">{{ order.get_status_display }}</span>
+{% block page %}
+<section class="g-bubble c-stack manage-order">
+  <div class="c-head">
+    <div>
+      <p class="g-muted g-small c-crumb"><a href="{% url 'shop:manage_queue' %}">&larr; Orders</a></p>
+      <h1>{{ order.reference }}</h1>
+    </div>
+    <span class="g-tag {% if order.status == 'shipped' or order.status == 'delivered' %}is-done{% elif order.status == 'refunded' or order.status == 'cancelled' %}is-bad{% else %}is-open{% endif %}">{{ order.get_status_display }}</span>
   </div>
 
-  <div class="approval-grid">
-    {# ---- the approval card ---- #}
-    <div class="panel">
-      <h2>Ship to</h2>
+  {# ---- the approval, first and prominent ---- #}
+  {% if order.status == "pending_approval" %}
+    <div class="g-well c-stack action-panel">
+      <h2 class="c-label">Approve &amp; submit</h2>
+      <form method="post" action="{% url 'shop:manage_order_approve' order.pk %}" class="c-approve">
+        {% csrf_token %}
+        <div class="g-field">
+          <label for="note">Note (optional)</label>
+          <input class="g-input" id="note" name="note" placeholder="e.g. checked address with customer" />
+        </div>
+        <button type="submit" class="g-btn g-btn-primary">Approve &amp; send to Printful</button>
+      </form>
+    </div>
+  {% endif %}
+
+  <div class="c-cols approval-grid">
+    <div class="g-well c-stack">
+      <h2 class="c-label">Ship to</h2>
       <p>
         <strong>{{ order.name|default:"—" }}</strong><br />
         {{ order.email }}
       </p>
       {% with a=order.shipping_address %}
-        <p class="muted">
+        <p class="g-muted">
           {{ a.line1 }}{% if a.line2 %}, {{ a.line2 }}{% endif %}<br />
           {{ a.city }}, {{ a.state }} {{ a.postal_code }}<br />
           {{ a.country|default:"US" }}
         </p>
       {% endwith %}
       {% if address_ok %}
-        <p class="form-note ok">Address looks complete.</p>
+        <div class="g-banner is-ok">Address looks complete.</div>
       {% else %}
-        <p class="form-note error">Address may be incomplete — check before approving.</p>
+        <div class="g-banner is-warn">Address may be incomplete — check before approving.</div>
       {% endif %}
     </div>
 
-    <div class="panel">
-      <h2>Items</h2>
-      <ul role="list" class="approval-items">
+    <div class="g-well c-stack">
+      <h2 class="c-label">Items</h2>
+      <ul class="c-list approval-items">
         {% for item in order.items.all %}
-          <li>
-            <span class="approval-thumb">
+          <li class="c-row">
+            <span class="c-thumb">
               {% with img=item.listing.primary_image %}
                 {% if img %}<img src="{{ img.image.url }}" alt="" />{% elif item.listing %}<span>{{ item.design_title }}</span>{% else %}<span>?</span>{% endif %}
               {% endwith %}
             </span>
-            <span class="approval-meta">
+            <span class="c-row__main">
               <strong>{{ item.quantity }} &times; {{ item.design_title }}</strong>
-              <span class="faint">{{ item.product_type|title }}{% if item.size_label %} &middot; {{ item.size_label }}{% endif %}{% if item.color %} &middot; {{ item.color }}{% endif %}</span>
+              <span class="g-muted g-small">{{ item.product_type|title }}{% if item.size_label %} &middot; {{ item.size_label }}{% endif %}{% if item.color %} &middot; {{ item.color }}{% endif %}</span>
               {% if item.listing and not item.listing.is_connected %}
-                <span class="form-note error">Not connected to Printful</span>
+                <span><span class="g-tag is-bad">Not connected to Printful</span></span>
               {% endif %}
             </span>
-            <span class="approval-nums tnum">
+            <span class="c-order__money">
               <span>sell ${{ item.unit_price }}</span>
-              <span class="faint">cost ${{ item.unit_supplier_cost }}</span>
+              <span class="g-muted g-small">cost ${{ item.unit_supplier_cost }}</span>
             </span>
           </li>
         {% endfor %}
       </ul>
-      <p class="approval-totals tnum">
+      <p class="c-totals">
         <span>Items ${{ order.items_total }}</span>
         <span>Supplier cost ${{ order.supplier_cost }}</span>
         <span><strong>Margin ${{ order.margin }}</strong></span>
       </p>
     </div>
   </div>
+</section>
 
-  {# ---- actions ---- #}
-  {% if order.status == "pending_approval" %}
-    <div class="panel action-panel">
-      <h2>Approve &amp; submit</h2>
-      <form method="post" action="{% url 'shop:manage_order_approve' order.pk %}" class="stack">
-        {% csrf_token %}
-        <div class="field">
-          <label for="note">Note (optional)</label>
-          <input id="note" name="note" placeholder="e.g. checked address with customer" />
-        </div>
-        <button type="submit" class="btn">Approve &amp; send to Printful</button>
-      </form>
-    </div>
-  {% endif %}
-
-  {# ---- fulfillments ---- #}
+<section class="g-dense c-stack">
   {% if order.fulfillments.all %}
-    <h2>Fulfillments</h2>
+    <h2 class="c-label">Fulfillments</h2>
     {% for f in order.fulfillments.all %}
-      <div class="panel">
-        <div class="cluster" style="justify-content:space-between;">
+      <div class="g-well c-stack">
+        <div class="c-head">
           <strong>#{{ f.id }} &middot; {{ f.supplier|title }}</strong>
-          <span class="tag {% if f.status == 'problem' %}tag--problem{% endif %}">{{ f.get_status_display }}</span>
+          <span class="g-tag {% if f.status == 'problem' %}is-bad{% elif f.status == 'shipped' or f.status == 'delivered' %}is-done{% else %}is-open{% endif %}">{{ f.get_status_display }}</span>
         </div>
-        {% if f.partner_order_id %}<p class="faint tnum">Partner order {{ f.partner_order_id }}</p>{% endif %}
+        {% if f.partner_order_id %}<p class="g-muted g-small">Partner order {{ f.partner_order_id }}</p>{% endif %}
         {% if f.tracking_number %}
           <p>Tracking:
             {% if f.tracking_url %}<a href="{{ f.tracking_url }}">{{ f.tracking_number }}</a>{% else %}{{ f.tracking_number }}{% endif %}
             {% if f.carrier %}({{ f.carrier }}){% endif %}
           </p>
         {% endif %}
-        {% if f.problem_note %}<p class="form-note {% if f.status == 'problem' %}error{% else %}success{% endif %}">{{ f.problem_note }}</p>{% endif %}
-        <form method="post" action="{% url 'shop:manage_fulfillment_reprint' f.pk %}" class="cluster"
-              onsubmit="return confirm('Create a reprint for fulfilment #{{ f.id }}?')">
-          {% csrf_token %}
-          <input name="reason" placeholder="reason (damage, print error…)" />
-          <button type="submit" class="btn btn--ghost btn--sm">Reprint</button>
-        </form>
-        {% if f.can_cancel %}
-          <form method="post" action="{% url 'shop:manage_fulfillment_cancel' f.pk %}"
-                onsubmit="return confirm('Cancel Printful order {{ f.partner_order_id }}? This does not refund the customer.')">
+        {% if f.problem_note %}<div class="g-banner{% if f.status != 'problem' %} is-ok{% endif %}">{{ f.problem_note }}</div>{% endif %}
+        <div class="g-row">
+          <form method="post" action="{% url 'shop:manage_fulfillment_reprint' f.pk %}" class="g-row c-grow"
+                onsubmit="return confirm('Create a reprint for fulfilment #{{ f.id }}?')">
             {% csrf_token %}
-            <button type="submit" class="btn btn--ghost btn--sm">Cancel on Printful</button>
+            <input class="g-input c-grow" name="reason" placeholder="reason (damage, print error…)" aria-label="Reprint reason" />
+            <button type="submit" class="g-btn g-btn-secondary">Reprint</button>
           </form>
-        {% endif %}
+          {% if f.can_cancel %}
+            <form method="post" action="{% url 'shop:manage_fulfillment_cancel' f.pk %}"
+                  onsubmit="return confirm('Cancel Printful order {{ f.partner_order_id }}? This does not refund the customer.')">
+              {% csrf_token %}
+              <button type="submit" class="g-btn g-btn-secondary">Cancel on Printful</button>
+            </form>
+          {% endif %}
+        </div>
       </div>
     {% endfor %}
   {% endif %}
 
-  <div class="panel action-panel">
-    <h2>Other actions</h2>
-    <div class="cluster">
+  <details class="c-fold action-panel"{% if order.curator_note %} open{% endif %}>
+    <summary>Other actions</summary>
+    <div class="g-row">
       {% if order.status != "refunded" %}
         <form method="post" action="{% url 'shop:manage_order_refund' order.pk %}"
-              onsubmit="return confirm('Refund {{ order.reference }} in full?')" class="cluster">
+              onsubmit="return confirm('Refund {{ order.reference }} in full?')" class="g-row c-grow">
           {% csrf_token %}
-          <input name="reason" placeholder="refund reason" />
-          <button type="submit" class="btn btn--ghost">Refund order</button>
+          <input class="g-input c-grow" name="reason" placeholder="refund reason" aria-label="Refund reason" />
+          <button type="submit" class="g-btn g-btn-danger">Refund order</button>
         </form>
       {% endif %}
       {% if is_mock and order.fulfillments.all %}
         <form method="post" action="{% url 'shop:manage_order_simulate' order.pk %}">
           {% csrf_token %}
-          <button type="submit" class="btn btn--ghost btn--sm">Simulate: advance (mock)</button>
+          <button type="submit" class="g-btn g-btn-secondary">Simulate: advance (mock)</button>
         </form>
       {% endif %}
     </div>
-    {% if order.curator_note %}<pre class="curator-note">{{ order.curator_note }}</pre>{% endif %}
-  </div>
+    {% if order.curator_note %}<pre class="curator-note c-note">{{ order.curator_note }}</pre>{% endif %}
+  </details>
 </section>
 {% endblock %}

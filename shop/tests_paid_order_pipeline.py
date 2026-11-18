@@ -302,11 +302,11 @@ class FulfilmentNoteColorTests(TestCase):
 
     def test_note_on_a_submitted_fulfilment_is_green(self):
         html = self.page("submitted")
-        self.assertIn('class="form-note success">Reprint of', html)
+        self.assertIn('class="g-banner is-ok">Reprint of', html)
 
     def test_note_on_a_problem_fulfilment_stays_red(self):
         html = self.page("problem")
-        self.assertIn('class="form-note error">Reprint of', html)
+        self.assertIn('class="g-banner">Reprint of', html)
 
 
 @override_settings(STAFF_2FA_REQUIRED=False)

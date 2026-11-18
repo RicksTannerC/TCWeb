@@ -131,3 +131,12 @@ button.g-rail-item { font: inherit; background: transparent; border: 0; cursor: 
 
 /* the status dropdown in a page header */
 .c-head .c-status .g-input { min-width: 8rem; }
+
+/* ---- orders ----------------------------------------------------------------------------------------------------- */
+.c-order { flex-wrap: nowrap; }
+.c-order__money { display: grid; justify-items: end; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.c-totals { display: flex; flex-wrap: wrap; gap: .2rem 1.25rem; margin: 0; font-variant-numeric: tabular-nums; }
+.c-approve { display: grid; gap: .6rem; }
+.c-grow { flex: 1 1 14rem; min-width: 0; }
+.g-row.c-grow .g-input.c-grow { flex: 1 1 10rem; width: auto; }
+.c-note { margin: .6rem 0 0; padding: .6rem .8rem; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: calc(var(--glass_radius) * .4px); }
