@@ -64,6 +64,26 @@ class OrderView:
 
 
 @dataclass(frozen=True)
+class NewItem:
+    """One line of a cart, as it is when the order is placed. The names and prices are copied, because a listing
+    can change or rotate out after the sale."""
+
+    listing_id: int
+    size_id: int
+    name: str
+    product_type: str
+    color: str
+    size_label: str
+    quantity: int
+    unit_price: Decimal
+    unit_supplier_cost: Decimal
+
+
+def items_total(items):
+    return sum((i.unit_price * i.quantity for i in items), Decimal("0.00"))
+
+
+@dataclass(frozen=True)
 class FulfilmentChange:
     """Fields to set on a fulfilment; None means leave it as it is."""
 

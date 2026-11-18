@@ -5,7 +5,7 @@ particular supplier or a particular payment provider."""
 from tshirtbrand.core.fulfilment.api import OrderRequest, SupplierError
 
 from .model import (
-    NEXT_STEP, NOTIFY_ON, FulfilmentChange, FulfilmentStatus, OrderStatus, change_for_event, external_id,
+    NEXT_STEP, NOTIFY_ON, FulfilmentChange, FulfilmentStatus, OrderStatus, change_for_event, external_id, items_total,
     parse_external_id, rollup,
 )
 from .ports import LineSource, Notifier, OrderRepository
@@ -30,6 +30,28 @@ class OrderDesk:
         self.lines = lines
         self.notifier = notifier
         self.gateway = gateway
+
+    # ---- place & pay
+
+    def place_order(self, email, items):
+        """Record a cart as an order awaiting payment; returns its id."""
+        items = tuple(items)
+        return self.orders.create_order(email or "", items, items_total(items))
+
+    def remember_checkout_session(self, order_id, session_id):
+        self.orders.set_checkout_session(order_id, session_id)
+
+    def confirm_payment(self, event):
+        """Idempotently promote the order a confirmed payment is for (the provider may tell us twice).
+        Returns (order_id, newly_confirmed); (None, False) when the event names no order of ours."""
+        try:
+            order = self.orders.order(int(event.order_ref))
+        except (LookupError, ValueError):
+            return None, False
+        if order.status != OrderStatus.PENDING_PAYMENT:
+            return order.id, False  # already handled
+        self.orders.record_payment(order.id, event)
+        return order.id, True
 
     # ---- approve & submit
 

@@ -29,6 +29,33 @@ class DjangoOrderRepository:
             fulfilments=tuple(_fulfilment_view(f) for f in order.fulfillments.order_by("id")),
         )
 
+    def create_order(self, email, items, items_total):
+        order = Order.objects.create(email=email, status=OrderStatus.PENDING_PAYMENT.value,
+                                     items_total=items_total, grand_total=items_total)
+        for i in items:
+            OrderItem.objects.create(
+                order=order, listing_id=i.listing_id, listing_size_id=i.size_id, design_title=i.name,
+                product_type=i.product_type, color=i.color, size_label=i.size_label, quantity=i.quantity,
+                unit_price=i.unit_price, unit_supplier_cost=i.unit_supplier_cost)
+        return order.id
+
+    def set_checkout_session(self, order_id, session_id):
+        Order.objects.filter(pk=order_id).update(stripe_session_id=session_id)
+
+    def record_payment(self, order_id, event):
+        order = Order.objects.get(pk=order_id)
+        order.stripe_session_id = event.session_id
+        order.stripe_payment_intent = event.payment_ref
+        order.email = event.email or order.email
+        order.name = event.name or ""
+        order.shipping_address = event.address or {}
+        order.tax_total = event.tax
+        order.shipping_total = event.shipping
+        order.grand_total = event.total
+        order.items_total = event.items_total
+        order.status = OrderStatus.PENDING_APPROVAL.value
+        order.save()
+
     def find_fulfilment(self, supplier_order_id, order_id=None, fulfilment_id=None):
         ful = None
         if supplier_order_id:

@@ -11,6 +11,31 @@ pointing at the commit(s) that carry it.
 
 ---
 
+## 2026-11-18 — Step 6 of the restructure: listings and orders live behind repository ports
+
+- **What:** the last business sequencing that wrote the database directly now runs in the core against ports.
+  `tshirtbrand.core.catalogue.ProductDesk` (send a listing to the supplier, re-send it as a new product, read
+  previews and sizes back) works on a plain `ListingView` through a `ListingRepository`; the rules it uses (product
+  and variant ids, matching a listing's sizes to the supplier's variants by its own colour without guessing,
+  first send moves draft to hidden) are pure functions beside it. `OrderDesk` gained `place_order` (a cart becomes
+  an order awaiting payment, totalled in the core), `confirm_payment` (idempotently promote the order a payment is
+  for) and `remember_checkout_session`. The ORM sides are `adapters/persistence/django_orm/{orders,listings}.py`,
+  the only code that reads and writes those tables for the use cases; `bootstrap.get_product_desk()` /
+  `get_order_desk()` wire them. `shop/listing_sync.py`, `shop/payments.py` and `shop/fulfillment.py` are now thin:
+  Django objects in, use case, refreshed Django objects out. No behaviour change.
+- **Deliberately not done:** the `printful_*` / `stripe_*` column names are unchanged. Renaming them means a
+  migration against the live database, which the plan reserves for a step the owner has backed up and approved; the
+  adapters are now the only place that knows those names, so the rename is a one-file job when wanted.
+- **Files:** new `tshirtbrand/core/catalogue/{ports,usecases}.py` (+ listing view and matching rules in `model.py`),
+  `tshirtbrand/adapters/persistence/django_orm/listings.py`; extended `core/ordering`, `adapters/persistence/.../orders.py`,
+  `bootstrap.py`; reworked `shop/listing_sync.py`, `shop/payments.py`.
+- **Verified:** 783 tests OK. Core tests run `ProductDesk` and the new order use cases over in-memory stores and the in-memory
+  supplier/gateway; persistence tests pin what the ORM adapters promise (copying cart lines, appending notes,
+  partial updates, clearing stale ids, remembering what was sent); the existing suite passes untouched; a boundary
+  test stops the wrappers writing the tables again; no migrations.
+
+---
+
 ## 2026-11-18 — Step 5 of the restructure: the order pipeline is a use-case layer (`OrderDesk`)
 
 - **What:** approving an order, sending it to the supplier, following the supplier's news, cancelling, refunding and

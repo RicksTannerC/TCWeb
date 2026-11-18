@@ -272,6 +272,22 @@ class PaymentsSliceStaysClean(SimpleTestCase):
                 self.assertFalse(word in text, f"{rel} mentions the Stripe wire name {word!r}")
 
 
+class PersistenceSliceStaysClean(SimpleTestCase):
+    """Step 6, persistence: the use cases keep their data behind repository ports; the modules that front them
+    for the views no longer write the tables themselves."""
+
+    def test_the_wrappers_do_not_write_the_tables(self):
+        forbidden = {
+            "shop/listing_sync.py": (".save(", ".update(", ".objects.", "printful_variant_id", "printful_preview"),
+            "shop/payments.py": (".objects.create", ".save(", "OrderItem", "order.status", "order.grand_total"),
+            "shop/fulfillment.py": (".save(", ".update(", ".create("),
+        }
+        for rel, words in forbidden.items():
+            text = (REPO / rel).read_text(encoding="utf-8")
+            for word in words:
+                self.assertFalse(word in text, f"{rel} mentions {word!r}: that belongs in the persistence adapter")
+
+
 class OrderingSliceStaysClean(SimpleTestCase):
     """Step 5, ordering and fulfilment use cases: sequencing and status rules live in tshirtbrand.core.ordering;
     shop/fulfillment.py only hands Django objects to the order desk and back."""

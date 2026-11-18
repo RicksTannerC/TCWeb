@@ -44,3 +44,11 @@ def get_order_desk():
     from tshirtbrand.core.ordering.api import OrderDesk
 
     return OrderDesk(DjangoOrderRepository(), get_supplier(), OrderItemLines(), EmailNotifier(), get_gateway())
+
+
+def get_product_desk():
+    """The listing/product use cases, wired to the ORM and the current supplier."""
+    from tshirtbrand.adapters.persistence.django_orm.listings import DjangoListingRepository
+    from tshirtbrand.core.catalogue.api import ProductDesk
+
+    return ProductDesk(DjangoListingRepository(), get_supplier())

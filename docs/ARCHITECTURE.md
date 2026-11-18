@@ -114,7 +114,12 @@ with the console entry point.
    `bootstrap.get_order_desk()`; `shop/fulfillment.py` is a thin wrapper. The boundary test now stops any adapter
    but persistence importing `shop`. *Left for later steps:* order creation and promotion from a payment
    (`shop/payments.py`), the cart, and the console's display reads still use the ORM directly (steps 6-7).
-6. **Persistence adapter.** Repositories behind ports; ORM models become an implementation detail.
+6. **Persistence adapter: DONE 2026-11-18** for everything the use cases write: `OrderRepository` and
+   `ListingRepository` ports with Django ORM adapters (`adapters/persistence/django_orm/`), `ProductDesk` and
+   the order placement/payment use cases. Models keep their table and app names. *Left on purpose:* renaming the
+   `printful_*`/`stripe_*` columns (a live migration: needs a backup and the owner's go-ahead; only the adapters
+   know the names now). *Left for the next steps:* the console's and storefront's display reads and the admin still
+   use the models directly (steps 7-8).
 7. **Split the console** into entry points per context. This is where the new console design drops in.
 8. **Storefront entry point.**
 9. **Multi-server readiness:** storage, cache, sessions, jobs behind ports; idempotent webhooks.

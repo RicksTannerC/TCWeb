@@ -11,7 +11,7 @@ from tshirtbrand.adapters.suppliers.memory.supplier import MemorySupplier
 from tshirtbrand.core.fulfilment.api import (
     EventKind, OrderLine, Recipient, SubmittedOrder, SupplierError, SupplierEvent,
 )
-from tshirtbrand.core.payments.api import PaymentError
+from tshirtbrand.core.payments.api import PaymentError, PaymentEvent, PaymentEventKind
 
 from . import api
 from .api import FulfilmentChange, FulfilmentStatus as F, FulfilmentView, OrderDesk, OrderStatus as O, OrderView
@@ -96,6 +96,18 @@ class MemoryOrders:
         return OrderView(order_id, self.status, self.payment_ref, Recipient("Ada"), self.items,
                          tuple(self.fulfilments.values()))
 
+    def create_order(self, email, items, items_total):
+        self.created = (email, items, items_total)
+        self.status = O.PENDING_PAYMENT
+        return 1
+
+    def set_checkout_session(self, order_id, session_id):
+        self.session_id = session_id
+
+    def record_payment(self, order_id, event):
+        self.paid_by = event
+        self.status = O.PENDING_APPROVAL
+
     def find_fulfilment(self, supplier_order_id, order_id=None, fulfilment_id=None):
         if supplier_order_id:
             for f in self.fulfilments.values():
@@ -147,6 +159,40 @@ class DeskCase(SimpleTestCase):
 
     def only(self):
         return next(iter(self.book.fulfilments.values()))
+
+
+class PlaceAndPayTests(DeskCase):
+    def item(self, qty, price):
+        return api.NewItem(listing_id=1, size_id=2, name="Pillars", product_type="tee", color="Black", size_label="M",
+                           quantity=qty, unit_price=Decimal(price), unit_supplier_cost=Decimal("11"))
+
+    def paid(self, order_ref="1"):
+        return PaymentEvent(PaymentEventKind.PAID, order_ref, "cs_1", "pi_1", email="a@b.test", total=Decimal("80"))
+
+    def test_placing_an_order_totals_its_items(self):
+        self.assertEqual(self.desk.place_order(None, [self.item(2, "40.00"), self.item(1, "5.50")]), 1)
+        email, items, total = self.book.created
+        self.assertEqual((email, len(items), total), ("", 2, Decimal("85.50")))
+        self.assertEqual(self.book.status, O.PENDING_PAYMENT)
+
+    def test_the_checkout_session_is_remembered_for_the_return_link(self):
+        self.desk.remember_checkout_session(1, "cs_9")
+        self.assertEqual(self.book.session_id, "cs_9")
+
+    def test_a_confirmed_payment_promotes_the_order_once(self):
+        self.desk.place_order("a@b.test", [self.item(2, "40")])
+        self.assertEqual(self.desk.confirm_payment(self.paid()), (1, True))
+        self.assertEqual(self.book.status, O.PENDING_APPROVAL)
+        self.assertEqual(self.desk.confirm_payment(self.paid()), (1, False))   # the provider told us twice
+
+    def test_a_payment_for_nothing_of_ours_is_ignored(self):
+        self.assertEqual(self.desk.confirm_payment(self.paid("not-a-number")), (None, False))
+
+    def test_a_payment_for_an_order_already_past_payment_changes_nothing(self):
+        self.book.status = O.SHIPPED
+        self.assertEqual(self.desk.confirm_payment(self.paid()), (1, False))
+        self.assertEqual(self.book.status, O.SHIPPED)
+        self.assertFalse(hasattr(self.book, "paid_by"))
 
 
 class ApproveTests(DeskCase):

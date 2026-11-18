@@ -12,10 +12,11 @@ picks); this module reads and writes orders and turns them into the neutral requ
 from django.conf import settings
 from django.urls import reverse
 
-from tshirtbrand.bootstrap import get_gateway
+from tshirtbrand.bootstrap import get_gateway, get_order_desk
+from tshirtbrand.core.ordering.api import NewItem
 from tshirtbrand.core.payments.api import PaymentError, checkout_request, success_url_with_session  # noqa: F401
 
-from .orders import Order, OrderItem, OrderStatus
+from .orders import Order
 
 
 def checkout_is_live():
@@ -29,27 +30,13 @@ def _abs(request, viewname, **kwargs):
 
 def create_order_from_cart(cart, email=""):
     """Create a pending_payment Order + items from the session cart."""
-    order = Order.objects.create(
-        email=email or "",
-        status=OrderStatus.PENDING_PAYMENT,
-        items_total=cart.get_total(),
-        grand_total=cart.get_total(),
-    )
-    for row in cart:
-        listing, size = row["listing"], row["size"]
-        OrderItem.objects.create(
-            order=order,
-            listing=listing,
-            listing_size=size,
-            design_title=listing.design.title,
-            product_type=listing.product_type,
-            color=listing.color,
-            size_label=size.label,
-            quantity=row["quantity"],
-            unit_price=row["unit_price"],
-            unit_supplier_cost=listing.base_cost,
-        )
-    return order
+    items = tuple(
+        NewItem(listing_id=row["listing"].pk, size_id=row["size"].pk, name=row["listing"].design.title,
+                product_type=row["listing"].product_type, color=row["listing"].color,
+                size_label=row["size"].label, quantity=row["quantity"], unit_price=row["unit_price"],
+                unit_supplier_cost=row["listing"].base_cost)
+        for row in cart)
+    return Order.objects.get(pk=get_order_desk().place_order(email, items))
 
 
 def create_checkout_session(request, order):
@@ -62,8 +49,8 @@ def create_checkout_session(request, order):
         cancel_url=_abs(request, "shop:cart_detail"),
         collect_tax=settings.STRIPE_TAX_ENABLED,
     ))
-    order.stripe_session_id = session.id
-    order.save(update_fields=["stripe_session_id"])
+    get_order_desk().remember_checkout_session(order.pk, session.id)
+    order.refresh_from_db(fields=["stripe_session_id"])
     return session
 
 
@@ -77,23 +64,5 @@ def fulfill_from_event(event):
     Idempotently promote the order for a confirmed payment. Called from the webhook.
     Returns (order, created_now).
     """
-    try:
-        order = Order.objects.get(id=event.order_ref)
-    except (Order.DoesNotExist, ValueError):
-        return None, False
-
-    if order.status != OrderStatus.PENDING_PAYMENT:
-        return order, False  # already handled
-
-    order.stripe_session_id = event.session_id
-    order.stripe_payment_intent = event.payment_ref
-    order.email = event.email or order.email
-    order.name = event.name or ""
-    order.shipping_address = event.address or {}
-    order.tax_total = event.tax
-    order.shipping_total = event.shipping
-    order.grand_total = event.total
-    order.items_total = event.items_total
-    order.status = OrderStatus.PENDING_APPROVAL
-    order.save()
-    return order, True
+    order_id, created = get_order_desk().confirm_payment(event)
+    return (Order.objects.get(pk=order_id) if order_id else None), created

@@ -4,13 +4,23 @@ orders, a way to turn an order item into something the supplier can make, and a 
 from typing import Protocol
 
 from tshirtbrand.core.fulfilment.api import OrderLine
+from tshirtbrand.core.payments.api import PaymentEvent
 
-from .model import FulfilmentChange, FulfilmentView, OrderStatus, OrderView
+from .model import FulfilmentChange, FulfilmentView, NewItem, OrderStatus, OrderView
 
 
 class OrderRepository(Protocol):
     def order(self, order_id: int) -> OrderView:
         """The order as it is right now. Raises LookupError when there is none."""
+
+    def create_order(self, email: str, items: tuple[NewItem, ...], items_total) -> int:
+        """A new order awaiting payment, with its items; returns its id."""
+
+    def set_checkout_session(self, order_id: int, session_id: str) -> None:
+        """Remember the provider's checkout session, so the return link can find the order."""
+
+    def record_payment(self, order_id: int, event: PaymentEvent) -> None:
+        """Store what the customer paid and who they are, and move the order to awaiting approval."""
 
     def find_fulfilment(self, supplier_order_id: str, order_id: int | None = None,
                         fulfilment_id: int | None = None) -> FulfilmentView | None:
